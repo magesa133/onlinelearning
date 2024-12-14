@@ -1,0 +1,39 @@
+{% extends 'teacher_dashboard.html' %}
+
+{% block content %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Session</title>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Create a New Online Session</h1>
+
+        <form method="POST">
+            <div>
+                <label for="call_students">
+                    <input type="checkbox" name="call_students" id="call_students">
+                    Send session link to students directly via email
+                </label>
+            </div>
+
+            <button type="submit">Create Session</button>
+        </form>
+
+        {% if session_link %}
+            <div class="session-link">
+                <p>Your session link has been created successfully!</p>
+                <p>Share it with your students:</p>
+                <a href="{{ session_link }}" target="_blank">{{ session_link }}</a>
+            </div>
+        {% endif %}
+
+        {% if message %}
+            <div class="notification">{{ message }}</div>
+        {% endif %}
+    </div>
+</body>
+
+{% endblock %}

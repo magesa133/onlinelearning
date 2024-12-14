@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <h1>Student Dashboard</h1>
+            <div class="user-profile">
+                <img src="https://img.icons8.com/?size=100&id=DnvVED73VLBQ&format=png&color=000000" alt="User Icon" class="user-icon" onclick="toggleDropdown()">
+                <div class="dropdown-menu" id="dropdown-menu">
+                    <a href="#">Profile</a>
+                    <a href="#">Settings</a>
+                    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <ul>
+                <li><a href="{{ url_for('student_dashboard') }}"><img src="https://img.icons8.com/ios-filled/24/null/home.png"/> Home</a></li>
+                <li><a href="#"><img src="https://img.icons8.com/ios-filled/24/null/book-shelf.png"/> Subjects</a></li>
+                <li><a href="{{ url_for('join') }}"><img src="https://img.icons8.com/ios-filled/24/null/video-call.png"/> Online Sessions</a></li>
+                <li><a href="#"><img src="https://img.icons8.com/ios-filled/24/null/report-card.png"/> Grades</a></li>
+                <li><a href="#"><img src="https://img.icons8.com/ios-filled/24/null/settings.png"/> Settings</a></li>
+            </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="dashboard-main" id="main-content">
+            {% block content %}
+            <section id="welcome" class="dashboard-section">
+                <h2>{{ username }} Welcome to Your Dashboard</h2>
+                <p>Select a menu item to get started!</p>
+                <div class="cards-container">
+                    <div class="card">
+                        <img src="https://img.icons8.com/ios-filled/64/null/book-shelf.png" alt="Subjects">
+                        <h3>Subjects</h3>
+                        <p>View and manage your subjects.</p>
+                        <button onclick="window.location.href='#'">Go to Subjects</button>
+                    </div>
+                    <div class="card">
+                        <img src="https://img.icons8.com/ios-filled/64/null/video-call.png" alt="Sessions">
+                        <h3>Online Sessions</h3>
+                        <p>Join your classes or watch recordings.</p>
+                        <div>
+                            <h2>Available Sessions</h2>
+                            <ul>
+                            {% for session in sessions %}
+                                <li>
+                                    <strong>{{ session.session_name }}</strong><br>
+                                    <a href="{{ url_for('join_session', room_id=session.room_id) }}">Join {{ session.session_name }}</a>
+                                </li>
+                            {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <img src="https://img.icons8.com/ios-filled/64/null/report-card.png" alt="Grades">
+                        <h3>Grades</h3>
+                        <p>Check your academic performance.</p>
+                        <button onclick="window.location.href='#'">View Grades</button>
+                    </div>
+                </div>
+                <div class="charts-container">
+                    <canvas id="performanceChart" width="400" height="200"></canvas>
+                </div>
+            </section>
+            {% endblock %}
+        </main>
+
+        <!-- Right Sidebar -->
+        <aside class="right-sidebar">
+            <h3><span class="notification-icon" id="notification-count">3</span> Notifications</h3>
+            <ul class="notification-list">
+                <li><a href="#" onclick="loadNotificationDetail('New assignment added for Mathematics.')">New assignment added for Mathematics.</a></li>
+                <li><a href="#" onclick="loadNotificationDetail('Upcoming session on Science at 11:00 AM.')">Upcoming session on Science at 11:00 AM.</a></li>
+                <li><a href="#" onclick="loadNotificationDetail('Grades for History have been updated.')">Grades for History have been updated.</a></li>
+            </ul>
+        </aside>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const ctx = document.getElementById('performanceChart').getContext('2d');
+        const performanceChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Mathematics', 'Science', 'History', 'Literature'],
+                datasets: [{
+                    label: 'Performance (%)',
+                    data: [85, 90, 78, 92],
+                    backgroundColor: ['#4CAF50', '#2196F3', '#FFC107', '#E91E63'],
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                }
+            }
+        });
+
+        function toggleDropdown() {
+            document.getElementById('dropdown-menu').classList.toggle('active');
+        }
+
+        function loadNotificationDetail(message) {
+            alert(message); // Replace with a modal or detailed view in production
+        }
+    </script>
+</body>
+</html>

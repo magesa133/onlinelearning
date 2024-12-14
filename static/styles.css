@@ -1,0 +1,271 @@
+/* General Styling */
+body {
+    font-family: 'Poppins', sans-serif;
+    margin: 0;
+    display: flex;
+    background-color: #f8f9fa;
+    overflow-x: hidden;
+}
+
+.dashboard-container {
+    display: grid;
+    grid-template-areas:
+        "header header header"
+        "sidebar main right";
+    grid-template-rows: auto 1fr;
+    grid-template-columns: 200px 1fr 250px;
+    height: 100vh;
+    width: 100%;
+}
+
+/* Footer Styling */
+.footer {
+    background-color: #343a40;
+    color: #fff;
+    text-align: center;
+    padding: 20px;
+    position: relative;
+    bottom: 0;
+    width: 100%;
+    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.footer p {
+    margin: 0;
+    font-size: 14px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .dashboard-container {
+        grid-template-areas:
+            "header header header"
+            "main main main"
+            "sidebar sidebar sidebar"
+            "right right right";
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto 1fr auto;
+    }
+
+    .sidebar {
+        order: 2;
+    }
+
+    .right-sidebar {
+        order: 3;
+    }
+}
+
+@media (max-width: 480px) {
+    .dashboard-header h1 {
+        font-size: 1.5rem;
+    }
+
+    .card button {
+        font-size: 0.9rem;
+        padding: 8px 16px;
+    }
+
+    .sidebar {
+        padding: 10px;
+    }
+
+    .cards-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Header Styling */
+.dashboard-header {
+    grid-area: header;
+    background-color: #4CAF50;
+    color: #fff;
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.user-profile img {
+    cursor: pointer;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+}
+
+.dropdown-menu {
+    display: none;
+    position: absolute;
+    background-color: white;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    padding: 10px;
+    border-radius: 4px;
+    right: 10px;
+    top: 60px;
+    z-index: 1000;
+}
+
+.dropdown-menu.active {
+    display: block;
+}
+
+.dropdown-menu a {
+    display: block;
+    text-decoration: none;
+    color: #333;
+    padding: 5px 0;
+    transition: color 0.2s;
+}
+
+.dropdown-menu a:hover {
+    color: #4CAF50;
+}
+
+/* Sidebar Styling */
+.sidebar {
+    grid-area: sidebar;
+    background-color: #f0f0f0;
+    padding: 20px;
+    border-right: 1px solid #ddd;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+}
+
+.sidebar ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar li {
+    margin: 15px 0;
+}
+
+.sidebar a {
+    text-decoration: none;
+    color: #333;
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    border-radius: 5px;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.sidebar a:hover {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.sidebar img {
+    margin-right: 10px;
+}
+
+/* Main Content Styling */
+.dashboard-main {
+    grid-area: main;
+    overflow-y: auto;
+    padding: 20px;
+    background-color: #fff;
+    scroll-behavior: smooth; /* Smooth scroll effect */
+}
+
+.cards-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.card {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 12px rgba(0, 0, 0, 0.2);
+}
+
+.card img {
+    margin-bottom: 15px;
+}
+
+.card h3 {
+    margin: 10px 0;
+    color: #333;
+}
+
+.card p {
+    margin: 0 0 15px;
+    color: #666;
+}
+
+.card button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.card button:hover {
+    background-color: #45a049;
+}
+
+/* Charts Styling */
+.charts-container {
+    margin-top: 30px;
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Right Sidebar */
+.right-sidebar {
+    grid-area: right;
+    padding: 20px;
+    background-color: #f0f0f0;
+    border-left: 1px solid #ddd;
+    overflow-y: auto;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+}
+
+.notification-icon {
+    position: relative;
+    display: inline-block;
+    padding: 5px 10px;
+    background-color: red;
+    color: white;
+    border-radius: 50%;
+    font-weight: bold;
+    margin-left: 10px;
+}
+
+.notification-list li {
+    margin: 10px 0;
+}
+
+.notification-list a {
+    text-decoration: none;
+    color: #4CAF50;
+    font-weight: 600;
+}
+
+.notification-list a:hover {
+    text-decoration: underline;
+}

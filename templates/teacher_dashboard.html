@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="dashboard-container">
+        <!-- Header Section -->
+        <header class="dashboard-header">
+            <h1>Teacher Dashboard</h1>
+            <div class="user-profile">
+                <img src="https://img.icons8.com/?size=100&id=DnvVED73VLBQ&format=png&color=ffffff" alt="User Icon" class="user-icon" onclick="toggleDropdown()">
+                <div class="dropdown-menu" id="dropdown-menu">
+                    <a href="#">Profile</a>
+                    <a href="#">Settings</a>
+                    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <ul>
+                <li><a href="{{ url_for('teacher_dashboard') }}"><img src="https://img.icons8.com/ios-filled/24/null/home.png"/> Home</a></li>                
+                <li><a href="#"><img src="https://img.icons8.com/ios-filled/24/null/book-shelf.png"/> Subjects</a></li>
+                <li><a href="#"><img src="https://img.icons8.com/ios-filled/24/null/user-male-circle.png" /> Manage Students</a></li>
+                <li><a href="#"><img src="https://img.icons8.com/ios-filled/24/null/book-shelf.png" /> Create Assignments</a></li>
+                <li><a href="{{ url_for('video_conference') }}"><img src="https://img.icons8.com/ios-filled/24/null/video-call.png" /> Schedule Sessions</a></li>
+                <li><a href="#"><img src="https://img.icons8.com/ios-filled/24/null/report-card.png" /> Review Grades</a></li>
+                <li><a href="#"><img src="https://img.icons8.com/ios-filled/24/null/settings.png" /> Settings</a></li>
+            </ul>
+        </nav>
+
+        <!-- Main Dashboard Content -->
+        <main class="dashboard-main">
+            {% block content %}
+                <section id="welcome" class="dashboard-section">
+                    <h2>{{ username }}, Welcome to Your Dashboard</h2>
+                    <p>Manage your classes and interact with students effectively.</p>
+
+                    <div class="cards-container">
+                        <!-- Manage Students Card -->
+                        <div class="card">
+                            <img src="https://img.icons8.com/ios-filled/64/null/user-male-circle.png" alt="Students">
+                            <h3>Manage Students</h3>
+                            <p>View and update student profiles.</p>
+                            <button onclick="window.location.href='#'">Go</button>
+                        </div>
+
+                        <!-- Create Assignments Card -->
+                        <div class="card">
+                            <img src="https://img.icons8.com/ios-filled/64/null/book-shelf.png" alt="Assignments">
+                            <h3>Create Assignments</h3>
+                            <p>Design and assign coursework.</p>
+                            <button onclick="window.location.href='#'">Go</button>
+                        </div>
+
+                        <!-- Schedule Sessions Card -->
+                        <div class="card">
+                            <img src="https://img.icons8.com/ios-filled/64/null/video-call.png" alt="Sessions">
+                            <h3>Schedule Sessions</h3>
+                            <p>Plan and host online classes.</p>
+                            <a href="{{ url_for('video_conference') }}">Create Session</a>
+                        </div>
+
+                        <!-- Review Grades Card -->
+                        <div class="card">
+                            <img src="https://img.icons8.com/ios-filled/64/null/report-card.png" alt="Grades">
+                            <h3>Review Grades</h3>
+                            <p>Evaluate student performance.</p>
+                            <button onclick="window.location.href='#'">Go</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Face Monitoring Section -->
+                <section id="monitoring" class="dashboard-section">
+                    <h2>Real-Time Student Monitoring</h2>
+                    <p>View and manage student participation during live sessions.</p>
+
+                    <div id="student-monitoring">
+                        <table class="monitoring-table">
+                            <thead>
+                                <tr>
+                                    <th>Student Name</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="monitoring-body">
+                                <!-- Data will be dynamically populated -->
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            {% endblock %}
+        </main>
+
+        <!-- Notifications -->
+        <div class="notification">
+            <h3><span class="notification-icon" id="notification-count">3</span> Notifications</h3>
+            <ul class="notification-list">
+                <li><a href="#">New assignment added for Mathematics.</a></li>
+                <li><a href="#">Upcoming session on Science at 11:00 AM.</a></li>
+                <li><a href="#">Grades for History have been updated.</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/class_monitoring.js') }}"></script>
+    <script>
+        function toggleDropdown() {
+            document.getElementById('dropdown-menu').classList.toggle('active');
+        }
+
+        // WebSocket for real-time student monitoring
+        const socket = new WebSocket("ws://localhost:5000/face-monitoring");
+
+        socket.onopen = () => console.log("WebSocket connected to monitoring server.");
+        socket.onclose = () => console.log("WebSocket disconnected from monitoring server.");
+
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            const monitoringBody = document.getElementById("monitoring-body");
+
+            monitoringBody.innerHTML = ""; // Clear table
+
+            data.students.forEach(student => {
+                const row = document.createElement("tr");
+
+                row.innerHTML = `
+                    <td>${student.name}</td>
+                    <td>${student.status ? "Active" : "Inactive"}</td>
+                    <td><button onclick="removeStudent('${student.id}')">Remove</button></td>
+                `;
+
+                monitoringBody.appendChild(row);
+            });
+        };
+
+        function removeStudent(studentID) {
+            socket.send(JSON.stringify({ action: "remove_student", id: studentID }));
+            alert("Student removed successfully.");
+        }
+    </script>
+</body>
+
+</html>

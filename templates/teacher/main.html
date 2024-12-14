@@ -1,0 +1,34 @@
+{% extends '../teacher_dashboard.html'%}
+
+{% block content%}
+    <section id="welcome" class="dashboard-section">
+                <h2>{{ username }}, Welcome to Your Dashboard</h2>
+                <p>Manage your classes and interact with students effectively.</p>
+                <div class="cards-container">
+                    <div class="card">
+                        <img src="https://img.icons8.com/ios-filled/64/null/user-male-circle.png" alt="Students">
+                        <h3>Manage Students</h3>
+                        <p>View and update student profiles.</p>
+                        <button onclick="window.location.href='#'">Go</button>
+                    </div>
+                    <div class="card">
+                        <img src="https://img.icons8.com/ios-filled/64/null/book-shelf.png" alt="Assignments">
+                        <h3>Create Assignments</h3>
+                        <p>Design and assign coursework.</p>
+                        <button onclick="window.location.href='#'">Go</button>
+                    </div>
+                    <div class="card">
+                        <img src="https://img.icons8.com/ios-filled/64/null/video-call.png" alt="Sessions">
+                        <h3>Schedule Sessions</h3>
+                        <p>Plan and host online classes.</p>
+                        <a href='{{ url_for('video_conference') }}'>Create Session</a>
+                    </div>
+                    <div class="card">
+                        <img src="https://img.icons8.com/ios-filled/64/null/report-card.png" alt="Grades">
+                        <h3>Review Grades</h3>
+                        <p>Evaluate student performance.</p>
+                        <button onclick="window.location.href='#'">Go</button>
+                    </div>
+                </div>
+            </section>
+{% endblock %}

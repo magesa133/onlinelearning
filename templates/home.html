@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+    <div class="text-center mt-5">
+        <h1>Welcome to the Online Learning System</h1>
+        <p>To get started, please log in or register.</p>
+        <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">Login</a>
+        <a href="{{ url_for('register') }}" class="btn btn-success btn-lg">Register</a>
+    </div>
+{% endblock %}

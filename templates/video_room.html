@@ -1,0 +1,41 @@
+<!-- video_room.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ session.title }} - Video Room</title>
+    <script src="https://media.twiliocdn.com/sdk/js/video/v2/latest/twilio-video.min.js"></script>
+</head>
+<body>
+    <h1>{{ session.title }} - Video Conference</h1>
+    <div id="remote-media"></div>
+    <div id="local-media"></div>
+    <button id="end-button">End Session</button>
+
+    <script>
+        Twilio.Video.connect("{{ token }}", { name: "{{ session.twilio_room_sid }}" })
+        .then(function(room) {
+            room.on('participantConnected', function(participant) {
+                const div = document.createElement('div');
+                div.id = participant.sid;
+                document.getElementById('remote-media').appendChild(div);
+                participant.videoTracks.forEach(function(track) {
+                    div.appendChild(track.attach());
+                });
+            });
+
+            room.localParticipant.videoTracks.forEach(function(track) {
+                document.getElementById('local-media').appendChild(track.attach());
+            });
+
+            document.getElementById('end-button').onclick = function() {
+                room.disconnect();
+                window.location.href = "{{ url_for('teacher_dashboard') }}";
+            };
+        }).catch(function(error) {
+            console.error('Error joining room:', error);
+        });
+    </script>
+</body>
+</html>

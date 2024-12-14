@@ -1,0 +1,24 @@
+<form id="createSessionForm" method="POST" action="{{ url_for('start_session') }}">
+    <input type="text" name="session_name" placeholder="Enter Session Name" required />
+    <button type="submit">Generate Link</button>
+</form>
+<p>Generated Link: <span id="generatedLink"></span></p>
+
+<script>
+    document.getElementById('createSessionForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const formData = new FormData(this);
+        const response = await fetch('{{ url_for("start_session") }}', {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+        if (response.ok) {
+            document.getElementById('generatedLink').textContent = data.sessionLink;
+        } else {
+            alert('Failed to create session: ' + data.error);
+        }
+    });
+</script>
