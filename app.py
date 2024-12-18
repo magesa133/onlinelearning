@@ -1,49 +1,76 @@
-from flask import Flask, request, jsonify
+from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from flask_login import LoginManager
 import os
 import logging
-from config import Config
 from sqlalchemy import text
+from config import Config
 from models import db, OnlineSession, User
 
 # Initialize Flask app
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Set up the database and migrations
+# Database and migration setup
 db.init_app(app)
 migrate = Migrate(app, db)
 
-# Logging setup
-logging.basicConfig(level=logging.DEBUG if app.debug else logging.INFO)
+# Configure logging
+log_level = logging.DEBUG if app.debug else logging.INFO
+logging.basicConfig(level=log_level)
 logger = logging.getLogger(__name__)
 
-# Test database connection
 def test_db_connection():
+    """
+    Test the database connection by executing a simple query.
+    Raise an exception if the connection fails.
+    """
     try:
         with app.app_context():
-            # Wrap the SQL expression in text() for raw SQL query
-            db.session.execute(text('SELECT 1'))  # Simple query to test DB connection
-            print("Database connection successful!")
-    except Exception as e:
-        print(f"Database connection error: {e}")
-        raise RuntimeError("Unable to connect to the database") from e
+            db.session.execute(text('SELECT 1'))
+            logger.info("Database connection successful!")
+    except Exception as error:
+        logger.error(f"Database connection error: {error}")
+        raise RuntimeError("Unable to connect to the database") from error
 
-# Run test before starting app
+# Ensure database connection is valid before starting the app
 test_db_connection()
 
-# Login Manager
+# Login manager setup
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 
 @login_manager.user_loader
 def load_user(user_id):
+    """
+    Load a user from the database using their ID.
+    """
     return User.query.get(int(user_id))
 
-# Import routes
+# Import application routes
 from routes import *
 
+def setup_ssl_certificates(cert_path="cert.pem", key_path="key.pem"):
+    """
+    Ensure SSL certificates exist; generate them if not found.
+    """
+    if not (os.path.exists(cert_path) and os.path.exists(key_path)):
+        logger.info("SSL certificates not found. Generating new ones...")
+        os.system(f'openssl req -x509 -newkey rsa:4096 -keyout {key_path} -out {cert_path} -days 365 -nodes')
+
 if __name__ == "__main__":
-    app.run(debug=os.getenv("FLASK_DEBUG", "True") == "True", host='192.168.1.159',port=5000)
+    # SSL certificate paths
+    cert_file = "cert.pem"
+    key_file = "key.pem"
+    
+    # Setup SSL certificates
+    setup_ssl_certificates(cert_file, key_file)
+
+    # Start the Flask app
+    app.run(
+        host=os.getenv("FLASK_RUN_HOST", "192.168.1.159"),  # Local IP address
+        port=int(os.getenv("FLASK_RUN_PORT", 5000)),        # Port number
+        debug=os.getenv("FLASK_DEBUG", "True") == "True",  # Debug mode
+        ssl_context=(cert_file, key_file)                  # SSL certificates
+    )

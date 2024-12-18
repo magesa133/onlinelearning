@@ -1,6 +1,8 @@
 {% extends 'student_dashboard.html' %}
 
 {% block content %}
+<!DOCTYPE html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,130 +10,174 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
     <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
     <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .main-content {
+            margin: 20px auto;
+            max-width: 800px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        h2 {
+            text-align: center;
+        }
+        p {
+            font-size: 16px;
+            color: #555;
+        }
+        .status-message {
+            font-size: 18px;
+            color: #007bff;
+            margin: 10px 0;
+        }
+        .error-message {
+            color: red;
+            font-weight: bold;
+        }
+        .input-group {
+            margin: 10px 0;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 8px;
+            font-size: 16px;
+        }
+        #joinSessionButton {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            color: #fff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #joinSessionButton:hover {
+            background-color: #0056b3;
+        }
         #root {
             width: 100%;
-            height: 100%;
-            position: relative;
-        }
-        .session-message {
-            font-size: 18px;
-            margin: 20px 0;
-            color: #ff0000;
-        }
-        .session-ended-message {
-            font-size: 18px;
-            margin: 20px 0;
-            color: #ffa500;
+            height: 400px;
+            margin-top: 20px;
         }
     </style>
 </head>
+<body>
+    <div class="main-content">
+        <h2>Join Online Session: {{ session.session_name }}</h2>
 
-<div class="main-content">
-    <h2 id="sessionTitle">Join Online Session</h2>
-    <p>Current Room ID: <span id="currentRoomID">{{ session.room_id }}</span></p>
-    <label for="roomIDInput">Enter Room ID:</label>
-    <input type="text" id="roomIDInput" value="{{ session.room_id }}" readonly>
+        <div id="statusMessage" class="status-message">Checking session status...</div>
+        <div id="errorMessage" class="error-message" style="display: none;"></div>
 
-    <button id="joinSessionButton" onclick="joinSession()">Join Session</button>
-    <button class="fullscreen-button" onclick="toggleFullScreen()">Toggle Fullscreen</button>
+        <div class="input-group">
+            <label for="roomIDInput">Enter Room ID:</label>
+            <input type="text" id="roomIDInput" placeholder="Enter Room ID" value="{{ session.room_id }}">
+        </div>
 
-    <div id="sessionStatusMessage" class="session-message"></div>
-    <div id="sessionEndedMessage" class="session-ended-message" style="display:none;"></div>
+        <button id="joinSessionButton" onclick="joinSession()" style="display: none;">Join Session</button>
+        <div id="root" style="display: none;"></div>
+    </div>
 
-    <div id="root"></div>
-</div>
+    <script>
+        let zp; // Declare Zego instance globally
 
-<script>
-    function copyRoomID() {
-        const roomID = document.getElementById('currentRoomID').textContent;
-        if (roomID && roomID !== "Loading..." && roomID !== "Room ID not found") {
-            navigator.clipboard.writeText(roomID).then(() => {
-                alert('Room ID copied to clipboard!');
-            }).catch(err => {
-                console.error('Failed to copy Room ID:', err);
-                alert('Failed to copy Room ID. Please try manually.');
-            });
-        } else {
-            alert('Room ID is not available to copy.');
-        }
-    }
+        window.onload = function () {
+            const statusMessage = document.getElementById('statusMessage');
+            const errorMessage = document.getElementById('errorMessage');
+            const joinSessionButton = document.getElementById('joinSessionButton');
+            const rootContainer = document.getElementById('root');
 
-    function initializeSession(roomID) {
-        const userID = Math.floor(Math.random() * 10000).toString();
-        const userName = "{{ username }}";
-        const appID = 1271126531; 
-        const serverSecret = "5261b8e7778bf38bbe00c844ca26b988"; 
-        const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, roomID, userID, userName);
-
-        const zp = ZegoUIKitPrebuilt.create(kitToken);
-        zp.joinRoom({
-            container: document.querySelector("#root"),
-            scenario: { mode: ZegoUIKitPrebuilt.VideoConference },
-        }).then(() => {
-            console.log('Successfully joined the room');
-        }).catch((error) => {
-            console.error('Failed to join the room:', error);
-            alert('Failed to join the room. Please check the Room ID or try again later.');
-        });
-    }
-
-    async function joinSession() {
-        const roomID = document.getElementById('roomIDInput').value.trim();
-        const joinButton = document.getElementById('joinSessionButton');
-        const sessionStatusMessage = document.getElementById('sessionStatusMessage');
-        const sessionEndedMessage = document.getElementById('sessionEndedMessage');
-        
-        if (!roomID) {
-            alert("Please enter a valid Room ID.");
-            return;
-        }
-
-        try {
-            const sessionData = await fetch(`/get_session_data/${roomID}`);
-            const data = await sessionData.json();
-
+            // Session timing details
+            const sessionStartTime = new Date("{{ session.start_time | default('') }}");
+            const sessionEndTime = new Date("{{ session.end_time | default('') }}");
             const currentTime = new Date();
-            const startTime = new Date(data.startTime);
-            const endTime = new Date(data.endTime);
 
-            if (currentTime < startTime) {
-                sessionStatusMessage.textContent = `Session has not started yet. It will start at ${startTime.toLocaleString()}.`;
-                joinButton.disabled = true;
-            } else if (currentTime > endTime) {
-                sessionStatusMessage.textContent = `Session has ended. The session was scheduled to end at ${endTime.toLocaleString()}.`;
-                sessionEndedMessage.textContent = `This session is expired.`;
-                sessionEndedMessage.style.display = 'block';
-                joinButton.disabled = true;
-            } else if (currentTime >= startTime && currentTime <= endTime) {
-                sessionStatusMessage.textContent = '';
-                joinButton.disabled = false;
-                initializeSession(roomID);
-                sessionEndedMessage.style.display = 'none';
+            // Check session timing
+            if (!sessionStartTime || !sessionEndTime) {
+                errorMessage.textContent = "Session schedule is unavailable.";
+                errorMessage.style.display = 'block';
+                return;
             }
-        } catch (error) {
-            console.error('Error fetching session data:', error);
-            alert('An error occurred while retrieving session data. Please try again later.');
-        }
-    }
 
-    function toggleFullScreen() {
-        const elem = document.querySelector("#root");
-        if (!document.fullscreenElement) {
-            elem.requestFullscreen().catch(err => {
-                console.warn(`Error attempting to enable full-screen mode: ${err.message}`);
+            if (currentTime < sessionStartTime) {
+                statusMessage.textContent = `The session will start on ${sessionStartTime.toLocaleString()} and end on ${sessionEndTime.toLocaleString()}.`;
+                return;
+            } else if (currentTime > sessionEndTime) {
+                statusMessage.textContent = `The session has ended. It was scheduled from ${sessionStartTime.toLocaleString()} to ${sessionEndTime.toLocaleString()}.`;
+                errorMessage.textContent = "The session has ended. Please return to the join page.";
+                errorMessage.style.display = 'block';
+                setTimeout(() => {
+                    // Auto-terminate the session and return to the join page
+                    terminateSession();
+                    window.location.href = "join_session"; // Redirect to the join page after 5 seconds
+                }, 5000); // Delay to show the message before redirecting
+                return;
+            } else {
+                statusMessage.textContent = "The session is currently active.";
+                joinSessionButton.style.display = 'inline-block'; // Show join button
+                rootContainer.style.display = 'block'; // Show video container
+            }
+        };
+
+        function initializeSession(roomID) {
+            const userID = Math.floor(Math.random() * 10000).toString();
+            const userName = "{{ username }}";
+            const appID = 1271126531;
+            const serverSecret = "5261b8e7778bf38bbe00c844ca26b988";
+
+            const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, roomID, userID, userName);
+
+            zp = ZegoUIKitPrebuilt.create(kitToken); // Assign instance to global variable
+
+            zp.joinRoom({
+                container: document.querySelector("#root"),
+                scenario: {
+                    mode: ZegoUIKitPrebuilt.VideoConference,
+                }
+            }).then(() => {
+                console.log('Successfully joined the session.');
+
+                // Schedule termination at the end of the session
+                const sessionEndTime = new Date("{{ session.end_time | default('') }}");
+                const timeUntilEnd = sessionEndTime.getTime() - new Date().getTime();
+
+                if (timeUntilEnd > 0) {
+                    setTimeout(() => {
+                        terminateSession();
+                    }, timeUntilEnd);
+                } else {
+                    terminateSession();
+                }
+            }).catch((error) => {
+                console.error('Failed to join the session:', error);
+                alert('Failed to join the session. Please check the Room ID or try again later.');
             });
-        } else {
-            document.exitFullscreen();
         }
-    }
 
-    window.onload = () => {
-        const roomID = document.getElementById('roomIDInput').value.trim();
-        if (roomID) {
-            joinSession();
-        } else {
-            console.error("Room ID is not available on load.");
+        function joinSession() {
+            const roomID = document.getElementById('roomIDInput').value.trim();
+            if (!roomID) {
+                alert("Please enter a valid Room ID.");
+                return;
+            }
+            initializeSession(roomID);
         }
-    };
-</script>
+
+        function terminateSession() {
+            if (zp) {
+                zp.leaveRoom();
+                alert("The session has ended. You have been disconnected.");
+                document.getElementById('root').innerHTML = ''; // Clear video container
+            }
+        }
+    </script>
+</body>
+</html>
 {% endblock %}

@@ -1,84 +1,160 @@
 {% extends 'base.html' %}
+
 {% block content %}
-    <div class="login-container">
-        <h2>Login</h2>
 
-        <!-- Login Form -->
-        <form method="POST" action="{{ url_for('login') }}">
-            <div class="mb-3">
-                <label for="email" class="form-label">Email Address</label>
-                <input type="email" class="form-control" id="email" name="email" required placeholder="Enter your email">
+<style>
+    body {
+        background: linear-gradient(135deg, #007bff, #6c757d);
+        font-family: 'Arial', sans-serif;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Center the form on the page */
+    .login-container {
+        background-color: white;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        padding: 30px;
+        max-width: 450px;
+        margin: auto;
+        margin-top: 100px;
+    }
+
+    h2 {
+        text-align: center;
+        font-size: 28px;
+        color: #4c4c4c;
+        margin-bottom: 30px;
+    }
+
+    .form-label {
+        font-weight: 600;
+    }
+
+    .form-control {
+        border-radius: 10px;
+        box-shadow: none;
+        transition: all 0.3s ease-in-out;
+    }
+
+    .form-control:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+    }
+
+    .btn-primary {
+        width: 100%;
+        padding: 12px;
+        border-radius: 10px;
+        font-size: 16px;
+        background-color: #007bff;
+        border: none;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary:hover {
+        background-color: #0056b3;
+    }
+
+    .alert {
+        padding: 10px 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        font-weight: 600;
+        display: none;
+        opacity: 0;
+        transition: opacity 0.5s, margin-top 0.5s;
+    }
+
+    .alert.alert-danger {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+    .alert.alert-success {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .alert.show {
+        display: block;
+        opacity: 1;
+    }
+
+    /* Footer styles */
+    footer {
+        background-color: #f8f9fa;
+        padding: 20px 0;
+        text-align: center;
+        border-top: 1px solid #e0e0e0;
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-top: auto; /* Push footer to the bottom */
+    }
+
+    footer a {
+        color: #007bff;
+        text-decoration: none;
+    }
+
+    footer a:hover {
+        text-decoration: underline;
+    }
+</style>
+
+<div class="login-container">
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div id="flash-message" class="alert">
+                <ul>
+                    {% for category, message in messages %}
+                        <li>{{ message }}</li>
+                    {% endfor %}
+                </ul>
             </div>
+        {% endif %}
+    {% endwith %}
 
-            <div class="mb-3">
-                <label for="password" class="form-label">Password</label>
-                <input type="password" class="form-control" id="password" name="password" required placeholder="Enter your password">
-            </div>
+    <h2>Login to Your Account</h2>
 
-            <button type="submit" class="btn btn-primary">Login</button>
-        </form>
+    <!-- Login Form -->
+    <form method="POST" action="{{ url_for('login') }}">
+        <div class="mb-3">
+            <label for="email" class="form-label">Email Address</label>
+            <input type="email" class="form-control" id="email" name="email" required placeholder="Enter your email">
+        </div>
 
-        <!-- Display Flash Messages -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <div class="alert alert-danger mt-3">
-                    <ul>
-                        {% for category, message in messages %}
-                            <li>{{ message }}</li>
-                        {% endfor %}
-                    </ul>
-                </div>
-            {% endif %}
-        {% endwith %}
-    </div>
+        <div class="mb-3">
+            <label for="password" class="form-label">Password</label>
+            <input type="password" class="form-control" id="password" name="password" required placeholder="Enter your password">
+        </div>
 
-    <style>
-        body {
-            background-color: #f4f7fa;
-            font-family: 'Arial', sans-serif;
+        <button type="submit" class="btn btn-primary">Login</button>
+
+        <div class="text-center mt-3">
+            <a href="{{ url_for('register') }}">Don't have an account? Register here</a>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const flashMessage = document.getElementById('flash-message');
+        if (flashMessage) {
+            flashMessage.classList.add('show');
+            setTimeout(() => {
+                flashMessage.style.opacity = '0';
+            }, 3000); // Fade out after 3 seconds
+            setTimeout(() => {
+                flashMessage.style.display = 'none';
+            }, 3500); // Remove completely after 3.5 seconds
         }
-        .login-container {
-            background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            padding: 30px;
-            max-width: 450px;
-            margin: auto;
-            margin-top: 50px;
-        }
-        h2 {
-            text-align: center;
-            font-size: 28px;
-            color: #4c4c4c;
-            margin-bottom: 30px;
-        }
-        .form-label {
-            font-weight: 600;
-        }
-        .form-control {
-            border-radius: 10px;
-            box-shadow: none;
-            transition: all 0.3s ease-in-out;
-        }
-        .form-control:focus {
-            border-color: #007bff;
-            box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
-        }
-        .btn-primary {
-            width: 100%;
-            padding: 12px;
-            border-radius: 10px;
-            font-size: 16px;
-            background-color: #007bff;
-            border: none;
-            transition: all 0.3s ease;
-        }
-        .btn-primary:hover {
-            background-color: #0056b3;
-        }
-        .alert {
-            margin-top: 20px;
-        }
-    </style>
+    });
+</script>
 
 {% endblock %}

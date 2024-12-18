@@ -20,21 +20,22 @@ class User(UserMixin, db.Model):
     password = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(50), nullable=False)
 
-    # Define the relationship to OnlineSession
-    sessions = db.relationship('OnlineSession', backref='creator', lazy=True, cascade='all, delete')
+    # Relationship with Teacher model (one-to-one)
+    teacher = db.relationship('Teacher', backref='user', uselist=False)
 
     def __repr__(self):
         return f"<User {self.username}>"
 
-# Class Model
 class Class(db.Model):
     __tablename__ = 'class'
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(150), nullable=False)
-    teacher_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    teacher = db.relationship('User', backref=db.backref('classes', lazy=True))
-    students = db.relationship('User', secondary='class_student', backref=db.backref('enrolled_classes', lazy=True))
+    subject = db.Column(db.String(150), nullable=False)
+    teacher_id = db.Column(db.Integer, db.ForeignKey('teacher.id'), nullable=False)
+
+    # Define relationship with Teacher
+    teacher = db.relationship('Teacher', back_populates='classes')
 
     def __repr__(self):
         return f"<Class {self.name}>"
@@ -59,7 +60,9 @@ class Assignment(db.Model):
     content = db.Column(db.Text, nullable=False)
     due_date = db.Column(db.DateTime, nullable=False)
     class_id = db.Column(db.Integer, db.ForeignKey('class.id'), nullable=False)
-    session_id = db.Column(db.Integer, db.ForeignKey('online_session.id'), nullable=True)
+
+    # Use a unique backref name
+    class_ = db.relationship('Class', backref='class_assignments')
 
     def __repr__(self):
         return f"<Assignment {self.title}>"
@@ -105,3 +108,33 @@ class OnlineSession(db.Model):
 
     def __repr__(self):
         return f"<OnlineSession {self.session_name} (Room: {self.room_id})>"
+
+# Teacher Model
+class Teacher(db.Model):
+    __tablename__ = 'teacher'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)  # Link to User
+    teacher_name = db.Column(db.String(100))
+    subject = db.Column(db.String(100))
+    department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=False)
+
+    # Relationship with Department
+    department = db.relationship('Department', backref='teachers')
+
+    # Relationship with Class (one-to-many)
+    classes = db.relationship('Class', back_populates='teacher')
+
+    def __repr__(self):
+        return f"<Teacher {self.teacher_name}>"
+
+# Department Model
+class Department(db.Model):
+    __tablename__ = 'department'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+    description = db.Column(db.String(255), nullable=True)
+
+    def __repr__(self):
+        return f"<Department {self.name}>"

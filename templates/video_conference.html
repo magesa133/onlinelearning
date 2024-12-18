@@ -68,7 +68,6 @@
     <div class="main-content">
         <h2>Manage Online Sessions</h2>
 
-        <!-- Time input section for setting start and end times, visible only during session creation -->
         <div class="time-inputs" id="time-inputs">
             <div>
                 <label for="start-time">Start Time: </label>
@@ -83,157 +82,181 @@
         <button onclick="createSession()" id="createSessionBtn">Create New Session</button>
         <p>Generated Link: <span id="generatedLink">None</span></p>
         <button class="fullscreen-button" onclick="toggleFullScreen()">Toggle Fullscreen</button>
-        
-        <!-- Input for manual Room ID entry -->
+
         <div class="manual-entry">
             <label for="roomID">Enter Room ID:</label>
             <input type="text" id="roomID" placeholder="Enter Room ID">
             <button onclick="joinTeacherSession()">Join Session</button>
         </div>
 
-        <!-- Zego UI container -->
         <div id="root"></div>
-        
-        <!-- Expired message -->
-        <div id="expiredMessage" class="expired-message" style="display: none;">
+
+        <!-- <div id="expiredMessage" class="expired-message" style="display: none;">
             The session has expired and cannot be joined anymore.
-        </div>
+        </div> -->
     </div>
 
     <script>
-    async function createSession() {
-        const roomID = "room-" + Math.floor(Math.random() * 10000);
-        const sessionName = "Session " + roomID; // Or fetch this from the UI
-        const sessionLink = `${window.location.origin}/join_session/${roomID}`;
-        const linkDisplay = document.getElementById('generatedLink');
+        let endTimeChecker;
 
-        // Get start and end time from input fields
-        const startTime = document.getElementById('start-time').value;
-        const endTime = document.getElementById('end-time').value;
+        // Function to periodically check session end time
+        function startEndTimeChecker(endTime) {
+            const endTimeDate = new Date(endTime).getTime();
 
-        // Validate time inputs
-        if (!startTime || !endTime) {
-            alert("Please set both start and end times.");
-            return;
+            // Clear any existing interval to prevent duplicate checks
+            clearInterval(endTimeChecker);
+
+            endTimeChecker = setInterval(() => {
+                const currentTime = new Date().getTime();
+
+                if (currentTime >= endTimeDate) {
+                    clearInterval(endTimeChecker);
+
+                    // Show the create session button
+                    document.getElementById('createSessionBtn').classList.remove('hidden');
+                    document.getElementById('time-inputs').classList.remove('hidden');
+                    document.getElementById('generatedLink').textContent = "Session ended or no active session.";
+
+                    alert("Session time has ended. You will be redirected to the home page.");
+
+                    // Logic to leave the Zego session
+                    if (typeof zp !== "undefined") {
+                        zp.leaveRoom().catch((err) => {
+                            console.warn("Error leaving room:", err);
+                        });
+                    }
+
+                    // Redirect to home page
+                    window.location.href = "/video_conference";
+                }
+            }, 1000); // Check every second
         }
 
-        // Store session data in localStorage to persist even after page reload
-        localStorage.setItem('sessionLink', sessionLink);
-        localStorage.setItem('sessionEndTime', endTime);
+        // Create a new session
+        async function createSession() {
+            const roomID = "room-" + Math.floor(Math.random() * 10000);
+            const sessionLink = `${window.location.origin}/join_session/${roomID}`;
+            const linkDisplay = document.getElementById('generatedLink');
 
-        // Hide time inputs after session creation
-        document.getElementById('time-inputs').classList.add('hidden');
-        document.getElementById('createSessionBtn').classList.add('hidden');
+            const startTime = document.getElementById('start-time').value;
+            const endTime = document.getElementById('end-time').value;
 
-        // Display the generated session link if session is active
-        const currentTime = new Date().toISOString().slice(0, 16); // Get current date and time in format 'YYYY-MM-DDTHH:mm'
-        if (new Date(endTime) > new Date(currentTime)) {
-            linkDisplay.textContent = sessionLink;
-            linkDisplay.href = sessionLink; // Make it clickable
-        } else {
-            linkDisplay.textContent = "Session ended or no active session.";
-        }
-
-        // Notify the teacher
-        alert(`Session created successfully! Share this link with students: ${sessionLink}`);
-
-        // Send the session data to the backend
-        try {
-            const response = await fetch('/create_session', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    roomID: roomID,
-                    sessionName: sessionName,  // Optional name of the session
-                    sessionLink: sessionLink,  // Generated session link
-                    startTime: startTime,      // Start time for the session
-                    endTime: endTime,          // End time for the session
-                }),
-            });
-
-            const data = await response.json();
-            if (response.ok) {
-                console.log('Session saved successfully:', data);
-            } else {
-                console.error('Failed to save session:', data);
+            if (!startTime || !endTime) {
+                alert("Please set both start and end times.");
+                return;
             }
-        } catch (error) {
-            console.error('Error while saving session:', error);
+
+            localStorage.setItem('sessionLink', sessionLink);
+            localStorage.setItem('sessionEndTime', endTime);
+
+            document.getElementById('time-inputs').classList.add('hidden');
+            document.getElementById('createSessionBtn').classList.add('hidden');
+
+            const currentTime = new Date().toISOString();
+
+            if (new Date(endTime) > new Date(currentTime)) {
+                linkDisplay.textContent = sessionLink;
+                startEndTimeChecker(endTime); // Start the end-time checker
+            } else {
+                linkDisplay.textContent = "Session ended or no active session.";
+            }
+
+            alert(`Session created successfully! Share this link with students: ${sessionLink}`);
+
+            try {
+                const response = await fetch('/create_session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        roomID,
+                        sessionLink,
+                        startTime,
+                        endTime,
+                    }),
+                });
+
+                const data = await response.json();
+                if (!response.ok) console.error('Failed to save session:', data);
+            } catch (error) {
+                console.error('Error while saving session:', error);
+            }
+
+            if (new Date(startTime) <= new Date(currentTime) && new Date(endTime) >= new Date(currentTime)) {
+                initializeSession(roomID);
+                startEndTimeChecker(endTime); // Ensure checker runs for an active session
+            }
         }
 
-        // Initialize the session if it has started
-        if (new Date(startTime) <= new Date(currentTime) && new Date(endTime) >= new Date(currentTime)) {
-            initializeSession(roomID);
+        // Initialize a session
+        function initializeSession(roomID) {
+            try {
+                const userID = Math.floor(Math.random() * 10000).toString();
+                const userName = "{{ username | default('Teacher') }}";
+                const appID = 1271126531;
+                const serverSecret = "5261b8e7778bf38bbe00c844ca26b988";
+                const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, roomID, userID, userName);
+
+                const zp = ZegoUIKitPrebuilt.create(kitToken);
+
+                zp.joinRoom({
+                    container: document.querySelector("#root"),
+                    scenario: { mode: ZegoUIKitPrebuilt.VideoConference },
+                    onError: (error) => {
+                        console.error("Error initializing session:", error);
+                        if (error.name === "NotAllowedError") {
+                            alert("Access to camera or microphone denied. Please allow permissions and try again.");
+                        } else {
+                            alert("An error occurred while accessing your devices. Please try again.");
+                        }
+                    },
+                });
+            } catch (error) {
+                console.error("Session initialization failed:", error);
+                alert("Unable to initialize the session. Check your devices or contact support.");
+            }
         }
-    }
 
-    function initializeSession(roomID) {
-        try {
-            const userID = Math.floor(Math.random() * 10000) + "";
-            const userName = "{{ username | default('Teacher') }}";
-            const appID = 1271126531;
-            const serverSecret = "5261b8e7778bf38bbe00c844ca26b988";
-            const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, roomID, userID, userName);
-
-            const zp = ZegoUIKitPrebuilt.create(kitToken);
-            zp.joinRoom({
-                container: document.querySelector("#root"),
-                scenario: {
-                    mode: ZegoUIKitPrebuilt.VideoConference,
-                },
-                sharedLinks: [{
-                    name: 'Session link',
-                    url: `${window.location.origin}/student_dashboard?roomID=${roomID}`,
-                }],
-            });
-        } catch (error) {
-            console.error("Error initializing the session:", error);
-            alert("Failed to initialize the session. Please try again.");
+        // Join an existing session
+        function joinTeacherSession() {
+            const roomID = document.getElementById('roomID').value.trim();
+            if (roomID) {
+                const sessionEndTime = localStorage.getItem('sessionEndTime');
+                if (sessionEndTime) startEndTimeChecker(sessionEndTime);
+                initializeSession(roomID);
+            } else {
+                alert("Please enter a valid Room ID.");
+            }
         }
-    }
 
-    function joinTeacherSession() {
-        const roomID = document.getElementById('roomID').value.trim();
-        if (roomID) {
-            initializeSession(roomID);  // Call initializeSession function to join the room
-        } else {
-            alert("Please enter a valid Room ID.");
+        // Toggle fullscreen mode
+        function toggleFullScreen() {
+            const elem = document.querySelector("#root");
+            if (!document.fullscreenElement) {
+                elem.requestFullscreen().catch(err => console.warn(`Error attempting to enable full-screen mode: ${err.message}`));
+            } else {
+                document.exitFullscreen();
+            }
         }
-    }
 
-    function toggleFullScreen() {
-        const elem = document.querySelector("#root");
-        if (!document.fullscreenElement) {
-            elem.requestFullscreen().catch(err => {
-                console.warn(`Error attempting to enable full-screen mode: ${err.message}`);
-            });
-        } else {
-            document.exitFullscreen();
-        }
-    }
+        // Initialize on page load
+        window.onload = function () {
+            const sessionLink = localStorage.getItem('sessionLink');
+            const sessionEndTime = localStorage.getItem('sessionEndTime');
+            const currentTime = new Date().toISOString();
 
-    // On page load, check if the session link exists in localStorage
-window.onload = function() {
-    const sessionLink = localStorage.getItem('sessionLink');
-    const sessionEndTime = localStorage.getItem('sessionEndTime');
-    const currentTime = new Date(); // Current time
-
-    // Hide the link and show a message if the session has ended
-    if (sessionLink && new Date(sessionEndTime) > currentTime) {
-        document.getElementById('generatedLink').textContent = sessionLink;
-        document.getElementById('generatedLink').href = sessionLink;
-        document.getElementById('expiredMessage').style.display = 'none';  // Hide expired message
-    } else {
-        document.getElementById('generatedLink').textContent = "Session ended or no active session.";
-        document.getElementById('expiredMessage').style.display = 'block';  // Show expired message
-        localStorage.removeItem('sessionLink');
-        localStorage.removeItem('sessionEndTime');
-    }
-}
-
+            if (sessionLink && new Date(sessionEndTime) > new Date(currentTime)) {
+                document.getElementById('generatedLink').textContent = sessionLink;
+                document.getElementById('expiredMessage').style.display = 'none';
+                startEndTimeChecker(sessionEndTime);
+            } else {
+                document.getElementById('generatedLink').textContent = "Session ended or no active session.";
+                document.getElementById('expiredMessage').style.display = 'block';
+                document.getElementById('time-inputs').classList.remove('hidden');
+                document.getElementById('createSessionBtn').classList.remove('hidden');
+            }
+        };
     </script>
 </body>
 </html>
 {% endblock %}
+ 

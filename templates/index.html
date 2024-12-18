@@ -3,14 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Online Learning Platform with quality courses, live support, and a user-friendly interface.">
+    <meta name="author" content="LearnPro Team">
     <title>Online Learning System</title>
+
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
     <style>
         /* General Styles */
         body {
             font-family: 'Poppins', sans-serif;
-            background-color: #f8f9fa;
+            background: linear-gradient(135deg, #007bff, #6c757d);
             margin: 0;
             padding: 0;
         }
@@ -35,7 +41,7 @@
 
         /* Hero Section */
         .hero-section {
-            background: linear-gradient(135deg, #007bff, #6c757d);
+            /* background: linear-gradient(135deg, #007bff, #6c757d); */
             color: #ffffff;
             padding: 100px 20px;
             text-align: center;
@@ -143,7 +149,7 @@
             <h1 class="hero-title">Discover Quality Courses and Grow Your Career</h1>
             <p class="hero-subtitle">Join thousands of learners achieving their dreams with expert-led online courses in various fields.</p>
             <div class="hero-buttons mt-4">
-                <a href="#" class="btn btn-primary">Get Started</a>
+                <a href="{{ url_for('login') }}" class="btn btn-primary">Get Started</a>
             </div>
         </div>
     </section>
@@ -155,28 +161,28 @@
                 <div class="col-md-3">
                     <div class="stat-box">
                         <img src="https://img.icons8.com/?size=100&id=96fB28z1TnC7&format=png" alt="Awards">
-                        <h5>10+ Awards</h5>
+                        <h5 id="stat-awards">10+ Awards</h5>
                         <p>Recognized for Excellence</p>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="stat-box">
                         <img src="https://img.icons8.com/?size=100&id=11173&format=png" alt="Graduates">
-                        <h5>50k Graduates</h5>
+                        <h5 id="stat-graduates">50k Graduates</h5>
                         <p>From Various Programs</p>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="stat-box">
                         <img src="https://img.icons8.com/external-flat-juicy-fish/64/external-course-education-flat-flat-juicy-fish.png" alt="Courses">
-                        <h5>200+ Courses</h5>
+                        <h5 id="stat-courses">200+ Courses</h5>
                         <p>Across Multiple Fields</p>
                     </div>
                 </div>
                 <div class="col-md-3">
                     <div class="stat-box">
                         <img src="https://img.icons8.com/?size=100&id=47844&format=png" alt="Support">
-                        <h5>24/7 Support</h5>
+                        <h5 id="stat-support">24/7 Support</h5>
                         <p>For All Learners</p>
                     </div>
                 </div>
@@ -187,10 +193,27 @@
     <!-- Footer -->
     <footer>
         <div class="container">
-            <p>&copy; 2024 LearnPro. All rights reserved. <a href="#">Privacy Policy</a> | <a href="#">Terms of Use</a></p>
+            <p>&copy; 2024 Online eLearning Platform. All rights reserved. <a href="#">Privacy Policy</a> | <a href="#">Terms of Use</a></p>
         </div>
     </footer>
 
+    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- JavaScript for Dynamic Updates -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Dynamic Stats Update Example
+            fetch('/api/statistics') // Backend API endpoint
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('stat-awards').textContent = `${data.awards}+ Awards`;
+                    document.getElementById('stat-graduates').textContent = `${data.graduates} Graduates`;
+                    document.getElementById('stat-courses').textContent = `${data.courses}+ Courses`;
+                    document.getElementById('stat-support').textContent = `${data.support} Support`;
+                })
+                .catch(error => console.error('Error fetching stats:', error));
+        });
+    </script>
 </body>
 </html>

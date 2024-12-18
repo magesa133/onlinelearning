@@ -1,0 +1,168 @@
+{% extends 'admin_dashboard.html' %}
+{% block content %}
+
+<style>
+    .form-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 40px;
+        background-color: #ffffff;
+        border-radius: 10px;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        font-family: 'Arial', sans-serif;
+    }
+
+    .form-container h2 {
+        text-align: center;
+        margin-bottom: 25px;
+        color: #2c3e50;
+        font-size: 28px;
+        font-weight: bold;
+    }
+
+    .error-list, .success-message {
+        text-align: center;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        font-size: 16px;
+    }
+
+    .error-list {
+        color: #e74c3c;
+        background-color: #fdecea;
+        border: 1px solid #e74c3c;
+    }
+
+    .success-message {
+        color: #27ae60;
+        background-color: #e8f8f5;
+        border: 1px solid #27ae60;
+    }
+
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+        margin-bottom: 30px;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .form-group label {
+        margin-bottom: 8px;
+        font-weight: bold;
+        color: #34495e;
+        font-size: 16px;
+    }
+
+    .form-group input, .form-group select {
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 16px;
+        color: #34495e;
+        transition: border 0.3s ease;
+    }
+
+    .form-group input:focus, .form-group select:focus {
+        border-color: #4CAF50;
+        outline: none;
+    }
+
+    .form-container button {
+        width: 100%;
+        padding: 15px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 18px;
+        cursor: pointer;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+
+    .form-container button:hover {
+        background-color: #45a049;
+        transform: scale(1.05);
+    }
+
+    .form-container button:active {
+        transform: scale(1);
+    }
+
+    @media (max-width: 768px) {
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="form-container">
+    <h2>Add Teacher</h2>
+
+    {% if errors %}
+        <div class="error-list">
+            {% for error in errors %}
+                {{ error }}<br>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {% if success %}
+        <div class="success-message">
+            {{ success }}
+        </div>
+    {% endif %}
+
+    <form method="POST">
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" placeholder="Enter username"
+                       value="{{ form_data.username if form_data else '' }}" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" placeholder="Enter email"
+                       value="{{ form_data.email if form_data else '' }}" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" placeholder="Enter password" required>
+            </div>
+            <div class="form-group">
+                <label for="confirm_password">Confirm Password:</label>
+                <input type="password" id="confirm_password" name="confirm_password" placeholder="Confirm password" required>
+            </div>
+            <div class="form-group">
+                <label for="teacher_name">Teacher's Name:</label>
+                <input type="text" id="teacher_name" name="teacher_name" placeholder="Enter teacher's name"
+                       value="{{ form_data.teacher_name if form_data else '' }}" required>
+            </div>
+            <div class="form-group">
+                <label for="subject">Subject:</label>
+                <input type="text" id="subject" name="subject" placeholder="Enter subject"
+                       value="{{ form_data.subject if form_data else '' }}" required>
+            </div>
+            <div class="form-group">
+                <label for="department">Department:</label>
+                <select id="department" name="department" required>
+                    <option value="" disabled {% if not form_data or not form_data.department_id %}selected{% endif %}>Select department</option>
+                    {% for department in departments %}
+                        <option value="{{ department.id }}" {% if form_data and form_data.department_id == department.id %}selected{% endif %}>
+                            {{ department.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <button type="submit">Add Teacher</button>
+    </form>
+</div>
+
+
+{% endblock %}
