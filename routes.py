@@ -1,9 +1,28 @@
+import os
+import base64
+from werkzeug.utils import secure_filename
+from flask import render_template, request, redirect, url_for, flash
+from flask_login import login_user
+from werkzeug.security import generate_password_hash
+from models import User, db  # Assuming your User model and database setup are imported
+import os
+import logging
+import base64
+from io import BytesIO
+from PIL import Image
 from flask import render_template, redirect, url_for, request, flash, jsonify
+from werkzeug.utils import secure_filename
 from flask_login import login_user, login_required, logout_user, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
 from app import app, db
 from models import User, OnlineSession, Assignment, Quiz, Class, Question, Teacher, Department
 from datetime import datetime
+import time
+import face_recognition
+
+# Directory to save uploaded face images
+UPLOAD_FOLDER = 'uploads/faces'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # ---------- ROUTES ----------
 
@@ -80,56 +99,160 @@ def admin_dashboard():
     # Render the admin dashboard template
     return render_template('admin_dashboard.html', username=current_user.username, teachers=teachers, students=students, classes=classes)
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        email = request.form.get('email').strip()
-        password = request.form.get('password').strip()
-        user = User.query.filter_by(email=email).first()
+from werkzeug.utils import secure_filename
 
-        if user and check_password_hash(user.password, password):
-            login_user(user)
-            flash('Login successful!', 'success')
-            # Redirect based on user role (student, teacher, or admin)
-            if user.role == 'student':
-                return redirect(url_for('student_dashboard'))
-            elif user.role == 'teacher':
-                return redirect(url_for('teacher_dashboard'))
-            elif user.role == 'admin':  # Redirect admin to admin dashboard
-                return redirect(url_for('admin_dashboard'))
-
-        flash('Invalid email or password!', 'danger')
-
-    return render_template('login.html')
-
-# Registration Route
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
+        # Get form data
         username = request.form.get('username').strip().capitalize()
         email = request.form.get('email').strip()
         password = request.form.get('password').strip()
         confirm_password = request.form.get('confirm_password').strip()
+        image_data = request.form.get('image_data')  # Base64-encoded image data
 
+        # Check if all required fields are present
+        if not username or not email or not password or not confirm_password:
+            flash('All fields are required!', 'danger')
+            return redirect(url_for('register'))
+
+        # Check if passwords match
         if password != confirm_password:
             flash('Passwords do not match!', 'danger')
             return redirect(url_for('register'))
 
+        # Check if username or email already exists
         if User.query.filter_by(username=username).first() or User.query.filter_by(email=email).first():
             flash('Username or email already exists!', 'danger')
             return redirect(url_for('register'))
 
-        hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
-        new_user = User(username=username, email=email, password=hashed_password, role='student')
-        db.session.add(new_user)
-        db.session.commit()
+        # Save the face image if provided
+        image_filename = None
+        if image_data:
+            try:
+                header, encoded = image_data.split(",", 1)  # Split the base64 header
+                face_image = face_recognition.load_image_file(BytesIO(base64.b64decode(encoded)))
+                image_filename = secure_filename(f"{username}_face.jpg")
+                image_path = os.path.join(UPLOAD_FOLDER, image_filename)
 
-        login_user(new_user)
+                # Ensure the upload folder exists
+                os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+                # Save the file
+                face_image_pil = Image.fromarray(face_image)
+                face_image_pil.save(image_path)
+            except Exception as e:
+                flash(f"Error processing face image: {e}", 'danger')
+                return redirect(url_for('register'))
+
+        # Hash the password
+        hashed_password = generate_password_hash(password, method='pbkdf2:sha256')
+
+        # Create a new user object
+        new_user = User(
+            username=username,
+            email=email,
+            password=hashed_password,
+            role='student',
+            face_image=image_filename
+        )
+
+        try:
+            db.session.add(new_user)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error saving user to database: {e}", 'danger')
+            return redirect(url_for('register'))
+
         flash('Registration successful!', 'success')
+        login_user(new_user)
         return redirect(url_for('student_dashboard'))
 
     return render_template('register.html')
 
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        image_data = request.form.get('image_data')  # Base64-encoded image data
+
+        if not image_data:
+            flash('Face image is required for login!', 'danger')
+            return redirect(url_for('login'))
+
+        try:
+            # Decode the base64 image and save it for debugging
+            header, encoded = image_data.split(",", 1)
+            face_image_data = BytesIO(base64.b64decode(encoded))
+            
+            # Debug: Save image for verification
+            debug_image_path = os.path.join(UPLOAD_FOLDER, "debug_image.jpg")
+            with open(debug_image_path, "wb") as f:
+                f.write(base64.b64decode(encoded))
+            
+            # Open the image and check format
+            face_image_data.seek(0)  # Reset file pointer
+            image = Image.open(face_image_data)
+            image_type = image.format
+            if image_type not in ['JPEG', 'PNG']:
+                flash('Invalid image format. Please upload a JPEG or PNG image.', 'danger')
+                return redirect(url_for('login'))
+            
+            # Load the image for face recognition
+            face_image = face_recognition.load_image_file(face_image_data)
+            face_locations = face_recognition.face_locations(face_image)
+
+            if len(face_locations) == 0:
+                flash('No face detected in the captured image. Please try again.', 'danger')
+                return redirect(url_for('login'))
+
+            # Get face encodings
+            face_encodings = face_recognition.face_encodings(face_image, face_locations)
+
+            if len(face_encodings) == 0:
+                flash('No valid face encodings found. Please try again.', 'danger')
+                return redirect(url_for('login'))
+
+            face_encoding = face_encodings[0]  # Assuming we only need the first detected face
+
+            # Iterate over all users to find a match
+            users = User.query.all()
+            for user in users:
+                stored_face_path = os.path.join(UPLOAD_FOLDER, user.face_image)
+                if not os.path.exists(stored_face_path):
+                    continue
+
+                stored_image = face_recognition.load_image_file(stored_face_path)
+                stored_encoding = face_recognition.face_encodings(stored_image)
+
+                if len(stored_encoding) == 0:
+                    continue
+
+                stored_encoding = stored_encoding[0]
+
+                # Compare faces
+                matches = face_recognition.compare_faces([stored_encoding], face_encoding, tolerance=0.6)
+
+                if matches[0]:
+                    login_user(user)
+                    flash('Login successful!', 'success')
+
+                    # Redirect based on role
+                    if user.role == 'student':
+                        return redirect(url_for('student_dashboard'))
+                    elif user.role == 'teacher':
+                        return redirect(url_for('teacher_dashboard'))
+                    elif user.role == 'admin':
+                        return redirect(url_for('admin_dashboard'))
+
+            # If no matches found
+            flash('Face does not match our records!', 'danger')
+
+        except Exception as e:
+            flash(f'Error during face recognition: {e}', 'danger')
+            return redirect(url_for('login'))
+
+    return render_template('login.html')
 # Logout Route
 @app.route('/logout')
 @login_required

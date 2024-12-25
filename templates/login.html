@@ -11,7 +11,6 @@
         flex-direction: column;
     }
 
-    /* Center the form on the page */
     .login-container {
         background-color: white;
         border-radius: 10px;
@@ -85,7 +84,6 @@
         opacity: 1;
     }
 
-    /* Footer styles */
     footer {
         background-color: #f8f9fa;
         padding: 20px 0;
@@ -93,7 +91,7 @@
         border-top: 1px solid #e0e0e0;
         color: #6c757d;
         font-size: 0.9rem;
-        margin-top: auto; /* Push footer to the bottom */
+        margin-top: auto;
     }
 
     footer a {
@@ -104,13 +102,26 @@
     footer a:hover {
         text-decoration: underline;
     }
+
+        .video-preview {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-top: 20px;
+    }
+
+    .video-preview video {
+        width: 100%;
+        max-width: 300px;
+        border: 2px solid #007bff;
+        border-radius: 10px;
+    }
 </style>
 
 <div class="login-container">
-    <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-            <div id="flash-message" class="alert">
+            <div id="flash-message" class="alert show">
                 <ul>
                     {% for category, message in messages %}
                         <li>{{ message }}</li>
@@ -120,40 +131,45 @@
         {% endif %}
     {% endwith %}
 
-    <h2>Login to Your Account</h2>
+    <h2>Login with Face Recognition</h2>
 
-    <!-- Login Form -->
-    <form method="POST" action="{{ url_for('login') }}">
-        <div class="mb-3">
-            <label for="email" class="form-label">Email Address</label>
-            <input type="email" class="form-control" id="email" name="email" required placeholder="Enter your email">
-        </div>
-
-        <div class="mb-3">
-            <label for="password" class="form-label">Password</label>
-            <input type="password" class="form-control" id="password" name="password" required placeholder="Enter your password">
-        </div>
+    <!-- Face Recognition Login Form -->
+    <form id="login-form" method="POST" action="{{ url_for('login') }}">
+        <!-- Hidden input for face image data -->
+        <input type="hidden" id="face_image_data" name="image_data">
 
         <button type="submit" class="btn btn-primary">Login</button>
-
-        <div class="text-center mt-3">
-            <a href="{{ url_for('register') }}">Don't have an account? Register here</a>
-        </div>
     </form>
+
+    <div class="video-preview mt-4">
+        <video id="video" autoplay></video>
+        <button type="button" id="capture-login-btn" class="btn btn-primary mt-3">Capture Face for Login</button>
+    </div>
 </div>
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const flashMessage = document.getElementById('flash-message');
-        if (flashMessage) {
-            flashMessage.classList.add('show');
-            setTimeout(() => {
-                flashMessage.style.opacity = '0';
-            }, 3000); // Fade out after 3 seconds
-            setTimeout(() => {
-                flashMessage.style.display = 'none';
-            }, 3500); // Remove completely after 3.5 seconds
-        }
+        const video = document.getElementById('video');
+        const captureButton = document.getElementById('capture-login-btn');
+        const faceImageInput = document.getElementById('face_image_data');
+        const loginForm = document.getElementById('login-form');
+
+        // Access the camera for face capture
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => video.srcObject = stream)
+            .catch(error => alert('Unable to access the camera.'));
+
+        captureButton.addEventListener('click', function () {
+            const canvas = document.createElement('canvas');
+            canvas.width = 100; // Smaller dimensions for lower image size
+            canvas.height = 100;
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            faceImageInput.value = canvas.toDataURL('image/jpeg', 0.3); // Compressed to 30% quality
+
+            // Submit the form after capturing the face image
+            loginForm.submit();
+        });
     });
 </script>
 

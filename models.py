@@ -19,12 +19,14 @@ class User(UserMixin, db.Model):
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)
     password = db.Column(db.String(200), nullable=False)
     role = db.Column(db.String(50), nullable=False)
+    face_image = db.Column(db.String(200), nullable=True)  # Path to the saved face image
 
     # Relationship with Teacher model (one-to-one)
     teacher = db.relationship('Teacher', backref='user', uselist=False)
 
     def __repr__(self):
         return f"<User {self.username}>"
+
 
 class Class(db.Model):
     __tablename__ = 'class'

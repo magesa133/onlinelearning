@@ -69,7 +69,7 @@ if __name__ == "__main__":
 
     # Start the Flask app
     app.run(
-        host=os.getenv("FLASK_RUN_HOST", "192.168.1.159"),  # Local IP address
+        host=os.getenv("FLASK_RUN_HOST", "192.168.0.101"),  # Local IP address
         port=int(os.getenv("FLASK_RUN_PORT", 5000)),        # Port number
         debug=os.getenv("FLASK_DEBUG", "True") == "True",  # Debug mode
         ssl_context=(cert_file, key_file)                  # SSL certificates
