@@ -1,0 +1,545 @@
+{% extends 'teacher_dashboard.html' %}
+
+{% block content %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Online Sessions</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
+    <style>
+        .main-content {
+            margin: 20px auto;
+            padding: 20px;
+            max-width: 800px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        button {
+            margin: 10px 0;
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        #generatedLink {
+            font-weight: bold;
+            color: #007bff;
+        }
+        #root {
+            width: 100%;
+            height: 400px;
+            position: relative;
+            margin-top: 20px;
+        }
+        .time-inputs {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .time-inputs input {
+            padding: 5px 10px;
+            font-size: 16px;
+        }
+        .time-inputs.hidden {
+            display: none;
+        }
+        .expired-message {
+            color: red;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-content">
+        <h2>Manage Online Sessions</h2>
+
+        <div class="time-inputs" id="time-inputs">
+            <div>
+                <label for="start-time">Start Time: </label>
+                <input type="datetime-local" id="start-time" required>
+            </div>
+            <div>
+                <label for="end-time">End Time: </label>
+                <input type="datetime-local" id="end-time" required>
+            </div>
+        </div>
+
+        <button onclick="createSession()" id="createSessionBtn">Create New Session</button>
+        <p>Generated Link: <span id="generatedLink">None</span></p>
+        <button class="fullscreen-button" onclick="toggleFullScreen()">Toggle Fullscreen</button>
+
+        <div class="manual-entry">
+            <label for="roomID">Enter Room ID:</label>
+            <input type="text" id="roomID" placeholder="Enter Room ID">
+            <button onclick="joinTeacherSession()">Join Session</button>
+        </div>
+
+        <div id="root"></div>
+
+        <!-- <div id="expiredMessage" class="expired-message" style="display: none;">
+            The session has expired and cannot be joined anymore.
+        </div> -->
+    </div>
+
+    <script>
+        let endTimeChecker;
+
+        // Function to periodically check session end time
+        function startEndTimeChecker(endTime) {
+            const endTimeDate = new Date(endTime).getTime();
+
+            // Clear any existing interval to prevent duplicate checks
+            clearInterval(endTimeChecker);
+
+            endTimeChecker = setInterval(() => {
+                const currentTime = new Date().getTime();
+
+                if (currentTime >= endTimeDate) {
+                    clearInterval(endTimeChecker);
+
+                    // Show the create session button
+                    document.getElementById('createSessionBtn').classList.remove('hidden');
+                    document.getElementById('time-inputs').classList.remove('hidden');
+                    document.getElementById('generatedLink').textContent = "Session ended or no active session.";
+
+                    alert("Session time has ended. You will be redirected to the home page.");
+
+                    // Logic to leave the Zego session
+                    if (typeof zp !== "undefined") {
+                        zp.leaveRoom().catch((err) => {
+                            console.warn("Error leaving room:", err);
+                        });
+                    }
+
+                    // Redirect to home page
+                    window.location.href = "/video_conference";
+                }
+            }, 1000); // Check every second
+        }
+
+        // Create a new session
+        async function createSession() {
+            const roomID = "room-" + Math.floor(Math.random() * 10000);
+            const sessionLink = `${window.location.origin}/join_session/${roomID}`;
+            const linkDisplay = document.getElementById('generatedLink');
+
+            const startTime = document.getElementById('start-time').value;
+            const endTime = document.getElementById('end-time').value;
+
+            if (!startTime || !endTime) {
+                alert("Please set both start and end times.");
+                return;
+            }
+
+            localStorage.setItem('sessionLink', sessionLink);
+            localStorage.setItem('sessionEndTime', endTime);
+
+            document.getElementById('time-inputs').classList.add('hidden');
+            document.getElementById('createSessionBtn').classList.add('hidden');
+
+            const currentTime = new Date().toISOString();
+
+            if (new Date(endTime) > new Date(currentTime)) {
+                linkDisplay.textContent = sessionLink;
+                startEndTimeChecker(endTime); // Start the end-time checker
+            } else {
+                linkDisplay.textContent = "Session ended or no active session.";
+            }
+
+            alert(`Session created successfully! Share this link with students: ${sessionLink}`);
+
+            try {
+                const response = await fetch('/create_session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        roomID,
+                        sessionLink,
+                        startTime,
+                        endTime,
+                    }),
+                });
+
+                const data = await response.json();
+                if (!response.ok) console.error('Failed to save session:', data);
+            } catch (error) {
+                console.error('Error while saving session:', error);
+            }
+
+            if (new Date(startTime) <= new Date(currentTime) && new Date(endTime) >= new Date(currentTime)) {
+                initializeSession(roomID);
+                startEndTimeChecker(endTime); // Ensure checker runs for an active session
+            }
+        }
+
+        // Initialize a session
+        function initializeSession(roomID) {
+            try {
+                const userID = Math.floor(Math.random() * 10000).toString();
+                const userName = "{{ username | default('Teacher') }}";
+                const appID = 1271126531;
+                const serverSecret = "5261b8e7778bf38bbe00c844ca26b988";
+                const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, roomID, userID, userName);
+
+                const zp = ZegoUIKitPrebuilt.create(kitToken);
+
+                zp.joinRoom({
+                    container: document.querySelector("#root"),
+                    scenario: { mode: ZegoUIKitPrebuilt.VideoConference },
+                    onError: (error) => {
+                        console.error("Error initializing session:", error);
+                        if (error.name === "NotAllowedError") {
+                            alert("Access to camera or microphone denied. Please allow permissions and try again.");
+                        } else {
+                            alert("An error occurred while accessing your devices. Please try again.");
+                        }
+                    },
+                });
+            } catch (error) {
+                console.error("Session initialization failed:", error);
+                alert("Unable to initialize the session. Check your devices or contact support.");
+            }
+        }
+
+        // Join an existing session
+        function joinTeacherSession() {
+            const roomID = document.getElementById('roomID').value.trim();
+            if (roomID) {
+                const sessionEndTime = localStorage.getItem('sessionEndTime');
+                if (sessionEndTime) startEndTimeChecker(sessionEndTime);
+                initializeSession(roomID);
+            } else {
+                alert("Please enter a valid Room ID.");
+            }
+        }
+
+        // Toggle fullscreen mode
+        function toggleFullScreen() {
+            const elem = document.querySelector("#root");
+            if (!document.fullscreenElement) {
+                elem.requestFullscreen().catch(err => console.warn(`Error attempting to enable full-screen mode: ${err.message}`));
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Initialize on page load
+        window.onload = function () {
+            const sessionLink = localStorage.getItem('sessionLink');
+            const sessionEndTime = localStorage.getItem('sessionEndTime');
+            const currentTime = new Date().toISOString();
+
+            if (sessionLink && new Date(sessionEndTime) > new Date(currentTime)) {
+                document.getElementById('generatedLink').textContent = sessionLink;
+                document.getElementById('expiredMessage').style.display = 'none';
+                startEndTimeChecker(sessionEndTime);
+            } else {
+                document.getElementById('generatedLink').textContent = "Session ended or no active session.";
+                document.getElementById('expiredMessage').style.display = 'block';
+                document.getElementById('time-inputs').classList.remove('hidden');
+                document.getElementById('createSessionBtn').classList.remove('hidden');
+            }
+        };
+    </script>
+</body>
+</html>
+{% endblock %}
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{% extends 'teacher_dashboard.html' %}
+
+{% block content %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Online Sessions</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
+    <style>
+        .main-content {
+            margin: 20px auto;
+            padding: 20px;
+            max-width: 800px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        button {
+            margin: 10px 0;
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: #007bff;
+            color: white;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        #generatedLink {
+            font-weight: bold;
+            color: #007bff;
+        }
+        #root {
+            width: 100%;
+            height: 400px;
+            position: relative;
+            margin-top: 20px;
+        }
+        .time-inputs {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .time-inputs input {
+            padding: 5px 10px;
+            font-size: 16px;
+        }
+        .time-inputs.hidden {
+            display: none;
+        }
+        .expired-message {
+            color: red;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-content">
+        <h2>Manage Online Sessions</h2>
+
+        <div class="time-inputs" id="time-inputs">
+            <div>
+                <label for="start-time">Start Time: </label>
+                <input type="datetime-local" id="start-time" required>
+            </div>
+            <div>
+                <label for="end-time">End Time: </label>
+                <input type="datetime-local" id="end-time" required>
+            </div>
+        </div>
+
+        <button onclick="createSession()" id="createSessionBtn">Create New Session</button>
+        <p>Generated Link: <span id="generatedLink">None</span></p>
+        <button class="fullscreen-button" onclick="toggleFullScreen()">Toggle Fullscreen</button>
+
+        <div class="manual-entry">
+            <label for="roomID">Enter Room ID:</label>
+            <input type="text" id="roomID" placeholder="Enter Room ID">
+            <button onclick="joinTeacherSession()">Join Session</button>
+        </div>
+
+        <div id="root"></div>
+
+        <!-- <div id="expiredMessage" class="expired-message" style="display: none;">
+            The session has expired and cannot be joined anymore.
+        </div> -->
+    </div>
+
+    <script>
+        let endTimeChecker;
+
+        // Function to periodically check session end time
+        function startEndTimeChecker(endTime) {
+            const endTimeDate = new Date(endTime).getTime();
+
+            // Clear any existing interval to prevent duplicate checks
+            clearInterval(endTimeChecker);
+
+            endTimeChecker = setInterval(() => {
+                const currentTime = new Date().getTime();
+
+                if (currentTime >= endTimeDate) {
+                    clearInterval(endTimeChecker);
+
+                    // Show the create session button
+                    document.getElementById('createSessionBtn').classList.remove('hidden');
+                    document.getElementById('time-inputs').classList.remove('hidden');
+                    document.getElementById('generatedLink').textContent = "Session ended or no active session.";
+
+                    alert("Session time has ended. You will be redirected to the home page.");
+
+                    // Logic to leave the Zego session
+                    if (typeof zp !== "undefined") {
+                        zp.leaveRoom().catch((err) => {
+                            console.warn("Error leaving room:", err);
+                        });
+                    }
+
+                    // Redirect to home page
+                    window.location.href = "/video_conference";
+                }
+            }, 1000); // Check every second
+        }
+
+        // Create a new session
+        async function createSession() {
+            const roomID = "room-" + Math.floor(Math.random() * 10000);
+            const sessionLink = `${window.location.origin}/join_session/${roomID}`;
+            const linkDisplay = document.getElementById('generatedLink');
+
+            const startTime = document.getElementById('start-time').value;
+            const endTime = document.getElementById('end-time').value;
+
+            if (!startTime || !endTime) {
+                alert("Please set both start and end times.");
+                return;
+            }
+
+            localStorage.setItem('sessionLink', sessionLink);
+            localStorage.setItem('sessionEndTime', endTime);
+
+            document.getElementById('time-inputs').classList.add('hidden');
+            document.getElementById('createSessionBtn').classList.add('hidden');
+
+            const currentTime = new Date().toISOString();
+
+            if (new Date(endTime) > new Date(currentTime)) {
+                linkDisplay.textContent = sessionLink;
+                startEndTimeChecker(endTime); // Start the end-time checker
+            } else {
+                linkDisplay.textContent = "Session ended or no active session.";
+            }
+
+            alert(`Session created successfully! Share this link with students: ${sessionLink}`);
+
+            try {
+                const response = await fetch('/create_session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        roomID,
+                        sessionLink,
+                        startTime,
+                        endTime,
+                    }),
+                });
+
+                const data = await response.json();
+                if (!response.ok) console.error('Failed to save session:', data);
+            } catch (error) {
+                console.error('Error while saving session:', error);
+            }
+
+            if (new Date(startTime) <= new Date(currentTime) && new Date(endTime) >= new Date(currentTime)) {
+                initializeSession(roomID);
+                startEndTimeChecker(endTime); // Ensure checker runs for an active session
+            }
+        }
+
+        // Initialize a session
+// Initialize a session
+function initializeSession(roomID) {
+    try {
+        const userID = Math.floor(Math.random() * 10000).toString();
+        const userName = "{{ username | default('Teacher') }}";
+        const appID = 1271126531;
+        const serverSecret = "5261b8e7778bf38bbe00c844ca26b988";
+        const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(appID, serverSecret, roomID, userID, userName);
+
+        const zp = ZegoUIKitPrebuilt.create(kitToken);
+
+        zp.joinRoom({
+            container: document.querySelector("#root"),
+            scenario: { mode: ZegoUIKitPrebuilt.VideoConference },
+            showScreenSharingButton: true,
+            showRecordingButton: true,
+            recordingConfig: {
+                autoRecord: false, // Set to true if recording should start automatically
+                recordingSavePath: "local", // You can also use "cloud" if cloud recording is enabled in Zego
+            },
+            onError: (error) => {
+                console.error("Error initializing session:", error);
+                if (error.name === "NotAllowedError") {
+                    alert("Access to camera or microphone denied. Please allow permissions and try again.");
+                } else {
+                    alert("An error occurred while accessing your devices. Please try again.");
+                }
+            },
+        });
+    } catch (error) {
+        console.error("Session initialization failed:", error);
+        alert("Unable to initialize the session. Check your devices or contact support.");
+    }
+}
+
+
+        // Join an existing session
+        function joinTeacherSession() {
+            const roomID = document.getElementById('roomID').value.trim();
+            if (roomID) {
+                const sessionEndTime = localStorage.getItem('sessionEndTime');
+                if (sessionEndTime) startEndTimeChecker(sessionEndTime);
+                initializeSession(roomID);
+            } else {
+                alert("Please enter a valid Room ID.");
+            }
+        }
+
+        // Toggle fullscreen mode
+        function toggleFullScreen() {
+            const elem = document.querySelector("#root");
+            if (!document.fullscreenElement) {
+                elem.requestFullscreen().catch(err => console.warn(`Error attempting to enable full-screen mode: ${err.message}`));
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Initialize on page load
+        window.onload = function () {
+            const sessionLink = localStorage.getItem('sessionLink');
+            const sessionEndTime = localStorage.getItem('sessionEndTime');
+            const currentTime = new Date().toISOString();
+
+            if (sessionLink && new Date(sessionEndTime) > new Date(currentTime)) {
+                document.getElementById('generatedLink').textContent = sessionLink;
+                document.getElementById('expiredMessage').style.display = 'none';
+                startEndTimeChecker(sessionEndTime);
+            } else {
+                document.getElementById('generatedLink').textContent = "Session ended or no active session.";
+                document.getElementById('expiredMessage').style.display = 'block';
+                document.getElementById('time-inputs').classList.remove('hidden');
+                document.getElementById('createSessionBtn').classList.remove('hidden');
+            }
+        };
+    </script>
+</body>
+</html>
+{% endblock %}

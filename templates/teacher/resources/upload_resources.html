@@ -1,0 +1,533 @@
+{% extends "teacher_dashboard.html" %}
+
+{% block content %}
+<div class="upload-notes-container">
+
+    <div class="page-header">
+        <div class="page-title">
+            <h2>Upload Resources</h2>
+            <p class="welcome-message">Share study materials with your students</p>
+        </div>
+    </div>
+
+    <div class="upload-card">
+        <div class="upload-header">
+            <i class="fas fa-cloud-upload-alt"></i>
+            <h3>Upload New Resources</h3>
+            <p>Supported formats: PDF, DOCX, PPTX, TXT, JPG, PNG, MP3, MP4 (Max 50MB)</p>
+        </div>
+        
+        <form action="{{ url_for('upload_resource') }}" method="POST" enctype="multipart/form-data" class="upload-form">
+            <div class="form-group">
+                <label for="resource_type">Resource Type</label>
+                <select name="resource_type" id="resource_type" class="form-control" required>
+                    <option value="">Select Resource Type</option>
+                    <option value="document">Document (PDF, DOCX, PPTX, TXT)</option>
+                    <option value="image">Image (JPG, PNG, GIF)</option>
+                    <option value="audio">Audio (MP3, WAV)</option>
+                    <option value="video">Video (MP4, MOV)</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="subject">Subject</label>
+                <select name="subject" id="subject" class="form-control" required>
+                    <option value="">Select Subject</option>
+                    {% for subject in subjects %}
+                    <option value="{{ subject.id }}">{{ subject.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="title">Title</label>
+                <input type="text" name="title" id="title" class="form-control" placeholder="Resource title" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="description">Description</label>
+                <textarea name="description" id="description" class="form-control" rows="3" placeholder="Brief description of the resource"></textarea>
+            </div>
+            
+            <div class="form-group file-upload">
+                <label for="file">Select File</label>
+                <div class="upload-area" id="dropArea">
+                    <input type="file" name="file" id="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.jpg,.jpeg,.png,.gif,.mp3,.wav,.mp4,.mov" required>
+                    <div class="upload-prompt">
+                        <i class="fas fa-file-alt"></i>
+                        <p>Drag & drop files here or click to browse</p>
+                        <span class="file-info" id="fileInfo">No file selected</span>
+                        <span class="file-size" id="fileSize"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="classroom">Classroom</label>
+                <select name="classroom" id="classroom" class="form-control" required>
+                    <option value="">Select Classroom</option>
+                    {% for classroom in classrooms %}
+                    <option value="{{ classroom.id }}" {% if resource and resource.classroom_id == classroom.id %}selected{% endif %}>
+                        {{ classroom.class_name }} ({{ classroom.subject.name }})
+                    </option>
+                    {% else %}
+                    <option value="" disabled>No classrooms available</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-upload"></i> Upload Resource
+                </button>
+                <button type="reset" class="btn btn-outline">
+                    <i class="fas fa-redo"></i> Reset
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="uploaded-notes">
+        <div class="section-header">
+            <h3>Recently Uploaded Resources</h3>
+            <div class="resource-filter">
+                <select id="filterType" class="form-control">
+                    <option value="all">All Types</option>
+                    <option value="document">Documents</option>
+                    <option value="image">Images</option>
+                    <option value="audio">Audio</option>
+                    <option value="video">Video</option>
+                </select>
+            </div>
+        </div>
+        
+<div class="notes-table">
+    <table>
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Title</th>
+                <th>Subject</th>
+                <th>Class</th>
+                <th>Date</th>
+                <th>Downloads</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for resource in resources %}
+            <tr data-type="{{ resource.resource_type }}">
+                <td class="resource-type">
+                    {% if resource.resource_type == 'image' %}
+                        <i class="fas fa-image" title="Image"></i>
+                    {% elif resource.resource_type == 'audio' %}
+                        <i class="fas fa-music" title="Audio"></i>
+                    {% elif resource.resource_type == 'video' %}
+                        <i class="fas fa-video" title="Video"></i>
+                    {% else %}
+                        <i class="fas fa-file-alt" title="Document"></i>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{{ url_for('view_resource', resource_id=resource.id) }}" class="note-title">
+                        {{ resource.title }}
+                    </a>
+                </td>
+                <td>{{ resource.subject.name }}</td>
+                <td>{{ resource.classroom.class_name }}</td>
+                <td>{{ resource.upload_date.strftime('%d %b %Y') }}</td>
+                <td>{{ resource.download_count }}</td>
+                <td class="actions">
+                    <a href="{{ url_for('download_resource', resource_id=resource.id) }}" class="btn-icon" title="Download">
+                        <i class="fas fa-download"></i>
+                    </a>
+                    <a href="{{ url_for('edit_resource', resource_id=resource.id) }}" class="btn-icon" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </a>
+                    <a href="{{ url_for('delete_resource', resource_id=resource.id) }}" class="btn-icon danger" title="Delete" onclick="return confirm('Are you sure you want to delete this resource?')">
+                        <i class="fas fa-trash-alt"></i>
+                    </a>
+                    {% if resource.resource_type in ['image', 'video', 'document'] %}
+                    <a href="{{ url_for('view_resource', resource_id=resource.id) }}" class="btn-icon preview" title="Preview">
+                        <i class="fas fa-eye"></i>
+                    </a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" class="empty">No resources uploaded yet</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+    </div>
+</div>
+
+<style>
+    .upload-notes-container {
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .upload-card {
+        background: var(--white);
+        border-radius: var(--radius);
+        padding: 2rem;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 2rem;
+    }
+
+    .upload-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .upload-header i {
+        font-size: 3rem;
+        color: var(--primary);
+        margin-bottom: 1rem;
+    }
+
+    .upload-header h3 {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .upload-header p {
+        color: var(--medium-gray);
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: var(--dark-gray);
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--medium-gray);
+        border-radius: var(--radius);
+        font-size: 1rem;
+        transition: var(--transition);
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.2);
+    }
+
+    textarea.form-control {
+        min-height: 100px;
+        resize: vertical;
+    }
+
+    .file-upload {
+        margin: 2rem 0;
+    }
+
+    .upload-area {
+        border: 2px dashed var(--medium-gray);
+        border-radius: var(--radius);
+        padding: 2rem;
+        text-align: center;
+        cursor: pointer;
+        transition: var(--transition);
+        position: relative;
+    }
+
+    .upload-area:hover {
+        border-color: var(--primary);
+    }
+
+    .upload-area input[type="file"] {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        opacity: 0;
+        cursor: pointer;
+    }
+
+    .upload-prompt i {
+        font-size: 2rem;
+        color: var(--primary);
+        margin-bottom: 1rem;
+    }
+
+    .upload-prompt p {
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+
+    .file-info {
+        font-size: 0.9rem;
+        color: var(--medium-gray);
+        display: block;
+    }
+
+    .file-size {
+        font-size: 0.8rem;
+        color: var(--medium-gray);
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: flex-end;
+        margin-top: 2rem;
+    }
+
+    .uploaded-notes {
+        background: var(--white);
+        border-radius: var(--radius);
+        padding: 2rem;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+
+    .resource-filter {
+        width: 200px;
+    }
+
+    .notes-table {
+        overflow-x: auto;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th, td {
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    th {
+        font-weight: 600;
+        color: var(--dark-gray);
+        background-color: var(--light-gray);
+    }
+
+    .resource-type i {
+        font-size: 1.2rem;
+        color: var(--primary);
+    }
+
+    .resource-type .fa-image { color: #4CAF50; }
+    .resource-type .fa-music { color: #9C27B0; }
+    .resource-type .fa-video { color: #F44336; }
+
+    .note-title {
+        color: var(--dark);
+        text-decoration: none;
+        font-weight: 500;
+    }
+
+    .note-title:hover {
+        color: var(--primary);
+    }
+
+    .actions {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .btn-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.05);
+        color: var(--dark-gray);
+        transition: var(--transition);
+    }
+
+    .btn-icon:hover {
+        background: rgba(67, 97, 238, 0.1);
+        color: var(--primary);
+    }
+
+    .btn-icon.danger:hover {
+        background: rgba(239, 35, 60, 0.1);
+        color: var(--danger);
+    }
+
+/* Add this to your existing styles */
+    .btn-icon.preview {
+        background: rgba(59, 130, 246, 0.1);
+        color: #3b82f6;
+    }
+    
+    .btn-icon.preview:hover {
+        background: rgba(59, 130, 246, 0.2);
+    }
+
+    .empty {
+        text-align: center;
+        padding: 2rem;
+        color: var(--medium-gray);
+    }
+
+    .highlight {
+        border-color: var(--primary) !important;
+        background-color: rgba(67, 97, 238, 0.05);
+    }
+
+    @media (max-width: 768px) {
+        .upload-card, .uploaded-notes {
+            padding: 1.5rem;
+        }
+        
+        .section-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+        
+        .resource-filter {
+            width: 100%;
+        }
+        
+        .form-actions {
+            flex-direction: column;
+        }
+        
+        .btn {
+            width: 100%;
+        }
+        
+        .actions {
+            flex-wrap: wrap;
+        }
+    }
+</style>
+
+<script>
+    // File upload handling
+    const fileInput = document.getElementById('file');
+    const fileInfo = document.getElementById('fileInfo');
+    const fileSize = document.getElementById('fileSize');
+    const dropArea = document.getElementById('dropArea');
+    const resourceType = document.getElementById('resource_type');
+
+    // Update accepted file types based on resource type selection
+    resourceType.addEventListener('change', function() {
+        switch(this.value) {
+            case 'document':
+                fileInput.setAttribute('accept', '.pdf,.doc,.docx,.ppt,.pptx,.txt');
+                break;
+            case 'image':
+                fileInput.setAttribute('accept', '.jpg,.jpeg,.png,.gif');
+                break;
+            case 'audio':
+                fileInput.setAttribute('accept', '.mp3,.wav');
+                break;
+            case 'video':
+                fileInput.setAttribute('accept', '.mp4,.mov');
+                break;
+            default:
+                fileInput.removeAttribute('accept');
+        }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+        updateFileInfo();
+    });
+
+    function updateFileInfo() {
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            fileInfo.textContent = file.name;
+            fileSize.textContent = formatFileSize(file.size);
+            dropArea.classList.add('has-file');
+        } else {
+            fileInfo.textContent = 'No file selected';
+            fileSize.textContent = '';
+            dropArea.classList.remove('has-file');
+        }
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // Drag and drop functionality
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropArea.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight() {
+        dropArea.classList.add('highlight');
+    }
+
+    function unhighlight() {
+        dropArea.classList.remove('highlight');
+    }
+
+    dropArea.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        fileInput.files = files;
+        updateFileInfo();
+        
+        // Trigger change event for validation
+        const event = new Event('change');
+        fileInput.dispatchEvent(event);
+    }
+
+    // Resource type filtering
+    const filterType = document.getElementById('filterType');
+    filterType.addEventListener('change', function() {
+        const rows = document.querySelectorAll('tbody tr');
+        const type = this.value;
+        
+        rows.forEach(row => {
+            if (type === 'all' || row.dataset.type === type) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+</script>
+{% endblock %}

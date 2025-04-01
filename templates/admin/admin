@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    
+    <!-- Link to custom CSS file -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+
+    <!-- Google Fonts - Poppins -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap CSS (if needed) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KyZXEJc4IQvYIKbJ2uQU6W+noPej2rW0Zgn9XJEcYy1K/NZGmyj7qaGZtJWSgAI4" crossorigin="anonymous">
+</head>
+
+
+<body>
+    <div class="dashboard-container">
+        <!-- Header Section -->
+        <header class="dashboard-header">
+            <h1>Admin Dashboard</h1>
+            <div class="user-profile">
+                <img src="https://img.icons8.com/?size=100&id=DnvVED73VLBQ&format=png&color=ffffff" alt="User Icon" class="user-icon" onclick="toggleDropdown()">
+                <div class="dropdown-menu" id="dropdown-menu">
+                    <a href="#">Profile</a>
+                    <a href="#">Settings</a>
+                    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar">
+            <ul>
+                <li><a href="{{ url_for('admin_dashboard') }}"><img src="https://img.icons8.com/ios-filled/24/null/home.png"/> Home</a></li>
+                <li><a href="{{ url_for('add_teacher')}}"><img src="https://img.icons8.com/ios-filled/24/null/user-male-circle.png"/> Manage Teachers</a></li>
+                <li><a href="{{ url_for('manage_students') }}"><img src="https://img.icons8.com/ios-filled/24/null/user-group.png"/> Manage Students</a></li>
+                <li><a href="{{ url_for('add_class')}}"><img src="https://img.icons8.com/ios-filled/24/null/book-shelf.png"/> Manage Classes</a></li>
+                <li><a href="#"><img src="https://img.icons8.com/ios-filled/24/null/assignment.png"/> Manage Assignments</a></li>
+                <li><a href="#"><img src="https://img.icons8.com/ios-filled/24/null/report-card.png"/> View Reports</a></li>
+                <li><a href="{{ url_for('add_department') }}"><img src="https://img.icons8.com/ios-filled/24/null/department.png"/> Manage Departments</a></li>
+                <li><a href="#"><img src="https://img.icons8.com/ios-filled/24/null/settings.png"/> Settings</a></li>
+            </ul>
+        </nav>
+
+        <!-- Main Dashboard Content -->
+        <main class="dashboard-main">
+            {% block content %}
+            <section id="welcome" class="dashboard-section">
+                <h2>{{ username }}, Welcome to the Admin Dashboard</h2>
+                <p>Manage the entire system effectively from here.</p>
+
+                <div class="cards-container">
+                    <!-- Manage Teachers Card -->
+                    <div class="card">
+                        <img src="https://img.icons8.com/ios-filled/64/null/user-male-circle.png" alt="Teachers">
+                        <h3>Manage Teachers</h3>
+                        <p>View, update, and manage teacher accounts.</p>
+                        <button onclick="window.location.href='#'">Go</button>
+                    </div>
+
+                    <!-- Manage Departments Card -->
+                    <div class="card">
+                        <img src="https://img.icons8.com/ios-filled/64/null/department.png" alt="Departments">
+                        <h3>Manage Departments</h3>
+                        <p>View, add, and update departments in the system.</p>
+                        <button onclick="window.location.href='#'">Go</button>
+                    </div>
+                </div>
+            </section>
+            {% endblock %}
+        </main>
+
+        <!-- Notifications -->
+        <div class="notification">
+            <h3><span class="notification-icon" id="notification-count">3</span> Notifications</h3>
+            <ul class="notification-list">
+                <li><a href="#">New teacher joined the system.</a></li>
+                <li><a href="#">New student registrations available for approval.</a></li>
+                <li><a href="#">Recent system updates completed successfully.</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/system_monitoring.js') }}"></script>
+    <script>
+        function toggleDropdown() {
+            document.getElementById('dropdown-menu').classList.toggle('active');
+        }
+    </script>
+</body>
+
+</html>

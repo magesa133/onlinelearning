@@ -12,6 +12,9 @@ from models import db, OnlineSession, User
 app = Flask(__name__)
 app.config.from_object(Config)
 
+# Disable CSRF protection globally
+app.config['WTF_CSRF_ENABLED'] = False
+
 # Database and migration setup
 db.init_app(app)
 migrate = Migrate(app, db)
@@ -57,7 +60,7 @@ def setup_ssl_certificates(cert_path="cert.pem", key_path="key.pem"):
     """
     if not (os.path.exists(cert_path) and os.path.exists(key_path)):
         logger.info("SSL certificates not found. Generating new ones...")
-        os.system(f'openssl req -x509 -newkey rsa:4096 -keyout {key_path} -out {cert_path} -days 365 -nodes')
+        os.system(f'openssl req -x509 -newkey rsa:4096 -keyout {key_path} -out {cert_path} -days 365 -nodes -subj "/CN=localhost"')
 
 if __name__ == "__main__":
     # SSL certificate paths
@@ -69,8 +72,8 @@ if __name__ == "__main__":
 
     # Start the Flask app
     app.run(
-        host=os.getenv("FLASK_RUN_HOST", "192.168.0.101"),  # Local IP address
-        port=int(os.getenv("FLASK_RUN_PORT", 5000)),        # Port number
+        host=os.getenv("FLASK_RUN_HOST", "0.0.0.0"),  # Local IP address
+        port=int(os.getenv("FLASK_RUN_PORT", 5000)),   # Port number
         debug=os.getenv("FLASK_DEBUG", "True") == "True",  # Debug mode
-        ssl_context=(cert_file, key_file)                  # SSL certificates
+        ssl_context=(cert_file, key_file)              # SSL certificates
     )

@@ -1,0 +1,96 @@
+{% extends 'admin_dashboard.html' %}
+
+{% block css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <h2>Dashboard Overview</h2>
+        <div class="breadcrumb">
+            <a href="#">Home</a>
+            <span class="separator">/</span>
+            <span>Dashboard</span>
+        </div>
+    </div>
+    <div class="action-buttons">
+        <a href="#" class="btn btn-outline">
+            <i class="fas fa-download"></i> Export
+        </a>
+        <a href="#" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add New
+        </a>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="cards-grid">
+    <div class="stat-card">
+        <div class="card-icon teachers">
+            <i class="fas fa-chalkboard-teacher"></i>
+        </div>
+        <h3>Total Teachers</h3>
+        <div class="value">0</div>
+        <div class="change positive">
+            <i class="fas fa-arrow-up"></i> <span class="change-text">Loading...</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="card-icon students">
+            <i class="fas fa-users"></i>
+        </div>
+        <h3>Total Students</h3>
+        <div class="value">0</div>
+        <div class="change positive">
+            <i class="fas fa-arrow-up"></i> <span class="change-text">Loading...</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="card-icon classes">
+            <i class="fas fa-book-open"></i>
+        </div>
+        <h3>Active Classes</h3>
+        <div class="value">0</div>
+        <div class="change negative">
+            <i class="fas fa-arrow-down"></i> <span class="change-text">Loading...</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="card-icon departments">
+            <i class="fas fa-building"></i>
+        </div>
+        <h3>Departments</h3>
+        <div class="value">0</div>
+        <div class="change">
+            <i class="fas fa-equals"></i> <span class="change-text">Loading...</span>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="recent-activity">
+    <div class="section-header">
+        <h3>Recent Activity</h3>
+        <a href="#" class="btn btn-outline btn-sm">View All</a>
+    </div>
+    <ul class="activity-list">
+        <li class="activity-item">
+            <div class="activity-icon">
+                <i class="fas fa-spinner fa-spin"></i>
+            </div>
+            <div class="activity-content">
+                <div class="activity-title">Loading activities...</div>
+                <div class="activity-meta">Please wait</div>
+            </div>
+        </li>
+    </ul>
+</div>
+{% endblock %}
+
+{% block js %}
+<script>
+    // Additional dashboard-specific JavaScript can go here
+    // The main admin.js is already loaded by the parent template
+</script>
+{% endblock %}

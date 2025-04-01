@@ -1,88 +1,345 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <title>Admin Dashboard | School Management System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_dashboard.css') }}">
 </head>
-
 <body>
     <div class="dashboard-container">
-        <!-- Header Section -->
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h3>
+                    <i class="fas fa-graduation-cap"></i>
+                    <span>EduAdmin</span>
+                </h3>
+            </div>
+            <ul class="sidebar-menu">
+                <li>
+                    <a href="{{ url_for('admin_dashboard') }}" class="active">
+                        <i class="fas fa-tachometer-alt"></i>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('add_teacher') }}">
+                        <i class="fas fa-chalkboard-teacher"></i>
+                        <span>Teachers</span>
+                        <span class="badge">{{ teacher_count if teacher_count is defined else 0 }}</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('manage_students') }}">
+                        <i class="fas fa-users"></i>
+                        <span>Students</span>
+                        <span class="badge">{{ student_count if student_count is defined else 0 }}</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('add_class') }}">
+                        <i class="fas fa-book-open"></i>
+                        <span>Classes</span>
+                        <span class="badge">{{ class_count if class_count is defined else 0 }}</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#">
+                        <i class="fas fa-tasks"></i>
+                        <span>Assignments</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Reports</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('add_department') }}">
+                        <i class="fas fa-building"></i>
+                        <span>Departments</span>
+                        <span class="badge">{{ department_count if department_count is defined else 0 }}</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('add_subject') }}">
+                        <i class="fas fa-book"></i>
+                        <span>Subjects</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="#">
+                        <i class="fas fa-cog"></i>
+                        <span>Settings</span>
+                    </a>
+                </li>
+            </ul>
+        </aside>
+
+        <!-- Header -->
         <header class="dashboard-header">
-            <h1>Admin Dashboard</h1>
-            <div class="user-profile">
-                <img src="https://img.icons8.com/?size=100&id=DnvVED73VLBQ&format=png&color=ffffff" alt="User Icon" class="user-icon" onclick="toggleDropdown()">
-                <div class="dropdown-menu" id="dropdown-menu">
-                    <a href="#">Profile</a>
-                    <a href="#">Settings</a>
-                    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+            <div class="header-left">
+                <button class="toggle-btn" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="search-bar">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Search...">
+                </div>
+            </div>
+            <div class="user-profile" onclick="toggleDropdown()">
+                <img src="https://ui-avatars.com/api/?name={{ username|urlencode }}&background=4CAF50&color=fff" alt="User Avatar" class="user-avatar">
+                <div class="user-info">
+                    <span class="user-name">{{ username }}</span>
+                    <span class="user-role">Administrator</span>
+                </div>
+                <div class="user-dropdown">
+                    <div class="dropdown-header">
+                        <strong>Signed in as</strong>
+                        <div>{{ username }}</div>
+                    </div>
+                    <ul class="dropdown-menu">
+                        <li><a href="#"><i class="fas fa-user"></i> My Profile</a></li>
+                        <li><a href="#"><i class="fas fa-cog"></i> Settings</a></li>
+                        <li><a href="#"><i class="fas fa-bell"></i> Notifications</a></li>
+                        <div class="dropdown-divider"></div>
+                        <li><a href="{{url_for('logout')}}"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                    </ul>
                 </div>
             </div>
         </header>
 
-        <!-- Sidebar Navigation -->
-        <nav class="sidebar">
-            <ul>
-                <li><a href="{{ url_for('admin_dashboard') }}"><img src="https://img.icons8.com/ios-filled/24/null/home.png"/> Home</a></li>
-                <li><a href="{{ url_for('add_teacher')}}"><img src="https://img.icons8.com/ios-filled/24/null/user-male-circle.png"/> Manage Teachers</a></li>
-                <li><a href="#"><img src="https://img.icons8.com/ios-filled/24/null/user-group.png"/> Manage Students</a></li>
-                <li><a href="{{ url_for('add_class')}}"><img src="https://img.icons8.com/ios-filled/24/null/book-shelf.png"/> Manage Classes</a></li>
-                <li><a href="#"><img src="https://img.icons8.com/ios-filled/24/null/assignment.png"/> Manage Assignments</a></li>
-                <li><a href="#"><img src="https://img.icons8.com/ios-filled/24/null/report-card.png"/> View Reports</a></li>
-                <li><a href="{{ url_for('add_department') }}"><img src="https://img.icons8.com/ios-filled/24/null/department.png"/> Manage Departments</a></li>
-                <li><a href="#"><img src="https://img.icons8.com/ios-filled/24/null/settings.png"/> Settings</a></li>
-            </ul>
-        </nav>
-
-        <!-- Main Dashboard Content -->
-        <main class="dashboard-main">
-            {% block content %}
-            <section id="welcome" class="dashboard-section">
-                <h2>{{ username }}, Welcome to the Admin Dashboard</h2>
-                <p>Manage the entire system effectively from here.</p>
-
-                <div class="cards-container">
-                    <!-- Manage Teachers Card -->
-                    <div class="card">
-                        <img src="https://img.icons8.com/ios-filled/64/null/user-male-circle.png" alt="Teachers">
-                        <h3>Manage Teachers</h3>
-                        <p>View, update, and manage teacher accounts.</p>
-                        <button onclick="window.location.href='#'">Go</button>
-                    </div>
-
-                    <!-- Manage Departments Card -->
-                    <div class="card">
-                        <img src="https://img.icons8.com/ios-filled/64/null/department.png" alt="Departments">
-                        <h3>Manage Departments</h3>
-                        <p>View, add, and update departments in the system.</p>
-                        <button onclick="window.location.href='#'">Go</button>
+        <!-- Main Content -->
+                <main class="dashboard-main">
+                        {% block content %} 
+                                <!-- Main Content -->
+            <div class="page-header">
+                <div class="page-title">
+                    <h2>Dashboard Overview</h2>
+                    <div class="breadcrumb">
+                        <a href="#">Home</a>
+                        <span class="separator">/</span>
+                        <span>Dashboard</span>
                     </div>
                 </div>
-            </section>
-            {% endblock %}
-        </main>
+                <div class="action-buttons">
+                    <a href="#" class="btn btn-outline">
+                        <i class="fas fa-download"></i> Export
+                    </a>
+                    <a href="#" class="btn btn-primary">
+                        <i class="fas fa-plus"></i> Add New
+                    </a>
+                </div>
+            </div>
 
-        <!-- Notifications -->
-        <div class="notification">
-            <h3><span class="notification-icon" id="notification-count">3</span> Notifications</h3>
-            <ul class="notification-list">
-                <li><a href="#">New teacher joined the system.</a></li>
-                <li><a href="#">New student registrations available for approval.</a></li>
-                <li><a href="#">Recent system updates completed successfully.</a></li>
-            </ul>
-        </div>
+            <!-- Stats Cards -->
+            <div class="cards-grid">
+                <!-- Teacher Card -->
+                <div class="stat-card">
+                    <div class="card-icon teachers">
+                        <i class="fas fa-chalkboard-teacher"></i>
+                    </div>
+                    <h3>Total Teachers</h3>
+                    <div class="value">{{ teacher_count if teacher_count is defined else 0 }}</div>
+                    <div class="change 
+                        {% if teacher_change is defined and teacher_change is not none %}
+                            {% if teacher_change > 0 %}positive{% elif teacher_change < 0 %}negative{% endif %}
+                        {% endif %}">
+                        <i class="fas 
+                            {% if teacher_change is defined and teacher_change is not none %}
+                                {% if teacher_change > 0 %}fa-arrow-up{% elif teacher_change < 0 %}fa-arrow-down{% else %}fa-equals{% endif %}
+                            {% else %}
+                                fa-equals
+                            {% endif %}"></i>
+                        {% if teacher_change is defined and teacher_change is not none and teacher_change != 0 %}
+                            {{ "%.1f"|format(teacher_change|abs) }}% from last month
+                        {% else %}
+                            No change
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Student Card -->
+                <div class="stat-card">
+                    <div class="card-icon students">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <h3>Total Students</h3>
+                    <div class="value">{{ student_count if student_count is defined else 0 }}</div>
+                    <div class="change 
+                        {% if student_change is defined and student_change is not none %}
+                            {% if student_change > 0 %}positive{% elif student_change < 0 %}negative{% endif %}
+                        {% endif %}">
+                        <i class="fas 
+                            {% if student_change is defined and student_change is not none %}
+                                {% if student_change > 0 %}fa-arrow-up{% elif student_change < 0 %}fa-arrow-down{% else %}fa-equals{% endif %}
+                            {% else %}
+                                fa-equals
+                            {% endif %}"></i>
+                        {% if student_change is defined and student_change is not none and student_change != 0 %}
+                            {{ "%.1f"|format(student_change|abs) }}% from last month
+                        {% else %}
+                            No change
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Class Card -->
+                <div class="stat-card">
+                    <div class="card-icon classes">
+                        <i class="fas fa-book-open"></i>
+                    </div>
+                    <h3>Active Classes</h3>
+                    <div class="value">{{ class_count if class_count is defined else 0 }}</div>
+                    <div class="change 
+                        {% if class_change is defined and class_change is not none %}
+                            {% if class_change > 0 %}positive{% elif class_change < 0 %}negative{% endif %}
+                        {% endif %}">
+                        <i class="fas 
+                            {% if class_change is defined and class_change is not none %}
+                                {% if class_change > 0 %}fa-arrow-up{% elif class_change < 0 %}fa-arrow-down{% else %}fa-equals{% endif %}
+                            {% else %}
+                                fa-equals
+                            {% endif %}"></i>
+                        {% if class_change is defined and class_change is not none and class_change != 0 %}
+                            {{ "%.1f"|format(class_change|abs) }}% from last month
+                        {% else %}
+                            No change
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Department Card -->
+                <div class="stat-card">
+                    <div class="card-icon departments">
+                        <i class="fas fa-building"></i>
+                    </div>
+                    <h3>Departments</h3>
+                    <div class="value">{{ department_count if department_count is defined else 0 }}</div>
+                    <div class="change 
+                        {% if department_change is defined and department_change is not none %}
+                            {% if department_change > 0 %}positive{% elif department_change < 0 %}negative{% endif %}
+                        {% endif %}">
+                        <i class="fas 
+                            {% if department_change is defined and department_change is not none %}
+                                {% if department_change > 0 %}fa-arrow-up{% elif department_change < 0 %}fa-arrow-down{% else %}fa-equals{% endif %}
+                            {% else %}
+                                fa-equals
+                            {% endif %}"></i>
+                        {% if department_change is defined and department_change is not none and department_change != 0 %}
+                            {{ "%.1f"|format(department_change|abs) }}% from last month
+                        {% else %}
+                            No change
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="recent-activity">
+                <div class="section-header">
+                    <h3>Recent Activity</h3>
+                    <a href="#" class="btn btn-outline btn-sm">View All</a>
+                </div>
+                <ul class="activity-list">
+                    {% if recent_activities is defined and recent_activities %}
+                        {% for activity in recent_activities %}
+                        <li class="activity-item">
+                            <div class="activity-icon">
+                                <i class="fas {{ activity.icon if activity.icon is defined else 'fa-info-circle' }}"></i>
+                            </div>
+                            <div class="activity-content">
+                                <div class="activity-title">{{ activity.title if activity.title is defined else 'Activity' }}</div>
+                                <div class="activity-meta">
+                                    {{ activity.user if activity.user is defined else 'System' }} • 
+                                    {% if activity.timestamp is defined %}
+                                        <span class="time-ago" data-timestamp="{{ activity.timestamp.isoformat() }}"></span>
+                                    {% else %}
+                                        Just now
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    {% else %}
+                        <li class="activity-item">
+                            <div class="activity-icon">
+                                <i class="fas fa-info-circle"></i>
+                            </div>
+                            <div class="activity-content">
+                                <div class="activity-title">No recent activity</div>
+                                <div class="activity-meta">System</div>
+                            </div>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+                        {% endblock %}
+                </main>
+
     </div>
 
-    <script src="{{ url_for('static', filename='js/system_monitoring.js') }}"></script>
+    <footer class="dashboard-footer">
+        <p>&copy; 2025 School Management System. All rights reserved.</p>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/admin_dashboard.js') }}"></script>
     <script>
-        function toggleDropdown() {
-            document.getElementById('dropdown-menu').classList.toggle('active');
+        // Time ago formatting
+        document.addEventListener('DOMContentLoaded', function() {
+            function timeAgo(date) {
+                const seconds = Math.floor((new Date() - date) / 1000);
+                const intervals = {
+                    year: 31536000,
+                    month: 2592000,
+                    week: 604800,
+                    day: 86400,
+                    hour: 3600,
+                    minute: 60
+                };
+                
+                for (const [unit, secondsInUnit] of Object.entries(intervals)) {
+                    const interval = Math.floor(seconds / secondsInUnit);
+                    if (interval >= 1) {
+                        return interval + " " + unit + (interval === 1 ? "" : "s") + " ago";
+                    }
+                }
+                return "just now";
+            }
+
+            document.querySelectorAll('.time-ago').forEach(element => {
+                try {
+                    const timestamp = new Date(element.dataset.timestamp);
+                    element.textContent = timeAgo(timestamp);
+                } catch (e) {
+                    element.textContent = "recently";
+                }
+            });
+        });
+
+        // Toggle sidebar
+        function toggleSidebar() {
+            document.querySelector('.sidebar').classList.toggle('active');
         }
+
+        // Toggle dropdown
+        function toggleDropdown() {
+            document.querySelector('.user-dropdown').classList.toggle('active');
+        }
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(event) {
+            const dropdown = document.querySelector('.user-dropdown');
+            const profile = document.querySelector('.user-profile');
+            
+            if (!profile.contains(event.target) && dropdown.classList.contains('active')) {
+                dropdown.classList.remove('active');
+            }
+        });
     </script>
 </body>
-
 </html>

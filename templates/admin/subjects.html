@@ -1,0 +1,96 @@
+{% extends 'admin_dashboard.html' %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="card shadow-lg border-0 rounded-3">
+        <div class="card-header bg-primary text-white py-3">
+            <h2 class="mb-0 text-center">Add New Subject</h2>
+        </div>
+        <div class="card-body p-4">
+            <form method="POST" action="{{ url_for('add_subject') }}" class="needs-validation" novalidate>
+                
+                <!-- Department Selection -->
+                <div class="form-group mb-4">
+                    <label for="department_id" class="form-label fw-bold fs-5">Select Department</label>
+                    <select id="department_id" name="department_id" class="form-select form-select-lg" required>
+                        <option value="" disabled selected>Select a department</option>
+                        {% for department in departments %}
+                            <option value="{{ department.id }}">{{ department.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="invalid-feedback">Please select a department</div>
+                </div>
+                
+                <!-- Subject Name -->
+                <div class="form-group mb-4">
+                    <label for="subject_name" class="form-label fw-bold fs-5">Subject Name</label>
+                    <input type="text" id="subject_name" name="subject_name" class="form-control form-control-lg" 
+                           placeholder="Enter subject name" required>
+                    <div class="invalid-feedback">Subject name is required</div>
+                </div>
+
+                <!-- Subject Description -->
+                <div class="form-group mb-4">
+                    <label for="subject_description" class="form-label fw-bold fs-5">Description</label>
+                    <textarea id="subject_description" name="subject_description" class="form-control form-control-lg" 
+                              rows="4" placeholder="Enter subject description" required></textarea>
+                    <div class="invalid-feedback">Subject description is required</div>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="d-grid gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg shadow py-3">
+                        <i class="fas fa-plus-circle me-2"></i>Add Subject
+                    </button>
+                </div>
+            </form>
+
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <div class="mt-4">
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                                {% if category == 'success' %}
+                                    <i class="fas fa-check-circle me-2"></i>
+                                {% elif category == 'danger' %}
+                                    <i class="fas fa-exclamation-circle me-2"></i>
+                                {% elif category == 'warning' %}
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                {% elif category == 'info' %}
+                                    <i class="fas fa-info-circle me-2"></i>
+                                {% endif %}
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endwith %}
+        </div>
+    </div>
+</div>
+
+<script>
+// Enable Bootstrap form validation
+(function () {
+    'use strict'
+    
+    // Fetch all forms we want to apply validation to
+    var forms = document.querySelectorAll('.needs-validation')
+    
+    // Loop over them and prevent submission
+    Array.prototype.slice.call(forms)
+        .forEach(function (form) {
+            form.addEventListener('submit', function (event) {
+                if (!form.checkValidity()) {
+                    event.preventDefault()
+                    event.stopPropagation()
+                }
+                
+                form.classList.add('was-validated')
+            }, false)
+        })
+})()
+</script>
+{% endblock %}

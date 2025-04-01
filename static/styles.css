@@ -35,44 +35,64 @@ body {
     font-size: 14px;
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-    .dashboard-container {
-        grid-template-areas:
-            "header header header"
-            "main main main"
-            "sidebar sidebar sidebar"
-            "right right right";
-        grid-template-columns: 1fr;
-        grid-template-rows: auto auto 1fr auto;
-    }
-
-    .sidebar {
-        order: 2;
-    }
-
-    .right-sidebar {
-        order: 3;
-    }
+/* Important Element Styling */
+.important-element {
+    background-color: #f9f9f9;
+    border: 2px solid #4CAF50;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
-@media (max-width: 480px) {
-    .dashboard-header h1 {
-        font-size: 1.5rem;
-    }
+.important-element:hover {
+    background-color: #e6f4e1;
+    border-color: #45a049;
+    transition: background-color 0.3s, border-color 0.3s;
+}
 
-    .card button {
-        font-size: 0.9rem;
-        padding: 8px 16px;
-    }
+.important-element h2, .important-element h3, .important-element p {
+    color: #333;
+}
 
-    .sidebar {
-        padding: 10px;
-    }
+/* Sidebar Styling */
+.sidebar {
+    grid-area: sidebar;
+    background-color: #f0f0f0;
+    padding: 20px;
+    border-right: 1px solid #ddd;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+}
 
-    .cards-container {
-        grid-template-columns: 1fr;
-    }
+.sidebar ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar li {
+    margin: 15px 0;
+}
+
+.sidebar a {
+    text-decoration: none;
+    color: #333;
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    border-radius: 5px;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.sidebar a:hover {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.sidebar .important-element {
+    background-color: #eaf1e3;
+    border: 2px solid #4CAF50;
 }
 
 /* Header Styling */
@@ -125,53 +145,12 @@ body {
     color: #4CAF50;
 }
 
-/* Sidebar Styling */
-.sidebar {
-    grid-area: sidebar;
-    background-color: #f0f0f0;
-    padding: 20px;
-    border-right: 1px solid #ddd;
-    position: sticky;
-    top: 0;
-    height: 100vh;
-}
-
-.sidebar ul {
-    list-style-type: none;
-    padding: 0;
-    margin: 0;
-}
-
-.sidebar li {
-    margin: 15px 0;
-}
-
-.sidebar a {
-    text-decoration: none;
-    color: #333;
-    display: flex;
-    align-items: center;
-    padding: 10px;
-    border-radius: 5px;
-    transition: background-color 0.2s, color 0.2s;
-}
-
-.sidebar a:hover {
-    background-color: #4CAF50;
-    color: white;
-}
-
-.sidebar img {
-    margin-right: 10px;
-}
-
 /* Main Content Styling */
 .dashboard-main {
     grid-area: main;
     overflow-y: auto;
     padding: 20px;
     background-color: #fff;
-    scroll-behavior: smooth; /* Smooth scroll effect */
 }
 
 .cards-container {
@@ -197,75 +176,48 @@ body {
 }
 
 .card img {
-    margin-bottom: 15px;
-}
-
-.card h3 {
-    margin: 10px 0;
-    color: #333;
-}
-
-.card p {
-    margin: 0 0 15px;
-    color: #666;
+    width: 100px;
+    margin-bottom: 10px;
 }
 
 .card button {
     background-color: #4CAF50;
     color: white;
-    border: none;
     padding: 10px 20px;
+    border: none;
     border-radius: 5px;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: background-color 0.3s;
 }
 
 .card button:hover {
     background-color: #45a049;
 }
 
-/* Charts Styling */
-.charts-container {
-    margin-top: 30px;
-    background-color: #fff;
+/* Right Sidebar Styling */
+.right-sidebar {
+    grid-area: right;
+    background-color: #f7f7f7;
     padding: 20px;
-    border-radius: 8px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-/* Right Sidebar */
-.right-sidebar {
-    grid-area: right;
-    padding: 20px;
-    background-color: #f0f0f0;
-    border-left: 1px solid #ddd;
-    overflow-y: auto;
-    position: sticky;
-    top: 0;
-    height: 100vh;
+.right-sidebar h3 {
+    font-size: 18px;
+    color: #333;
 }
 
-.notification-icon {
-    position: relative;
-    display: inline-block;
-    padding: 5px 10px;
-    background-color: red;
-    color: white;
-    border-radius: 50%;
-    font-weight: bold;
-    margin-left: 10px;
+.notification-list {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
 }
 
 .notification-list li {
-    margin: 10px 0;
+    margin-bottom: 10px;
 }
 
 .notification-list a {
-    text-decoration: none;
     color: #4CAF50;
-    font-weight: 600;
-}
-
-.notification-list a:hover {
-    text-decoration: underline;
+    text-decoration: none;
 }

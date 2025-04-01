@@ -1,0 +1,155 @@
+{% extends 'admin_dashboard.html' %}
+
+{% block content %}
+
+<div class="container">
+    <h2>Manage Students</h2>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-messages">
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }}">
+            {{ message }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <!-- Students Table -->
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Department</th>
+                <th>Class</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for student in students %}
+            <tr>
+                <td>{{ student.id }}</td>
+                <td>{{ student.username }}</td>
+                <td>{{ student.email }}</td>
+                <td>{{ student.department.name if student.department else 'Unassigned' }}</td>
+                <td>{{ student.class.name if student.class else 'Unassigned' }}</td>
+                <td>
+                    <button class="btn btn-primary" 
+                            data-user-id="{{ student.id }}" 
+                            data-username="{{ student.username }}" 
+                            data-email="{{ student.email }}" 
+                            data-department-id="{{ student.department.id if student.department else 'null' }}" 
+                            data-class-id="{{ student.class.id if student.class else 'null' }}" 
+                            onclick="openEditModal(this)">Edit</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Edit Student Modal -->
+    <div id="editStudentModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEditModal()">&times;</span>
+            <h3>Edit Student</h3>
+            <form method="POST" enctype="multipart/form-data">
+                <input type="hidden" id="user_id" name="user_id">
+
+                <div class="form-group">
+                    <label for="department_id">Department:</label>
+                    <select id="department_id" name="department_id" class="form-control">
+                        <option value="">Unassigned</option>
+                        {% for department in departments %}
+                        <option value="{{ department.id }}">{{ department.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="class_id">Class:</label>
+                    <select id="class_id" name="class_id" class="form-control">
+                        <option value="">Unassigned</option>
+                        {% for class in classes %}
+                        <option value="{{ class.id }}">{{ class.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-success">Save Changes</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openEditModal(button) {
+        // Fetch data attributes from the clicked button
+        var userId = button.getAttribute('data-user-id');
+        var username = button.getAttribute('data-username');
+        var email = button.getAttribute('data-email');
+        var departmentId = button.getAttribute('data-department-id');
+        var classId = button.getAttribute('data-class-id');
+
+        // Set values in the modal
+        document.getElementById('user_id').value = userId;
+        document.getElementById('department_id').value = departmentId !== 'null' ? departmentId : "";
+        document.getElementById('class_id').value = classId !== 'null' ? classId : "";
+
+        // Show the modal
+        document.getElementById('editStudentModal').style.display = 'block';
+    }
+
+    function closeEditModal() {
+        // Hide the modal
+        document.getElementById('editStudentModal').style.display = 'none';
+    }
+</script>
+
+<style>
+    .flash-messages .alert {
+        margin-top: 10px;
+    }
+
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        overflow: auto;
+        background-color: rgba(0, 0, 0, 0.4);
+    }
+
+    .modal-content {
+        background-color: #fff;
+        margin: 10% auto;
+        padding: 20px;
+        border: 1px solid #888;
+        width: 50%;
+        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+        border-radius: 8px;
+    }
+
+    .close {
+        color: #aaa;
+        float: right;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    .close:hover,
+    .close:focus {
+        color: black;
+        text-decoration: none;
+    }
+</style>
+
+{% endblock %}

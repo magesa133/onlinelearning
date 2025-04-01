@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Form with Image Capture</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #EEF1F8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Calibri', sans-serif;
+        }
+
+        .question-container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 2px 2px 30px rgba(66, 57, 238, 0.2);
+            width: 400px;
+            text-align: center;
+        }
+
+        .question-container h2 {
+            margin-bottom: 20px;
+        }
+
+        .form-control {
+            border-radius: 20px;
+            height: 45px;
+            margin-bottom: 15px;
+            box-shadow: 2px 6px 18px rgba(66, 57, 238, 0.3);
+            font-size: 16px;
+        }
+
+        .form-control:focus {
+            border-color: #3B02ED;
+            transform: scale(1.05);
+        }
+
+        .btn {
+            width: 150px;
+            height: 40px;
+            border-radius: 20px;
+            background: linear-gradient(-30deg, #3B02ED, #8E2AE0 55%);
+            box-shadow: 2px 6px 16px rgba(66, 57, 238, 0.3);
+            color: #FFFFFF;
+            font-weight: 600;
+        }
+
+        .btn:hover {
+            background: linear-gradient(-30deg, #2E01C7, #7D22E3 55%);
+            transform: scale(1.1);
+        }
+
+        .message {
+            font-size: 16px;
+            color: #3B02ED;
+            margin-top: 10px;
+        }
+
+        video, canvas {
+            width: 100%;
+            border-radius: 15px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="question-container">
+    <h2>Interactive Form</h2>
+    <div id="question-section">
+        <!-- Questions will appear here -->
+    </div>
+    <div class="message" id="message"></div>
+</div>
+
+<script>
+    const questions = [
+        { id: 'username', label: 'What is your username?', type: 'text' },
+        { id: 'email', label: 'What is your email address?', type: 'email' },
+        { id: 'password', label: 'Set a password', type: 'password' },
+        { id: 'photo', label: 'Please capture your photo', type: 'camera' }
+    ];
+
+    let currentQuestionIndex = 0;
+
+    function showNextQuestion() {
+        const questionSection = document.getElementById('question-section');
+        const message = document.getElementById('message');
+
+        // Clear previous question
+        questionSection.innerHTML = '';
+        message.innerHTML = '';
+
+        if (currentQuestionIndex < questions.length) {
+            const question = questions[currentQuestionIndex];
+            const label = document.createElement('label');
+            label.textContent = question.label;
+            label.className = 'form-label';
+
+            if (question.type === 'camera') {
+                const video = document.createElement('video');
+                video.id = 'video-preview';
+                video.autoplay = true;
+
+                const canvas = document.createElement('canvas');
+                canvas.id = 'canvas-preview';
+
+                const captureBtn = document.createElement('button');
+                captureBtn.className = 'btn';
+                captureBtn.textContent = 'Capture';
+
+                const confirmBtn = document.createElement('button');
+                confirmBtn.className = 'btn';
+                confirmBtn.textContent = 'Next';
+                confirmBtn.style.marginLeft = '10px';
+                confirmBtn.style.display = 'none';
+
+                navigator.mediaDevices.getUserMedia({ video: true })
+                    .then(stream => {
+                        video.srcObject = stream;
+
+                        captureBtn.onclick = () => {
+                            const context = canvas.getContext('2d');
+                            canvas.width = video.videoWidth;
+                            canvas.height = video.videoHeight;
+                            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                            video.srcObject.getTracks().forEach(track => track.stop()); // Stop the camera
+                            captureBtn.style.display = 'none';
+                            confirmBtn.style.display = 'inline-block';
+                            message.textContent = 'Photo captured!';
+                        };
+
+                        confirmBtn.onclick = () => {
+                            message.textContent = 'Photo confirmed!';
+                            currentQuestionIndex++;
+                            setTimeout(showNextQuestion, 1000);
+                        };
+                    })
+                    .catch(() => {
+                        message.textContent = 'Unable to access the camera.';
+                    });
+
+                questionSection.appendChild(label);
+                questionSection.appendChild(video);
+                questionSection.appendChild(canvas);
+                questionSection.appendChild(captureBtn);
+                questionSection.appendChild(confirmBtn);
+            } else {
+                const input = document.createElement('input');
+                input.id = question.id;
+                input.type = question.type;
+                input.className = 'form-control';
+                input.required = true;
+
+                const nextBtn = document.createElement('button');
+                nextBtn.className = 'btn';
+                nextBtn.textContent = 'Next';
+                nextBtn.onclick = () => {
+                    if (input.value.trim() === '') {
+                        message.textContent = 'Please fill in this field.';
+                        return;
+                    }
+                    message.textContent = 'Thank you for your answer!';
+                    currentQuestionIndex++;
+                    setTimeout(showNextQuestion, 1000);
+                };
+
+                questionSection.appendChild(label);
+                questionSection.appendChild(input);
+                questionSection.appendChild(nextBtn);
+            }
+        } else {
+            questionSection.innerHTML = '<h4>Thank you for completing the form!</h4>';
+        }
+    }
+
+    showNextQuestion();
+</script>
+
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Form with Image Capture</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #EEF1F8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: 'Calibri', sans-serif;
+        }
+
+        .question-container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 2px 2px 30px rgba(66, 57, 238, 0.2);
+            width: 400px;
+            text-align: center;
+        }
+
+        .question-container h2 {
+            margin-bottom: 20px;
+        }
+
+        .form-control {
+            border-radius: 20px;
+            height: 45px;
+            margin-bottom: 15px;
+            box-shadow: 2px 6px 18px rgba(66, 57, 238, 0.3);
+            font-size: 16px;
+        }
+
+        .form-control:focus {
+            border-color: #3B02ED;
+            transform: scale(1.05);
+        }
+
+        .btn {
+            width: 150px;
+            height: 40px;
+            border-radius: 20px;
+            background: linear-gradient(-30deg, #3B02ED, #8E2AE0 55%);
+            box-shadow: 2px 6px 16px rgba(66, 57, 238, 0.3);
+            color: #FFFFFF;
+            font-weight: 600;
+        }
+
+        .btn:hover {
+            background: linear-gradient(-30deg, #2E01C7, #7D22E3 55%);
+            transform: scale(1.1);
+        }
+
+        .message {
+            font-size: 16px;
+            color: #3B02ED;
+            margin-top: 10px;
+        }
+
+        video, canvas {
+            width: 100%;
+            border-radius: 15px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Start of the form -->
+<form id="register-form" method="POST" action="{{ url_for('register') }}">
+    <div class="question-container">
+        <h2>Interactive Form</h2>
+        <div id="question-section">
+            <!-- Questions will appear here -->
+        </div>
+        <div class="message" id="message"></div>
+    </div>
+</form>
+<!-- End of the form -->
+
+<script>
+    const questions = [
+        { id: 'username', label: 'What is your username?', type: 'text', name: 'username' },
+        { id: 'email', label: 'What is your email address?', type: 'email', name: 'email' },
+        { id: 'password', label: 'Set a password', type: 'password', name: 'password' },
+        { id: 'confirm-password', label: 'Confirm your password', type: 'password', name: 'confirm_password' },
+        { id: 'photo', label: 'Please capture your photo', type: 'camera', name: 'image_data' }
+    ];
+
+    let currentQuestionIndex = 0;
+    let imageData = '';
+
+    function showNextQuestion() {
+        const questionSection = document.getElementById('question-section');
+        const message = document.getElementById('message');
+
+        // Clear previous question
+        questionSection.innerHTML = '';
+        message.innerHTML = '';
+
+        if (currentQuestionIndex < questions.length) {
+            const question = questions[currentQuestionIndex];
+            const label = document.createElement('label');
+            label.textContent = question.label;
+            label.className = 'form-label';
+
+            if (question.type === 'camera') {
+                const video = document.createElement('video');
+                video.id = 'video-preview';
+                video.autoplay = true;
+
+                const canvas = document.createElement('canvas');
+                canvas.id = 'canvas-preview';
+
+                const captureBtn = document.createElement('button');
+                captureBtn.className = 'btn';
+                captureBtn.textContent = 'Capture';
+
+                const confirmBtn = document.createElement('button');
+                confirmBtn.className = 'btn';
+                confirmBtn.textContent = 'Next';
+                confirmBtn.style.marginLeft = '10px';
+                confirmBtn.style.display = 'none';
+
+                navigator.mediaDevices.getUserMedia({ video: true })
+                    .then(stream => {
+                        video.srcObject = stream;
+
+                        captureBtn.onclick = () => {
+                            const context = canvas.getContext('2d');
+                            canvas.width = video.videoWidth;
+                            canvas.height = video.videoHeight;
+                            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                            video.srcObject.getTracks().forEach(track => track.stop()); // Stop the camera
+                            captureBtn.style.display = 'none';
+                            confirmBtn.style.display = 'inline-block';
+                            message.textContent = 'Photo captured!';
+                            imageData = canvas.toDataURL('image/jpeg');  // Capture image data
+                        };
+
+                        confirmBtn.onclick = () => {
+                            message.textContent = 'Photo confirmed!';
+                            currentQuestionIndex++;
+                            setTimeout(showNextQuestion, 1000);
+                        };
+                    })
+                    .catch(() => {
+                        message.textContent = 'Unable to access the camera.';
+                    });
+
+                questionSection.appendChild(label);
+                questionSection.appendChild(video);
+                questionSection.appendChild(canvas);
+                questionSection.appendChild(captureBtn);
+                questionSection.appendChild(confirmBtn);
+            } else {
+                const input = document.createElement('input');
+                input.id = question.id;
+                input.name = question.name;  // Add name attribute here
+                input.type = question.type;
+                input.className = 'form-control';
+                input.required = true;
+
+                const nextBtn = document.createElement('button');
+                nextBtn.className = 'btn';
+                nextBtn.textContent = 'Next';
+                nextBtn.onclick = () => {
+                    if (input.value.trim() === '') {
+                        message.textContent = 'Please fill in this field.';
+                        return;
+                    }
+
+                    if (question.id === 'confirm-password' && input.value !== document.getElementById('password').value) {
+                        message.textContent = 'Passwords do not match.';
+                        return;
+                    }
+
+                    message.textContent = 'Thank you for your answer!';
+                    currentQuestionIndex++;
+                    setTimeout(showNextQuestion, 1000);
+                };
+
+                questionSection.appendChild(label);
+                questionSection.appendChild(input);
+                questionSection.appendChild(nextBtn);
+            }
+        } else {
+            // All questions completed, send the data to the backend
+            const formData = new FormData(document.getElementById('register-form'));
+            formData.append('image_data', imageData);
+
+            fetch('{{ url_for("register") }}', {
+                method: 'POST',
+                body: formData
+            }).then(response => response.json())
+            .then(data => {
+                message.textContent = data.message;
+            })
+            .catch(error => {
+                message.textContent = 'Error submitting the form.';
+            });
+        }
+    }
+
+    // Start the form
+    showNextQuestion();
+</script>

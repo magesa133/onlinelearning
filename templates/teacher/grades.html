@@ -1,0 +1,19 @@
+<h2>View Grades</h2>
+<table>
+    <tr>
+        <th>Student</th>
+        <th>Subject</th>
+        <th>Quiz Score</th>
+        <th>Assignment Score</th>
+        <th>Final Score</th>
+    </tr>
+    {% for grade in grades %}
+    <tr>
+        <td>{{ grade.student_id }}</td>
+        <td>{{ grade.subject.name }}</td>
+        <td>{{ grade.quiz_score }}</td>
+        <td>{{ grade.assignment_score }}</td>
+        <td>{{ grade.final_score }}</td>
+    </tr>
+    {% endfor %}
+</table>

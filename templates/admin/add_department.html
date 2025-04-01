@@ -2,75 +2,179 @@
 {% block content %}
 
 <style>
-    .form-container {
-        max-width: 600px;
+    /* Main Container Styles */
+    .admin-container {
+        max-width: 800px;
         margin: 0 auto;
-        padding: 20px;
-        background-color: #f9f9f9;
-        border-radius: 8px;
+        padding: 30px;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    /* Form Header */
+    .form-header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+
+    .form-title {
+        font-size: 28px;
+        color: #2c3e50;
+        font-weight: 600;
+        margin-bottom: 10px;
+    }
+
+    /* Form Container */
+    .form-card {
+        background-color: white;
+        border-radius: 10px;
+        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
+        padding: 30px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .form-card:hover {
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
+        transform: translateY(-2px);
+    }
+
+    /* Form Elements */
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #34495e;
+        font-size: 16px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 12px 15px;
+        border: 1px solid #e0e0e0;
+        border-radius: 6px;
+        font-size: 16px;
+        transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .form-control:focus {
+        border-color: #4CAF50;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    }
+
+    textarea.form-control {
+        min-height: 100px;
+        resize: vertical;
+    }
+
+    /* Button Styles */
+    .submit-btn {
+        width: 100%;
+        padding: 14px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 16px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .submit-btn:hover {
+        background-color: #43a047;
+        transform: translateY(-2px);
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
 
-    .form-container h2 {
-        text-align: center;
-        color: #4CAF50;
+    .submit-btn:active {
+        transform: translateY(0);
     }
 
-    .form-group {
-        margin-bottom: 15px;
-    }
-
-    .form-group label {
-        display: block;
-        font-weight: bold;
-        margin-bottom: 5px;
-    }
-
-    .form-group input,
-    .form-group textarea {
-        width: 100%;
-        padding: 10px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-    }
-
-    .form-container button {
-        width: 100%;
-        padding: 12px;
-        background-color: #4CAF50;
-        color: #fff;
-        border: none;
-        border-radius: 4px;
+    /* Alert Messages */
+    .alert {
+        padding: 15px;
+        border-radius: 6px;
+        margin-bottom: 25px;
         font-size: 16px;
-        cursor: pointer;
+        text-align: center;
     }
 
-    .form-container button:hover {
-        background-color: #45a049;
+    .alert-success {
+        background-color: #e8f5e9;
+        color: #2e7d32;
+        border: 1px solid #c8e6c9;
+    }
+
+    .alert-error {
+        background-color: #ffebee;
+        color: #c62828;
+        border: 1px solid #ffcdd2;
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+        .admin-container {
+            padding: 20px;
+        }
+        
+        .form-card {
+            padding: 20px;
+        }
+        
+        .form-title {
+            font-size: 24px;
+        }
     }
 </style>
 
-<div class="form-container">
-    <h2>Add Department</h2>
+<div class="admin-container">
+    <div class="form-header">
+        <h1 class="form-title">Add New Department</h1>
+        <p>Fill out the form below to create a new department</p>
+    </div>
+
+    <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
-                <p class="{{ category }}">{{ message }}</p>
+                <div class="alert alert-{{ 'success' if category == 'success' else 'error' }}">
+                    {{ message }}
+                </div>
             {% endfor %}
         {% endif %}
     {% endwith %}
 
-    <form method="POST">
-        <div class="form-group">
-            <label for="name">Department Name:</label>
-            <input type="text" id="name" name="name" placeholder="Enter department name" required>
-        </div>
-        <div class="form-group">
-            <label for="description">Description:</label>
-            <textarea id="description" name="description" placeholder="Enter department description" rows="3"></textarea>
-        </div>
-        <button type="submit">Add Department</button>
-    </form>
+    <!-- Department Form -->
+    <div class="form-card">
+        <form method="POST">
+            <div class="form-group">
+                <label for="name" class="form-label">Department Name</label>
+                <input type="text" id="name" name="name" class="form-control" 
+                       placeholder="e.g., Computer Science" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="description" class="form-label">Description</label>
+                <textarea id="description" name="description" class="form-control" 
+                          placeholder="Brief description about the department..." rows="4"></textarea>
+            </div>
+            
+            <button type="submit" class="submit-btn">
+                <i class="fas fa-plus-circle"></i> Create Department
+            </button>
+        </form>
+    </div>
 </div>
+
+<!-- Font Awesome for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
 {% endblock %}

@@ -1,0 +1,6 @@
+<h2>Subjects</h2>
+<ul>
+    {% for subject in subjects %}
+    <li>{{ subject.name }} - <a href="{{ url_for('upload_notes') }}">Upload Notes</a></li>
+    {% endfor %}
+</ul>

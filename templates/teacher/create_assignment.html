@@ -1,62 +1,53 @@
 {% extends 'teacher_dashboard.html' %}
 
 {% block content %}
-
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Create Assignment</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-</head>
 <style>
-    .container {
-    max-width: 600px;
-    margin: 0 auto;
-    padding: 20px;
-}
+    /* .container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+    } */
 
-h1 {
-    font-size: 24px;
-    color: #333;
-    margin-bottom: 20px;
-    text-align: center;
-}
+    h1 {
+        font-size: 24px;
+        color: #333;
+        margin-bottom: 20px;
+        text-align: center;
+    }
 
-.form-group {
-    margin-bottom: 20px;
-}
+    .form-group {
+        margin-bottom: 20px;
+    }
 
-label {
-    display: block;
-    font-weight: bold;
-    margin-bottom: 8px;
-}
+    label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 8px;
+    }
 
-input[type="text"], input[type="date"], select, textarea {
-    width: 100%;
-    padding: 10px;
-    margin-top: 5px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    box-sizing: border-box;
-}
+    input[type="text"], input[type="date"], select, textarea {
+        width: 100%;
+        padding: 10px;
+        margin-top: 5px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        box-sizing: border-box;
+    }
 
-button[type="submit"] {
-    width: 100%;
-    padding: 10px;
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 16px;
-}
+    button[type="submit"] {
+        width: 100%;
+        padding: 10px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+    }
 
-button[type="submit"]:hover {
-    background-color: #45a049;
-}
-
+    button[type="submit"]:hover {
+        background-color: #45a049;
+    }
 </style>
 <div class="container">
     <h1>Create a New Assignment</h1>
@@ -90,10 +81,44 @@ button[type="submit"]:hover {
     </select>
 </div>
 
-
         <!-- Submit Button -->
         <button type="submit" class="btn-submit">Create Assignment</button>
     </form>
 </div>
+
+
+
+    <!-- assignments Table -->
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Department</th>
+                <th>Class</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for assignment in assignments %}
+            <tr>
+                <td>{{ assignment.id }}</td>
+                <td>{{ assignment.title }}</td>
+                <td>{{ assignment.description }}</td>
+                <td>{{ assignment.deu_date}}</td>
+                <td>
+                    <button class="btn btn-primary" 
+                            data-user-id="{{ assignment.id }}" 
+                            data-username="{{ assignment.username }}" 
+                            data-email="{{ assignment.email }}" 
+                            data-department-id="{{ assignment.department.id if assignment.department else 'null' }}" 
+                            data-class-id="{{ assignment.class.id if assignment.class else 'null' }}" 
+                            onclick="openEditModal(this)">Edit</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 
 {% endblock %}

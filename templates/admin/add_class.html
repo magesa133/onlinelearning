@@ -1,82 +1,85 @@
-<!-- templates/admin/add_class.html -->
 {% extends 'admin_dashboard.html' %}
+
 {% block content %}
-
 <style>
-    /* Add this to your CSS file (e.g., styles.css) */
-.form-container {
-    max-width: 800px;
-    margin: 40px auto;
-    padding: 20px;
-    background-color: #f9f9f9;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
+    /* General Styles */
+    .form-container {
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 20px;
+        background-color: #f9f9f9;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
 
-.form-title {
-    text-align: center;
-    color: #4CAF50;
-    margin-bottom: 20px;
-    font-size: 24px;
-}
+    .form-title {
+        text-align: center;
+        color: #4CAF50;
+        margin-bottom: 20px;
+        font-size: 24px;
+    }
 
-.flash-message {
-    padding: 10px;
-    margin-bottom: 15px;
-    border-radius: 4px;
-    font-size: 16px;
-    text-align: center;
-}
+    /* Flash Messages */
+    .flash-message {
+        padding: 10px;
+        margin-bottom: 15px;
+        border-radius: 4px;
+        font-size: 16px;
+        text-align: center;
+    }
+    .flash-message.success { background-color: #d4edda; color: #155724; }
+    .flash-message.danger { background-color: #f8d7da; color: #721c24; }
 
-.flash-message.success {
-    background-color: #d4edda;
-    color: #155724;
-}
+    /* Form Styles */
+    .form-group {
+        margin-bottom: 15px;
+    }
+    .form-group label {
+        font-weight: bold;
+        display: block;
+        margin-bottom: 5px;
+    }
+    .form-group input,
+    .form-group select {
+        width: 100%;
+        padding: 12px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 16px;
+    }
 
-.flash-message.danger {
-    background-color: #f8d7da;
-    color: #721c24;
-}
+    /* Submit Button */
+    .submit-btn {
+        width: 100%;
+        padding: 14px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 18px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+    .submit-btn:hover { background-color: #45a049; }
 
-.add-class-form .form-group {
-    margin-bottom: 15px;
-}
-
-.add-class-form .form-group label {
-    font-weight: bold;
-    display: block;
-    margin-bottom: 5px;
-}
-
-.add-class-form .form-group input,
-.add-class-form .form-group select {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 16px;
-}
-
-.submit-btn {
-    width: 100%;
-    padding: 14px;
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    font-size: 18px;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-}
-
-.submit-btn:hover {
-    background-color: #45a049;
-}
-
+    /* Table Styles */
+    .class-list-table {
+        width: 100%;
+        margin-top: 30px;
+        border-collapse: collapse;
+    }
+    .class-list-table th, .class-list-table td {
+        padding: 12px;
+        border: 1px solid #ddd;
+        text-align: left;
+    }
+    .class-list-table th { background-color: #f2f2f2; }
 </style>
-<div class="form-container">
-    <h2 class="form-title">Add New Class</h2>
 
+<div class="container">
+    <h2 class="form-title">Manage Classes</h2>
+    
+    <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
@@ -84,27 +87,131 @@
             {% endfor %}
         {% endif %}
     {% endwith %}
+    
+    <!-- Add Class Button -->
+    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addClassModal">
+        Add New Class
+    </button>
 
-    <form method="POST" class="add-class-form">
-        <div class="form-group">
-            <label for="class_name">Class Name:</label>
-            <input type="text" id="class_name" name="class_name" placeholder="Enter class name" required class="form-control">
+    <!-- Add Class Modal -->
+    <div class="modal fade" id="addClassModal" tabindex="-1" aria-labelledby="addClassModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add New Class</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form method="POST" class="add-class-form">
+                        <div class="form-group">
+                            <label for="class_name">Class Name:</label>
+                            <input type="text" id="class_name" name="class_name" placeholder="Enter class name" required class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="subject_id">Subject:</label>
+                            <select id="subject_id" name="subject_id" required class="form-control">
+                                <option value="" disabled selected>Select a subject</option>
+                                {% for subject in subjects %}
+                                    <option value="{{ subject.id }}">{{ subject.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="teacher_id">Assign Teacher:</label>
+                            <select id="teacher_id" name="teacher_id" required class="form-control">
+                                <option value="" disabled selected>Select a teacher</option>
+                                {% for teacher in teachers %}
+                                    <option value="{{ teacher.id }}">{{ teacher.teacher_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="academic_year">Academic Year:</label>
+                            <select id="academic_year" name="academic_year" required class="form-control">
+                                <option value="" disabled selected>Select academic year</option>
+                                {% for year in academic_years %}
+                                    <option value="{{ year }}">{{ year }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="semester">Semester:</label>
+                            <select id="semester" name="semester" required class="form-control">
+                                <option value="" disabled selected>Select semester</option>
+                                {% for sem in semesters %}
+                                    <option value="{{ sem }}">Semester {{ sem }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="submit-btn">Add Class</button>
+                    </form>
+                </div>
+            </div>
         </div>
-        <div class="form-group">
-            <label for="subject">Subject:</label>
-            <input type="text" id="subject" name="subject" placeholder="Enter subject" required class="form-control">
-        </div>
-        <div class="form-group">
-            <label for="teacher_id">Assign Teacher:</label>
-            <select id="teacher_id" name="teacher_id" required class="form-control">
-                <option value="" disabled selected>Select a teacher</option>
-                {% for teacher in teachers %}
-                    <option value="{{ teacher.id }}">{{ teacher.teacher_name }}</option>
+    </div>
+
+    <!-- Class List Table -->
+    <div class="class-list">
+        <h3>Current Classes</h3>
+        {% if classrooms %}
+        <table class="class-list-table">
+            <thead>
+                <tr>
+                    <th>Class Name</th>
+                    <th>Subject</th>
+                    <th>Teacher</th>
+                    <th>Academic Year</th>
+                    <th>Semester</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for classroom in classrooms %}
+                    <tr>
+                        <td>{{ classroom.class_name }}</td>
+                        <td>{{ classroom.subject.name }}</td>
+                        <td>{{ classroom.teacher.teacher_name }}</td>
+                        <td>{{ classroom.academic_year }}</td>
+                        <td>Semester {{ classroom.semester }}</td>
+                        <td>
+                            <button class="btn btn-primary btn-sm btn-edit" data-bs-toggle="modal">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button class="btn btn-danger btn-sm btn-delete" data-bs-toggle="modal">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </td>
+                    </tr>
                 {% endfor %}
-            </select>
-        </div>
-        <button type="submit" class="submit-btn">Add Class</button>
-    </form>
+            </tbody>
+        </table>
+        {% else %}
+            <p>No classes found. Click "Add New Class" to create one.</p>
+        {% endif %}
+    </div>
 </div>
+
+<script>
+    // Validate Form Submission
+    document.querySelector(".add-class-form").addEventListener("submit", function(event) {
+        const requiredFields = ['class_name', 'subject_id', 'teacher_id', 'academic_year', 'semester'];
+        let isValid = true;
+
+        requiredFields.forEach(fieldId => {
+            const field = document.getElementById(fieldId);
+            if (!field.value) {
+                isValid = false;
+                field.style.borderColor = 'red';
+            } else {
+                field.style.borderColor = '';
+            }
+        });
+
+        if (!isValid) {
+            event.preventDefault();
+            alert("Please fill all required fields.");
+        }
+    });
+</script>
 
 {% endblock %}

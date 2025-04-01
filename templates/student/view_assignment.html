@@ -1,0 +1,71 @@
+
+{% extends 'student_dashboard.html' %}
+
+{% block content %}
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #f9fafb;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            width: 80%;
+            margin: 50px auto;
+        }
+        .assignment-details {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+        .assignment-details h2 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        .assignment-details p {
+            font-size: 18px;
+        }
+        .submission-form textarea {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            resize: vertical;
+        }
+        .submission-form button {
+            margin-top: 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .submission-form button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="assignment-details">
+            <h2>{{ assignment.title }}</h2>
+            <p><strong>Description:</strong> {{ assignment.description }}</p>
+            <p><strong>Due Date:</strong> {{ assignment.due_date.strftime('%B %d, %Y') }}</p>
+            <p><strong>Instructions:</strong> {{ assignment.instructions }}</p>
+        </div>
+
+        <div class="submission-form">
+            <h3>Submit Your Answer</h3>
+            <form method="POST" enctype="multipart/form-data">
+                <textarea name="submission_content" rows="6" placeholder="Write your answer here..."></textarea>
+                <button type="submit">Submit Assignment</button>
+            </form>
+        </div>
+    </div>
+{% endblock %}

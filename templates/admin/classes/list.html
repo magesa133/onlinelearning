@@ -1,0 +1,442 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Class Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-container {
+        max-width: 1000px;
+        margin: 40px auto;
+        padding: 30px;
+        background-color: #ffffff;
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .form-title {
+        text-align: center;
+        color: #2c3e50;
+        margin-bottom: 30px;
+        font-size: 28px;
+        font-weight: 600;
+    }
+
+    .flash-message {
+        padding: 12px;
+        margin-bottom: 20px;
+        border-radius: 5px;
+        font-size: 16px;
+        text-align: center;
+        border: 1px solid transparent;
+    }
+
+    .flash-message.success {
+        background-color: #d4edda;
+        color: #155724;
+        border-color: #c3e6cb;
+    }
+
+    .flash-message.danger {
+        background-color: #f8d7da;
+        color: #721c24;
+        border-color: #f5c6cb;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    .form-group label {
+        font-weight: 600;
+        display: block;
+        margin-bottom: 8px;
+        color: #495057;
+    }
+
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 12px 15px;
+        border: 1px solid #ced4da;
+        border-radius: 5px;
+        font-size: 16px;
+        transition: border-color 0.3s;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+        border-color: #80bdff;
+        outline: 0;
+        box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    .class-list {
+        margin-top: 40px;
+        background-color: #ffffff;
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        padding: 25px;
+    }
+
+    .class-list h3 {
+        color: #2c3e50;
+        margin-bottom: 20px;
+        font-size: 22px;
+        font-weight: 600;
+    }
+
+    .class-list-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+    }
+
+    .class-list-table th {
+        background-color: #f8f9fa;
+        color: #495057;
+        font-weight: 600;
+        padding: 15px;
+        text-align: left;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .class-list-table td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #dee2e6;
+        vertical-align: middle;
+    }
+
+    .class-list-table tr:hover {
+        background-color: #f8f9fa;
+    }
+
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+    }
+
+    .submit-btn {
+        width: 100%;
+        padding: 12px;
+        background-color: #28a745;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        font-size: 16px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+        margin-top: 10px;
+    }
+
+    .submit-btn:hover {
+        background-color: #218838;
+    }
+
+    .no-classes {
+        text-align: center;
+        padding: 20px;
+        color: #6c757d;
+        font-style: italic;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <h2 class="form-title">Class Management</h2>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Button to open modal -->
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addClassModal">
+        <i class="fas fa-plus"></i> Add New Class
+    </button>
+
+    <!-- Modal for adding a new class -->
+    <div class="modal fade" id="addClassModal" tabindex="-1" aria-labelledby="addClassModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addClassModalLabel">Create New Class</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form method="POST" action="{{ url_for('add_class') }}" class="add-class-form">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="class_name">Class Name</label>
+                                    <input type="text" id="class_name" name="class_name" 
+                                           placeholder="e.g., Math 101 - Section A" required 
+                                           class="form-control">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="subject_id">Subject</label>
+                                    <select id="subject_id" name="subject_id" required class="form-control">
+                                        <option value="" disabled selected>Select subject</option>
+                                        {% for subject in subjects %}
+                                            <option value="{{ subject.id }}">{{ subject.name }} ({{ subject.code }})</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="teacher_id">Teacher</label>
+                                    <select id="teacher_id" name="teacher_id" required class="form-control">
+                                        <option value="" disabled selected>Select teacher</option>
+                                        {% for teacher in teachers %}
+                                            <option value="{{ teacher.id }}">
+                                                {{ teacher.teacher_name }} ({{ teacher.email }})
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="classroom">Classroom/Location</label>
+                                    <input type="text" id="classroom" name="classroom" 
+                                           placeholder="e.g., Building A, Room 205" 
+                                           class="form-control">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="schedule">Schedule</label>
+                            <input type="text" id="schedule" name="schedule" 
+                                   placeholder="e.g., Mon/Wed/Fri 10:00-11:30" 
+                                   class="form-control">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="description">Description (Optional)</label>
+                            <textarea id="description" name="description" rows="3"
+                                      class="form-control"></textarea>
+                        </div>
+                        
+                        <button type="submit" class="submit-btn">
+                            <i class="fas fa-save"></i> Create Class
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Display the list of classes -->
+    <div class="class-list">
+        <h3>Current Classes</h3>
+        {% if classrooms %}
+        <div class="table-responsive">
+            <table class="class-list-table">
+                <thead>
+                    <tr>
+                        <th>Class Name</th>
+                        <th>Subject</th>
+                        <th>Teacher</th>
+                        <th>Schedule</th>
+                        <th>Location</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for classroom in classrooms %}
+                        <tr>
+                            <td>{{ classroom.class_name }}</td>
+                            <td>{{ classroom.subject.name }} ({{ classroom.subject.code }})</td>
+                            <td>{{ classroom.teacher.teacher_name }}</td>
+                            <td>{{ classroom.schedule if classroom.schedule else '-' }}</td>
+                            <td>{{ classroom.classroom if classroom.classroom else '-' }}</td>
+                            <td class="action-buttons">
+                                <button class="btn btn-primary btn-sm" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#editClassModal{{ classroom.id }}">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                                <button class="btn btn-danger btn-sm" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#deleteClassModal{{ classroom.id }}">
+                                    <i class="fas fa-trash"></i> Delete
+                                </button>
+                            </td>
+                        </tr>
+
+                        <!-- Edit Class Modal -->
+                        <div class="modal fade" id="editClassModal{{ classroom.id }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog modal-lg">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Edit Class: {{ classroom.class_name }}</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <form method="POST" action="{{ url_for('edit_class', class_id=classroom.id) }}">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="form-group">
+                                                        <label for="edit_class_name{{ classroom.id }}">Class Name</label>
+                                                        <input type="text" id="edit_class_name{{ classroom.id }}" 
+                                                               name="class_name" value="{{ classroom.class_name }}" 
+                                                               required class="form-control">
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="form-group">
+                                                        <label for="edit_subject_id{{ classroom.id }}">Subject</label>
+                                                        <select id="edit_subject_id{{ classroom.id }}" name="subject_id" 
+                                                                required class="form-control">
+                                                            {% for subject in subjects %}
+                                                                <option value="{{ subject.id }}" 
+                                                                    {% if subject.id == classroom.subject.id %}selected{% endif %}>
+                                                                    {{ subject.name }} ({{ subject.code }})
+                                                                </option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="form-group">
+                                                        <label for="edit_teacher_id{{ classroom.id }}">Teacher</label>
+                                                        <select id="edit_teacher_id{{ classroom.id }}" name="teacher_id" 
+                                                                required class="form-control">
+                                                            {% for teacher in teachers %}
+                                                                <option value="{{ teacher.id }}" 
+                                                                    {% if teacher.id == classroom.teacher.id %}selected{% endif %}>
+                                                                    {{ teacher.teacher_name }} ({{ teacher.email }})
+                                                                </option>
+                                                            {% endfor %}
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="form-group">
+                                                        <label for="edit_classroom{{ classroom.id }}">Classroom</label>
+                                                        <input type="text" id="edit_classroom{{ classroom.id }}" 
+                                                               name="classroom" value="{{ classroom.classroom if classroom.classroom else '' }}" 
+                                                               class="form-control">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="form-group">
+                                                <label for="edit_schedule{{ classroom.id }}">Schedule</label>
+                                                <input type="text" id="edit_schedule{{ classroom.id }}" 
+                                                       name="schedule" value="{{ classroom.schedule if classroom.schedule else '' }}" 
+                                                       class="form-control">
+                                            </div>
+                                            
+                                            <div class="form-group">
+                                                <label for="edit_description{{ classroom.id }}">Description</label>
+                                                <textarea id="edit_description{{ classroom.id }}" name="description" rows="3"
+                                                          class="form-control">{{ classroom.description if classroom.description else '' }}</textarea>
+                                            </div>
+                                            
+                                            <button type="submit" class="submit-btn">
+                                                <i class="fas fa-save"></i> Save Changes
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Delete Confirmation Modal -->
+                        <div class="modal fade" id="deleteClassModal{{ classroom.id }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Confirm Deletion</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p>Are you sure you want to delete the class "{{ classroom.class_name }}"?</p>
+                                        <p class="text-danger"><strong>Warning:</strong> This action cannot be undone.</p>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <form method="POST" action="{{ url_for('delete_class', class_id=classroom.id) }}" style="display: inline;">
+                                            <button type="submit" class="btn btn-danger">
+                                                <i class="fas fa-trash"></i> Delete
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+            <div class="no-classes">
+                <p>No classes have been created yet. Click the "Add New Class" button to create one.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Form validation
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add class form validation
+        const addClassForm = document.querySelector('.add-class-form');
+        if (addClassForm) {
+            addClassForm.addEventListener('submit', function(event) {
+                const subject = document.getElementById('subject_id').value;
+                const teacher = document.getElementById('teacher_id').value;
+                
+                if (!subject || !teacher) {
+                    event.preventDefault();
+                    alert('Please select both a subject and a teacher.');
+                    return false;
+                }
+            });
+        }
+
+        // Flash message auto-dismiss
+        const flashMessages = document.querySelectorAll('.flash-message');
+        flashMessages.forEach(message => {
+            setTimeout(() => {
+                message.style.transition = 'opacity 1s';
+                message.style.opacity = '0';
+                setTimeout(() => message.remove(), 1000);
+            }, 5000);
+        });
+
+        // Initialize all edit form validations
+        document.querySelectorAll('form[id^="editClassForm"]').forEach(form => {
+            form.addEventListener('submit', function(event) {
+                const subject = this.querySelector('select[name="subject_id"]').value;
+                const teacher = this.querySelector('select[name="teacher_id"]').value;
+                
+                if (!subject || !teacher) {
+                    event.preventDefault();
+                    alert('Please select both a subject and a teacher.');
+                    return false;
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

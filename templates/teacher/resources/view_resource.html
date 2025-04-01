@@ -1,0 +1,666 @@
+{% extends "teacher_dashboard.html" %}
+
+{% block content %}
+<div class="resource-view-container">
+    <!-- Resource Header -->
+    <div class="resource-header">
+        <h1 class="resource-title">{{ resource.title }}</h1>
+        <div class="resource-meta">
+            <span class="resource-badge">{{ resource.resource_type|capitalize }}</span>
+            <span class="meta-item"><i class="fas fa-calendar"></i> {{ resource.upload_date.strftime('%b %d, %Y') }}</span>
+            <span class="meta-item"><i class="fas fa-download"></i> {{ resource.download_count }}</span>
+            <span class="meta-item"><i class="fas fa-eye"></i> {{ resource.views_count }}</span>
+        </div>
+    </div>
+
+    <!-- Resource Preview Section -->
+    <div class="resource-preview-section">
+        {% if resource.resource_type == 'video' %}
+        <div class="video-player-container">
+            <div class="video-wrapper">
+                <video controls playsinline webkit-playsinline>
+                    <source src="{{ url_for('download_resource', resource_id=resource.id) }}" type="video/{{ resource.file_type }}">
+                    Your browser doesn't support HTML5 video.
+                </video>
+            </div>
+        </div>
+
+        {% elif resource.resource_type == 'audio' %}
+        <div class="audio-player-container">
+            <audio controls>
+                <source src="{{ url_for('download_resource', resource_id=resource.id) }}" type="audio/{{ resource.file_type }}">
+                Your browser doesn't support audio element.
+            </audio>
+        </div>
+
+        {% elif resource.resource_type == 'image' %}
+        <div class="image-viewer-container">
+            <img src="{{ url_for('download_resource', resource_id=resource.id) }}" 
+                 alt="{{ resource.title }}"
+                 class="responsive-image">
+        </div>
+
+        {% elif resource.file_type == 'pdf' %}
+        <div class="pdf-viewer-container">
+            <div class="pdf-toolbar">
+                <button class="toolbar-btn zoom-out"><i class="fas fa-search-minus"></i></button>
+                <span class="page-info">Page <span id="current-page">1</span> of <span id="total-pages">--</span></span>
+                <button class="toolbar-btn zoom-in"><i class="fas fa-search-plus"></i></button>
+                <a href="{{ url_for('download_resource', resource_id=resource.id) }}" class="toolbar-btn download">
+                    <i class="fas fa-download"></i> Download
+                </a>
+            </div>
+            <div class="pdf-viewport">
+                <canvas id="pdf-render"></canvas>
+            </div>
+            <div class="pdf-navigation">
+                <button id="prev-page" class="nav-btn"><i class="fas fa-chevron-left"></i> Previous</button>
+                <button id="next-page" class="nav-btn">Next <i class="fas fa-chevron-right"></i></button>
+            </div>
+        </div>
+
+        {% elif resource.file_type in ['doc', 'docx', 'ppt', 'pptx'] %}
+        <div class="office-preview-container">
+            <div class="office-preview-message">
+                <i class="fas fa-file-word fa-3x"></i>
+                <h3>Office Document Preview</h3>
+                <p>For best viewing experience, open this document in Microsoft Office or use the online viewer</p>
+                <a href="https://view.officeapps.live.com/op/embed.aspx?src={{ url_for('download_resource', resource_id=resource.id, _external=True) }}" 
+                   target="_blank" 
+                   class="office-view-btn">
+                    <i class="fas fa-external-link-alt"></i> Open in Online Viewer
+                </a>
+            </div>
+        </div>
+
+        {% else %}
+        <div class="generic-file-container">
+            <div class="file-icon">
+                <i class="fas fa-file fa-3x"></i>
+            </div>
+            <h3>File Preview Not Available</h3>
+            <p>Download the file to view its contents</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Resource Details Section -->
+    <div class="resource-details-section">
+        <div class="description-card">
+            <h2><i class="fas fa-align-left"></i> Description</h2>
+            <div class="description-content">
+                {{ resource.description or 'No description provided' }}
+            </div>
+        </div>
+
+        <div class="file-info-card">
+            <h2><i class="fas fa-info-circle"></i> File Information</h2>
+            <div class="file-info-grid">
+                <div class="info-item">
+                    <span class="info-label">File Name:</span>
+                    <span class="info-value">{{ resource.file_name }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">File Type:</span>
+                    <span class="info-value">{{ resource.file_type|upper }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">File Size:</span>
+                    <span class="info-value">{{ (resource.file_size/1024)|round(2) }} KB</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Classroom:</span>
+                    <span class="info-value">
+                        {% if resource.classroom %}
+                            {{ resource.classroom.class_name }} ({{ resource.classroom.subject.name }})
+                        {% else %}
+                            Not assigned
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <a href="{{ url_for('download_resource', resource_id=resource.id) }}" 
+               class="btn primary-btn">
+                <i class="fas fa-download"></i> Download File
+            </a>
+            
+            {% if current_user.role == 'teacher' and resource.teacher_id == current_user.id %}
+            <a href="{{ url_for('edit_resource', resource_id=resource.id) }}" 
+               class="btn secondary-btn">
+                <i class="fas fa-edit"></i> Edit Resource
+            </a>
+            
+            <form action="{{ url_for('delete_resource', resource_id=resource.id) }}" 
+                  method="POST" 
+                  class="delete-form">
+                <button type="submit" class="btn danger-btn">
+                    <i class="fas fa-trash-alt"></i> Delete Resource
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- PDF.js Implementation -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
+<script>
+    // Initialize PDF.js if PDF viewer is present
+    if (document.getElementById('pdf-render')) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.worker.min.js';
+        
+        const pdfUrl = "{{ url_for('download_resource', resource_id=resource.id) }}";
+        const pdfCanvas = document.getElementById('pdf-render');
+        const ctx = pdfCanvas.getContext('2d');
+        const currentPageEl = document.getElementById('current-page');
+        const totalPagesEl = document.getElementById('total-pages');
+        const prevPageBtn = document.getElementById('prev-page');
+        const nextPageBtn = document.getElementById('next-page');
+        const zoomInBtn = document.querySelector('.zoom-in');
+        const zoomOutBtn = document.querySelector('.zoom-out');
+        
+        let pdfDoc = null,
+            pageNum = 1,
+            pageRendering = false,
+            pageNumPending = null,
+            scale = 1.5,
+            maxScale = 3.0,
+            minScale = 0.8;
+        
+        function renderPage(num) {
+            pageRendering = true;
+            pdfDoc.getPage(num).then(function(page) {
+                const viewport = page.getViewport({ scale: scale });
+                pdfCanvas.height = viewport.height;
+                pdfCanvas.width = viewport.width;
+                
+                const renderContext = {
+                    canvasContext: ctx,
+                    viewport: viewport
+                };
+                
+                const renderTask = page.render(renderContext);
+                
+                renderTask.promise.then(function() {
+                    pageRendering = false;
+                    if (pageNumPending !== null) {
+                        renderPage(pageNumPending);
+                        pageNumPending = null;
+                    }
+                });
+            });
+            
+            currentPageEl.textContent = num;
+        }
+        
+        function queueRenderPage(num) {
+            if (pageRendering) {
+                pageNumPending = num;
+            } else {
+                renderPage(num);
+            }
+        }
+        
+        function onPrevPage() {
+            if (pageNum <= 1) return;
+            pageNum--;
+            queueRenderPage(pageNum);
+        }
+        
+        function onNextPage() {
+            if (pageNum >= pdfDoc.numPages) return;
+            pageNum++;
+            queueRenderPage(pageNum);
+        }
+        
+        function onZoomIn() {
+            if (scale >= maxScale) return;
+            scale += 0.2;
+            queueRenderPage(pageNum);
+        }
+        
+        function onZoomOut() {
+            if (scale <= minScale) return;
+            scale -= 0.2;
+            queueRenderPage(pageNum);
+        }
+        
+        pdfjsLib.getDocument(pdfUrl).promise.then(function(pdfDoc_) {
+            pdfDoc = pdfDoc_;
+            totalPagesEl.textContent = pdfDoc.numPages;
+            
+            renderPage(pageNum);
+            
+            prevPageBtn.addEventListener('click', onPrevPage);
+            nextPageBtn.addEventListener('click', onNextPage);
+            zoomInBtn.addEventListener('click', onZoomIn);
+            zoomOutBtn.addEventListener('click', onZoomOut);
+            
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'ArrowLeft') {
+                    onPrevPage();
+                } else if (e.key === 'ArrowRight') {
+                    onNextPage();
+                }
+            });
+        }).catch(function(err) {
+            console.error('PDF error:', err);
+            document.querySelector('.pdf-viewer-container').innerHTML = `
+                <div class="pdf-error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Couldn't load PDF preview. <a href="${pdfUrl}">Download instead</a></p>
+                </div>
+            `;
+        });
+    }
+</script>
+
+<style>
+    /* Base Styles */
+    .resource-view-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+        font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        color: #2d3748;
+    }
+    
+    .resource-header {
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .resource-title {
+        font-size: 2rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #1a365d;
+    }
+    
+    .resource-meta {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 1rem;
+        font-size: 0.9rem;
+        color: #4a5568;
+    }
+    
+    .resource-badge {
+        background: #4299e1;
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-weight: 500;
+        font-size: 0.8rem;
+    }
+    
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+    
+    /* Preview Section Styles */
+    .resource-preview-section {
+        margin-bottom: 2.5rem;
+        background: #f7fafc;
+        border-radius: 0.5rem;
+        overflow: hidden;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    /* Video Player */
+    .video-player-container {
+        background: #000;
+    }
+    
+    .video-wrapper {
+        position: relative;
+        padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+        height: 0;
+    }
+    
+    .video-wrapper video {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+    }
+    
+    /* Audio Player */
+    .audio-player-container {
+        padding: 1.5rem;
+    }
+    
+    .audio-player-container audio {
+        width: 100%;
+    }
+    
+    /* Image Viewer */
+    .image-viewer-container {
+        padding: 2rem;
+        text-align: center;
+    }
+    
+    .responsive-image {
+        max-width: 100%;
+        height: auto;
+        max-height: 70vh;
+        border-radius: 0.375rem;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    }
+    
+    /* PDF Viewer */
+    .pdf-viewer-container {
+        background: #f7fafc;
+    }
+    
+    .pdf-toolbar {
+        background: #2d3748;
+        padding: 0.75rem 1rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    
+    .toolbar-btn {
+        background: transparent;
+        border: none;
+        color: white;
+        cursor: pointer;
+        font-size: 1rem;
+        padding: 0.5rem;
+        border-radius: 0.25rem;
+        transition: background 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .toolbar-btn:hover {
+        background: rgba(255,255,255,0.1);
+    }
+    
+    .page-info {
+        color: white;
+        margin: 0 auto;
+        font-family: monospace;
+        font-size: 0.9rem;
+    }
+    
+    .pdf-viewport {
+        width: 100%;
+        overflow-x: auto;
+        background: #525659;
+        text-align: center;
+        padding: 1.5rem 0;
+    }
+    
+    #pdf-render {
+        max-width: 100%;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+    }
+    
+    .pdf-navigation {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        padding: 1rem;
+        background: #edf2f7;
+        border-top: 1px solid #e2e8f0;
+    }
+    
+    .nav-btn {
+        background: #4299e1;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 0.25rem;
+        cursor: pointer;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .nav-btn:hover {
+        background: #3182ce;
+    }
+    
+    /* Office Preview */
+    .office-preview-container {
+        padding: 2.5rem 1rem;
+        text-align: center;
+    }
+    
+    .office-preview-message {
+        max-width: 500px;
+        margin: 0 auto;
+    }
+    
+    .office-preview-message i {
+        color: #4299e1;
+        margin-bottom: 1rem;
+    }
+    
+    .office-preview-message h3 {
+        margin-bottom: 0.5rem;
+        color: #2d3748;
+    }
+    
+    .office-view-btn {
+        display: inline-block;
+        margin-top: 1rem;
+        background: #4299e1;
+        color: white;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.375rem;
+        text-decoration: none;
+        font-weight: 500;
+        transition: background 0.2s;
+    }
+    
+    .office-view-btn:hover {
+        background: #3182ce;
+    }
+    
+    /* Generic File */
+    .generic-file-container {
+        padding: 2.5rem 1rem;
+        text-align: center;
+    }
+    
+    .file-icon {
+        color: #718096;
+        margin-bottom: 1rem;
+    }
+    
+    .generic-file-container h3 {
+        margin-bottom: 0.5rem;
+        color: #2d3748;
+    }
+    
+    /* Details Section */
+    .resource-details-section {
+        background: white;
+        border-radius: 0.5rem;
+        padding: 2rem;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .description-card,
+    .file-info-card {
+        margin-bottom: 2rem;
+    }
+    
+    .description-card h2,
+    .file-info-card h2 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: #2d3748;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .description-content {
+        line-height: 1.6;
+        color: #4a5568;
+    }
+    
+    .file-info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1rem;
+    }
+    
+    .info-item {
+        background: #f7fafc;
+        padding: 1rem;
+        border-radius: 0.375rem;
+        border: 1px solid #e2e8f0;
+    }
+    
+    .info-label {
+        display: block;
+        font-size: 0.875rem;
+        color: #718096;
+        margin-bottom: 0.25rem;
+    }
+    
+    .info-value {
+        font-weight: 500;
+        color: #2d3748;
+    }
+    
+    /* Action Buttons */
+    .action-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+    
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.375rem;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.2s;
+        border: none;
+        cursor: pointer;
+        text-decoration: none;
+    }
+    
+    .primary-btn {
+        background: #4299e1;
+        color: white;
+    }
+    
+    .primary-btn:hover {
+        background: #3182ce;
+    }
+    
+    .secondary-btn {
+        background: #e2e8f0;
+        color: #2d3748;
+    }
+    
+    .secondary-btn:hover {
+        background: #cbd5e0;
+    }
+    
+    .danger-btn {
+        background: #f56565;
+        color: white;
+    }
+    
+    .danger-btn:hover {
+        background: #e53e3e;
+    }
+    
+    /* Mobile Responsiveness */
+    @media (max-width: 768px) {
+        .resource-view-container {
+            padding: 1rem;
+        }
+        
+        .resource-title {
+            font-size: 1.5rem;
+        }
+        
+        .resource-meta {
+            gap: 0.75rem;
+            font-size: 0.8rem;
+        }
+        
+        .video-wrapper {
+            padding-bottom: 75%;
+        }
+        
+        .responsive-image {
+            max-height: 60vh;
+        }
+        
+        .pdf-toolbar {
+            padding: 0.5rem;
+            gap: 0.5rem;
+        }
+        
+        .page-info {
+            order: 3;
+            width: 100%;
+            text-align: center;
+            margin: 0.5rem 0;
+        }
+        
+        .file-info-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .action-buttons {
+            flex-direction: column;
+        }
+        
+        .btn {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .resource-title {
+            font-size: 1.25rem;
+        }
+        
+        .resource-preview-section {
+            border-radius: 0;
+            margin-left: -1rem;
+            margin-right: -1rem;
+        }
+        
+        .video-wrapper {
+            padding-bottom: 100%;
+        }
+        
+        .responsive-image {
+            max-height: 50vh;
+        }
+        
+        .description-card h2,
+        .file-info-card h2 {
+            font-size: 1.25rem;
+        }
+    }
+</style>
+{% endblock %}

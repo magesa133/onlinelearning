@@ -1,176 +1,211 @@
-{% extends 'base.html' %}
-
-{% block content %}
-
 <style>
-    body {
-        background: linear-gradient(135deg, #007bff, #6c757d);
-        font-family: 'Arial', sans-serif;
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-    }
+        body {
+            background: linear-gradient(135deg, #4ade80, #6366f1, #fb923c);
+            background-size: 400% 400%;
+            animation: gradientBG 12s ease infinite;
+        }
 
-    .login-container {
-        background-color: white;
-        border-radius: 10px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        padding: 30px;
-        max-width: 450px;
-        margin: auto;
-        margin-top: 100px;
-    }
-
-    h2 {
+    p {
         text-align: center;
-        font-size: 28px;
-        color: #4c4c4c;
-        margin-bottom: 30px;
+        font-size: 14px;
     }
 
-    .form-label {
-        font-weight: 600;
-    }
-
-    .form-control {
-        border-radius: 10px;
-        box-shadow: none;
-        transition: all 0.3s ease-in-out;
-    }
-
-    .form-control:focus {
-        border-color: #007bff;
-        box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
-    }
-
-    .btn-primary {
-        width: 100%;
-        padding: 12px;
-        border-radius: 10px;
-        font-size: 16px;
-        background-color: #007bff;
-        border: none;
-        transition: all 0.3s ease;
-    }
-
-    .btn-primary:hover {
-        background-color: #0056b3;
-    }
-
-    .alert {
-        padding: 10px 15px;
-        border-radius: 5px;
-        margin-bottom: 20px;
-        font-weight: 600;
-        display: none;
-        opacity: 0;
-        transition: opacity 0.5s, margin-top 0.5s;
-    }
-
-    .alert.alert-danger {
-        background-color: #f8d7da;
-        color: #721c24;
-        border: 1px solid #f5c6cb;
-    }
-
-    .alert.alert-success {
-        background-color: #d4edda;
-        color: #155724;
-        border: 1px solid #c3e6cb;
-    }
-
-    .alert.show {
-        display: block;
-        opacity: 1;
-    }
-
-    footer {
-        background-color: #f8f9fa;
-        padding: 20px 0;
-        text-align: center;
-        border-top: 1px solid #e0e0e0;
-        color: #6c757d;
-        font-size: 0.9rem;
-        margin-top: auto;
-    }
-
-    footer a {
+    p a {
         color: #007bff;
         text-decoration: none;
     }
 
-    footer a:hover {
-        text-decoration: underline;
+    @keyframes uniqueFadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
     }
 
-        .video-preview {
+    .unique-container {
+        /* width: 72%;
+        height: 80%; */
+        /* background: #4CAF50; */
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        /* box-shadow: 2px 2px 30px #4CAF50; */
+        border-radius: 20px;
         display: flex;
-        flex-direction: column;
+        justify-content: center;
         align-items: center;
-        margin-top: 20px;
+        /* background-image: url('https://i.postimg.cc/pdL2vfK9/bg.gif'); */
+        /* background-repeat: no-repeat;
+        background-size: cover; */
     }
 
-    .video-preview video {
-        width: 100%;
-        max-width: 300px;
-        border: 2px solid #007bff;
+    .unique-login-container {
+        width: 400px;
+        background-color: #FFFFFF;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        border-radius: 15px;
+        padding: 20px;
+        animation: uniqueSlideUp 1s ease-in-out;
+    }
+
+    @keyframes uniqueSlideUp {
+        from { transform: translateY(100%); }
+        to { transform: translateY(0); }
+    }
+
+    .unique-login-title {
+        font-size: 24px;
+        color: #333;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+
+    .unique-form-label {
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .unique-form-control {
         border-radius: 10px;
+        height: 40px;
+        font-size: 14px;
+        transition: all 0.3s ease;
+    }
+
+    .unique-form-control:focus {
+        box-shadow: 0px 0px 5px rgba(66, 57, 238, .5);
+        border-color: #3B02ED;
+    }
+
+    .unique-btn {
+        border-radius: 10px;
+        font-size: 14px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+
+    .unique-navigation-buttons {
+        display: flex;
+        justify-content: space-between; /* Align buttons on the same row with space between */
+        align-items: center;
+        margin-top: 15px;
+        gap: 10px; /* Adds space between buttons */
+    }
+
+    .unique-navigation-buttons button {
+        flex: 1; /* Ensure buttons take equal space */
+        max-width: 48%; /* Ensures buttons don't stretch too much */
+    }
+
+    .unique-text {
+        width: 350px;
+        height: 50px;
+        box-shadow: 2px 6px 18px rgba(66, 57, 238, .3);
+        border-radius: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 10px;
+    }
+
+    input {
+        height: 40px;
+        width: 80%;
+        outline: none;
+        border: none;
+        font-size: 14px;
+        margin: 5px;
+        padding: 10px;
+    }
+
+    img {
+        margin-left: 20px;
+    }
+
+    button {
+        width: 100%;
+        height: 40px;
+        outline: none;
+        border: none;
+        border-radius: 20px;
+        background: linear-gradient(-30deg, #3B02ED, #8E2AE0 55%);
+        box-shadow: 2px 6px 16px rgba(66, 57, 238, .3);
+        color: #FFFFFF;
+        font-weight: 600;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all .3s ease;
+    }
+
+    button:hover {
+        background: linear-gradient(-30deg, #6A2AE0, #3B02ED 55%);
+    }
+
+    button:active {
+        transform: scale(1.1);
     }
 </style>
 
-<div class="login-container">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div id="flash-message" class="alert show">
-                <ul>
-                    {% for category, message in messages %}
-                        <li>{{ message }}</li>
-                    {% endfor %}
-                </ul>
+<div class="unique-container">
+    <div class="unique-login-container">
+        <h2 class="unique-login-title">Login</h2>
+        <form id="unique-login-form" method="POST" action="{{ url_for('login') }}">
+
+            <div class="mb-3 unique-input-step" id="unique-step-1">
+                <label for="unique-identifier" class="unique-form-label">Enter your username or email:</label>
+                <div class="unique-text">
+                    <img src="https://i.postimg.cc/1zgS8WTF/user.png" alt="icon" height="20">
+                    <input type="text" class="unique-form-control" id="unique-identifier" name="identifier" placeholder="Username or Email" required>
+                </div>
             </div>
-        {% endif %}
-    {% endwith %}
-
-    <h2>Login with Face Recognition</h2>
-
-    <!-- Face Recognition Login Form -->
-    <form id="login-form" method="POST" action="{{ url_for('login') }}">
-        <!-- Hidden input for face image data -->
-        <input type="hidden" id="face_image_data" name="image_data">
-
-        <button type="submit" class="btn btn-primary">Login</button>
-    </form>
-
-    <div class="video-preview mt-4">
-        <video id="video" autoplay></video>
-        <button type="button" id="capture-login-btn" class="btn btn-primary mt-3">Capture Face for Login</button>
+            <div class="mb-3 unique-input-step" id="unique-step-2" style="display: none;">
+                <label for="unique-password" class="unique-form-label">Enter your password:</label>
+                <div class="unique-text">
+                    <img src="https://i.postimg.cc/Nj5SDK4q/password.png" alt="icon" height="20">
+                    <input type="password" class="unique-form-control" id="unique-password" name="password" required placeholder="Password">
+                </div>
+            </div>
+            <div class="unique-navigation-buttons">
+                <button type="button" class="unique-btn btn-secondary" id="unique-prev-btn" style="display: none;">Previous</button>
+                <button type="button" class="unique-btn btn-primary" id="unique-next-btn" style="display: inline;">Next</button>
+                <button type="submit" class="unique-btn btn-primary" id="unique-submit-btn" style="display: none;">Login</button>
+            </div>
+            <p><a href="{{ url_for('register')}}">I don't have an account</a></p>
+        </form>
     </div>
 </div>
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        const video = document.getElementById('video');
-        const captureButton = document.getElementById('capture-login-btn');
-        const faceImageInput = document.getElementById('face_image_data');
-        const loginForm = document.getElementById('login-form');
+        const steps = document.querySelectorAll('.unique-input-step');
+        const prevButton = document.getElementById('unique-prev-btn');
+        const nextButton = document.getElementById('unique-next-btn');
+        const submitButton = document.getElementById('unique-submit-btn');
+        let currentStep = 0;
 
-        // Access the camera for face capture
-        navigator.mediaDevices.getUserMedia({ video: true })
-            .then(stream => video.srcObject = stream)
-            .catch(error => alert('Unable to access the camera.'));
+        function updateStepVisibility() {
+            steps.forEach((step, index) => {
+                step.style.display = index === currentStep ? 'block' : 'none';
+            });
+            prevButton.style.display = currentStep > 0 ? 'block' : 'none';
+            nextButton.style.display = currentStep < steps.length - 1 ? 'inline' : 'none';
+            submitButton.style.display = currentStep === steps.length - 1 ? 'inline' : 'none';
+        }
 
-        captureButton.addEventListener('click', function () {
-            const canvas = document.createElement('canvas');
-            canvas.width = 100; // Smaller dimensions for lower image size
-            canvas.height = 100;
-            const context = canvas.getContext('2d');
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            faceImageInput.value = canvas.toDataURL('image/jpeg', 0.3); // Compressed to 30% quality
-
-            // Submit the form after capturing the face image
-            loginForm.submit();
+        nextButton.addEventListener('click', function () {
+            if (currentStep < steps.length - 1) {
+                currentStep++;
+                updateStepVisibility();
+            }
         });
+
+        prevButton.addEventListener('click', function () {
+            if (currentStep > 0) {
+                currentStep--;
+                updateStepVisibility();
+            }
+        });
+
+        updateStepVisibility();
     });
 </script>
-
-{% endblock %}

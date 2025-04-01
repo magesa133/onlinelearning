@@ -1,0 +1,165 @@
+{% extends 'teacher_dashboard.html' %}
+
+{% block content %}
+<head>
+    <title>Create Assignment</title>
+</head>
+<style>
+    .container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    h1 {
+        font-size: 24px;
+        color: #333;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+
+    .form-group {
+        margin-bottom: 20px;
+    }
+
+    label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 8px;
+    }
+
+    input, select, textarea {
+        width: 100%;
+        padding: 10px;
+        margin-top: 5px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        box-sizing: border-box;
+    }
+
+    button {
+        width: 100%;
+        padding: 10px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 16px;
+    }
+
+    button:hover {
+        background-color: #45a049;
+    }
+
+    .assignments-table {
+        width: 100%;
+        margin-top: 30px;
+        border-collapse: collapse;
+    }
+
+    .assignments-table th, .assignments-table td {
+        padding: 10px;
+        border: 1px solid #ddd;
+        text-align: left;
+    }
+</style>
+
+<div class="container">
+    <h1>Create a New Assignment</h1>
+    <form id="assignmentForm" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="title">Assignment Title</label>
+            <input type="text" id="title" name="title" required>
+        </div>
+        <div class="form-group">
+            <label for="description">Description</label>
+            <textarea id="description" name="description" rows="4" required></textarea>
+        </div>
+        <div class="form-group">
+            <label for="due_date">Due Date</label>
+            <input type="date" id="due_date" name="due_date" required>
+        </div>
+        <div class="form-group">
+            <label for="class_id">Class</label>
+            <select id="class_id" name="class_id" required>
+                {% for class in classes %}
+                    <option value="{{ class.id }}">{{ class.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="file">Upload File (Optional)</label>
+            <input type="file" id="file" name="file">
+        </div>
+        <button type="submit">Create Assignment</button>
+    </form>
+</div>
+
+<h2 style="text-align:center; margin-top: 20px;">Existing Assignments</h2>
+<table class="assignments-table">
+    <thead>
+        <tr>
+            <th>Title</th>
+            <th>Description</th>
+            <th>Due Date</th>
+            <th>Class</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for assignment in assignments %}
+    <tr>
+        <td>{{ assignment.title }}</td>
+        <td>{{ assignment.description }}</td>
+        <td>{{ assignment.due_date }}</td>
+        <td>{{ assignment.class_name }}</td>
+        <td>
+            <a href="{{ url_for('edit_assignment', assignment_id=assignment.id) }}">Edit</a> |
+            <a href="{{ url_for('delete_assignment', assignment_id=assignment.id) }}" onclick="return confirm('Are you sure?')">Delete</a>
+        </td>
+    </tr>
+    {% else %}
+    <tr>
+        <td colspan="5" style="text-align:center;">No assignments available.</td>
+    </tr>
+    {% endfor %}
+</tbody>
+
+</table>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        fetchAssignments();
+    });
+
+    function fetchAssignments() {
+        fetch("{{ url_for('get_assignments') }}?teacher_id=1&class_id=1") // Replace with actual IDs
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    document.querySelector(".assignments-table tbody").innerHTML = `<tr><td colspan="5" style="text-align:center;">${data.message}</td></tr>`;
+                } else {
+                    let rows = "";
+                    data.forEach(assignment => {
+                        rows += `
+                            <tr>
+                                <td>${assignment.title}</td>
+                                <td>${assignment.description}</td>
+                                <td>${assignment.due_date}</td>
+                                <td>${assignment.class_name}</td>
+                                <td>
+                                    <a href="/edit_assignment/${assignment.id}">Edit</a> |
+                                    <a href="/delete_assignment/${assignment.id}" onclick="return confirm('Are you sure?')">Delete</a>
+                                </td>
+                            </tr>`;
+                    });
+                    document.querySelector(".assignments-table tbody").innerHTML = rows;
+                }
+            })
+            .catch(error => console.error("Error fetching assignments:", error));
+    }
+</script>
+
+
+{% endblock %}

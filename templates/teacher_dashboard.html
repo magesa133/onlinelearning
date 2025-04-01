@@ -1,155 +1,1065 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Teacher Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+        <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
 
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --primary-light: #4895ef;
+            --secondary: #3f37c9;
+            --accent: #f72585;
+            --dark: #212529;
+            --dark-gray: #495057;
+            --medium-gray: #adb5bd;
+            --light-gray: #f8f9fa;
+            --white: #ffffff;
+            --success: #4cc9f0;
+            --warning: #f8961e;
+            --danger: #ef233c;
+            --sidebar-width: 280px;
+            --header-height: 80px;
+            --transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+            --radius: 12px;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
+            --shadow-lg: 0 15px 30px rgba(0,0,0,0.12);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--light-gray);
+            color: var(--dark);
+            line-height: 1.6;
+        }
+
+        .dashboard-container {
+            display: grid;
+            grid-template-areas:
+                "sidebar header"
+                "sidebar main";
+            grid-template-columns: var(--sidebar-width) 1fr;
+            grid-template-rows: var(--header-height) 1fr;
+            min-height: 100vh;
+        }
+
+        /* Sidebar Styles */
+        .sidebar {
+            grid-area: sidebar;
+            background: var(--white);
+            border-right: 1px solid rgba(0, 0, 0, 0.05);
+            padding: 2rem 0;
+            position: fixed;
+            width: var(--sidebar-width);
+            height: 100%;
+            z-index: 100;
+            transition: var(--transition);
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            padding: 0 2rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--white);
+            font-weight: 700;
+        }
+
+        .sidebar-header h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--dark);
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 0 1rem;
+        }
+
+        .sidebar-menu li {
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            padding: 0.85rem 1rem;
+            color: var(--dark-gray);
+            text-decoration: none;
+            border-radius: var(--radius);
+            transition: var(--transition);
+            font-weight: 500;
+            font-size: 0.95rem;
+        }
+
+        .sidebar-menu a:hover,
+        .sidebar-menu a.active {
+            background-color: rgba(67, 97, 238, 0.1);
+            color: var(--primary);
+        }
+
+        .sidebar-menu a.active {
+            font-weight: 600;
+        }
+
+        .sidebar-menu a i {
+            width: 24px;
+            text-align: center;
+            margin-right: 0.75rem;
+            font-size: 1.1rem;
+        }
+
+        .sidebar-menu .menu-arrow {
+            margin-left: auto;
+            transition: var(--transition);
+            font-size: 0.8rem;
+            color: var(--medium-gray);
+        }
+
+        .sidebar-menu .submenu {
+            list-style: none;
+            padding-left: 1.5rem;
+            max-height: 0;
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .sidebar-menu .submenu.show {
+            max-height: 500px;
+            padding-top: 0.5rem;
+        }
+
+        .sidebar-menu .submenu a {
+            padding: 0.6rem 1rem;
+            font-size: 0.9rem;
+            background-color: transparent;
+            color: var(--dark-gray);
+        }
+
+        .sidebar-menu .submenu a:hover {
+            color: var(--primary);
+        }
+
+        .sidebar-menu .submenu a.active {
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        /* Header Styles */
+        .dashboard-header {
+            grid-area: header;
+            background-color: var(--white);
+            padding: 0 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: var(--shadow-sm);
+            position: sticky;
+            top: 0;
+            z-index: 90;
+            height: var(--header-height);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .toggle-btn {
+            background: none;
+            border: none;
+            font-size: 1.25rem;
+            color: var(--dark-gray);
+            cursor: pointer;
+            display: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+
+        .toggle-btn:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .search-bar {
+            position: relative;
+            width: 400px;
+        }
+
+        .search-bar input {
+            width: 100%;
+            padding: 0.7rem 1rem 0.7rem 2.5rem;
+            border: none;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            transition: var(--transition);
+            background-color: var(--light-gray);
+            color: var(--dark);
+        }
+
+        .search-bar input:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px var(--primary-light);
+        }
+
+        .search-bar i {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--medium-gray);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .notification-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: none;
+            border: none;
+            color: var(--dark-gray);
+            cursor: pointer;
+            position: relative;
+            transition: var(--transition);
+        }
+
+        .notification-btn:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .notification-badge {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent);
+            border-radius: 50%;
+            border: 2px solid var(--white);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            position: relative;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 30px;
+            transition: var(--transition);
+        }
+
+        .user-profile:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--light-gray);
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .user-role {
+            font-size: 0.75rem;
+            color: var(--medium-gray);
+        }
+
+        .user-dropdown {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            background: var(--white);
+            min-width: 220px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            padding: 0.5rem 0;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(10px);
+            transition: var(--transition);
+            z-index: 100;
+        }
+
+        .user-dropdown.active {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .dropdown-header {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .dropdown-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .dropdown-user-info {
+            flex: 1;
+        }
+
+        .dropdown-user-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .dropdown-user-email {
+            font-size: 0.8rem;
+            color: var(--medium-gray);
+        }
+
+        .dropdown-menu {
+            list-style: none;
+            padding: 0.5rem 0;
+        }
+
+        .dropdown-menu li a {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1.5rem;
+            color: var(--dark-gray);
+            text-decoration: none;
+            transition: var(--transition);
+            font-size: 0.9rem;
+        }
+
+        .dropdown-menu li a:hover {
+            background-color: rgba(67, 97, 238, 0.1);
+            color: var(--primary);
+        }
+
+        .dropdown-menu li a i {
+            width: 20px;
+            margin-right: 0.75rem;
+            text-align: center;
+            color: var(--medium-gray);
+        }
+
+        .dropdown-divider {
+            height: 1px;
+            background-color: rgba(0, 0, 0, 0.05);
+            margin: 0.5rem 0;
+        }
+
+        /* Main Content Styles */
+        .dashboard-main {
+            grid-area: main;
+            padding: 2rem;
+            background-color: var(--light-gray);
+            overflow-y: auto;
+            min-height: calc(100vh - var(--header-height));
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .page-title h2 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .welcome-message {
+            color: var(--medium-gray);
+            font-size: 1rem;
+            font-weight: 400;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+
+        /* Cards Grid */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: var(--white);
+            border-radius: var(--radius);
+            padding: 1.75rem;
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+            border: 1px solid rgba(0, 0, 0, 0.03);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-md);
+            border-color: rgba(67, 97, 238, 0.1);
+        }
+
+        .card-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: var(--white);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-icon.subjects {
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+        }
+
+        .card-icon.grades {
+            background: linear-gradient(135deg, #7209b7, #b5179e);
+        }
+
+        .card-icon.sessions {
+            background: linear-gradient(135deg, #f72585, #b5179e);
+        }
+
+        .card-icon.settings {
+            background: linear-gradient(135deg, #4cc9f0, #4895ef);
+        }
+
+        .card h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: var(--dark);
+        }
+
+        .card p {
+            color: var(--medium-gray);
+            margin-bottom: 1.5rem;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .card-link {
+            display: inline-flex;
+            align-items: center;
+            color: var(--primary);
+            font-weight: 500;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: var(--transition);
+        }
+
+        .card-link i {
+            margin-left: 0.5rem;
+            transition: var(--transition);
+            font-size: 0.8rem;
+        }
+
+        .card-link:hover {
+            color: var(--secondary);
+        }
+
+        .card-link:hover i {
+            transform: translateX(3px);
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius);
+            font-weight: 500;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: var(--transition);
+            border: none;
+            text-decoration: none;
+            gap: 0.5rem;
+        }
+
+        .btn i {
+            font-size: 0.9rem;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: var(--white);
+            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.2);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--secondary);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(67, 97, 238, 0.25);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid var(--medium-gray);
+            color: var(--dark-gray);
+        }
+
+        .btn-outline:hover {
+            background-color: rgba(0, 0, 0, 0.02);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .btn-sm {
+            padding: 0.6rem 1.25rem;
+            font-size: 0.85rem;
+        }
+
+        /* Recent Activity */
+        .recent-activity {
+            background: var(--white);
+            border-radius: var(--radius);
+            padding: 1.75rem;
+            box-shadow: var(--shadow-sm);
+            margin-top: 2rem;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .section-header h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .section-header a {
+            color: var(--primary);
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .activity-list {
+            list-style: none;
+        }
+
+        .activity-item {
+            display: flex;
+            padding: 1rem 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+
+        .activity-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: rgba(67, 97, 238, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 1rem;
+            color: var(--primary);
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .activity-content {
+            flex: 1;
+        }
+
+        .activity-title {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .activity-meta {
+            font-size: 0.85rem;
+            color: var(--medium-gray);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .activity-meta i {
+            font-size: 0.7rem;
+        }
+
+        /* Footer */
+        .dashboard-footer {
+            text-align: center;
+            padding: 1.5rem;
+            color: var(--medium-gray);
+            font-size: 0.85rem;
+            margin-top: 2rem;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .search-bar {
+                width: 300px;
+            }
+        }
+
+        @media (max-width: 992px) {
+            .dashboard-container {
+                grid-template-areas:
+                    "header"
+                    "main";
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .toggle-btn {
+                display: flex;
+            }
+
+            .search-bar {
+                width: 250px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-header {
+                padding: 0 1.5rem;
+            }
+
+            .dashboard-main {
+                padding: 1.5rem;
+            }
+
+            .search-bar {
+                display: none;
+            }
+
+            .user-info {
+                display: none;
+            }
+
+            .cards-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .page-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+
+            .action-buttons {
+                width: 100%;
+                justify-content: flex-end;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .cards-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .dashboard-header {
+                padding: 0 1rem;
+            }
+
+            .dashboard-main {
+                padding: 1rem;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+                width: 100%;
+                gap: 0.75rem;
+            }
+
+            .action-buttons .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
 <body>
     <div class="dashboard-container">
-        <!-- Header Section -->
+        <!-- Sidebar -->
+<nav class="sidebar">
+    <div class="sidebar-header">
+        <div class="logo">E</div>
+        <h3>EduConnect</h3>
+    </div>
+    <ul class="sidebar-menu">
+        <li>
+            <a href="{{ url_for('teacher_dashboard') }}" class="active">
+                <i class="fas fa-home"></i> Dashboard
+            </a>
+        </li>
+        <li>
+            <a href="{{ url_for('add_student') }}">
+                <i class="fas fa-user-graduate"></i> Students
+            </a>
+        </li>
+        <li class="has-submenu">
+            <a href="#">
+                <i class="fas fa-book-open"></i> Subjects
+                <i class="fas fa-chevron-down menu-arrow"></i>
+            </a>
+            <ul class="submenu">
+                <li><a href="#"><i class="fas fa-list"></i> My Subjects</a></li>
+                <li><a href="{{ url_for('upload_resource')}}"><i class="fas fa-upload"></i> Upload Notes</a></li>
+            </ul>
+        </li>
+        <li class="has-submenu">
+            <a href="#">
+                <i class="fas fa-question-circle"></i> Quizzes
+                <i class="fas fa-chevron-down menu-arrow"></i>
+            </a>
+            <ul class="submenu">
+                <li>
+                    <a href="{{ url_for('create_quiz') }}">
+                        <i class="fas fa-plus-circle"></i> Create Quiz
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('view_quiz') }}">
+                        <i class="fas fa-list"></i> View Quizzes
+                    </a>
+                </li>
+            </ul>
+        </li>
+        <li>
+            <a href="{{ url_for('create_assignment') }}">
+                <i class="fas fa-tasks"></i> Assignments
+            </a>
+        </li>
+        <li>
+            <a href="#">
+                <i class="fas fa-chart-line"></i> Grades
+            </a>
+        </li>
+        <li>
+            <a href="#">
+                <i class="fas fa-calendar-alt"></i> Schedule
+            </a>
+        </li>
+        <li>
+            <a href="#">
+                <i class="fas fa-cog"></i> Settings
+            </a>
+        </li>
+    </ul>
+</nav>
+
+        <!-- Header -->
         <header class="dashboard-header">
-            <h1>Teacher Dashboard</h1>
-            <div class="user-profile">
-                <img src="https://img.icons8.com/?size=100&id=DnvVED73VLBQ&format=png&color=ffffff" alt="User Icon" class="user-icon" onclick="toggleDropdown()">
-                <div class="dropdown-menu" id="dropdown-menu">
-                    <a href="#">Profile</a>
-                    <a href="#">Settings</a>
-                    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+            <div class="header-left">
+                <button class="toggle-btn" onclick="toggleSidebar()">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="search-bar">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="Search...">
+                </div>
+            </div>
+            <div class="header-actions">
+                <button class="notification-btn">
+                    <i class="fas fa-bell"></i>
+                    <span class="notification-badge"></span>
+                </button>
+                <div class="user-profile" onclick="toggleDropdown()">
+                    <img src="https://randomuser.me/api/portraits/women/45.jpg" alt="User Avatar" class="user-avatar">
+                    <div class="user-info">
+                        <span class="user-name">{{ username }}</span>
+                        <span class="user-role">Teacher</span>
+                    </div>
+                    <ul class="user-dropdown">
+                        <li class="dropdown-header">
+                            <img src="https://randomuser.me/api/portraits/women/45.jpg" alt="User Avatar" class="dropdown-avatar">
+                            <div class="dropdown-user-info">
+                                <div class="dropdown-user-name">{{ username }}</div>
+                                <div class="dropdown-user-email">teacher@school.edu</div>
+                            </div>
+                        </li>
+                        <li>
+                            <a href="#">
+                                <i class="fas fa-user"></i> My Profile
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#">
+                                <i class="fas fa-cog"></i> Settings
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#">
+                                <i class="fas fa-envelope"></i> Messages
+                            </a>
+                        </li>
+                        <li class="dropdown-divider"></li>
+                        <li>
+                            <a href="{{ url_for('logout')}}">
+                                <i class="fas fa-sign-out-alt"></i> Logout
+                            </a>
+                        </li>
+                    </ul>
                 </div>
             </div>
         </header>
 
-        <!-- Sidebar Navigation -->
-        <nav class="sidebar">
-            <ul>
-                <li><a href="{{ url_for('teacher_dashboard') }}"><img src="https://img.icons8.com/ios-filled/24/null/home.png"/> Home</a></li>                
-                <li><a href="#"><img src="https://img.icons8.com/ios-filled/24/null/book-shelf.png"/> Subjects</a></li>
-                <li><a href="#"><img src="https://img.icons8.com/ios-filled/24/null/user-male-circle.png" /> Manage Students</a></li>
-                <li><a href="{{ url_for('create_assignment')}}"><img src="https://img.icons8.com/ios-filled/24/null/book-shelf.png" /> Create Assignments</a></li>
-                <li><a href="{{ url_for('video_conference') }}"><img src="https://img.icons8.com/ios-filled/24/null/video-call.png" /> Schedule Sessions</a></li>
-                <li><a href="#"><img src="https://img.icons8.com/ios-filled/24/null/report-card.png" /> Review Grades</a></li>
-                <li><a href="#"><img src="https://img.icons8.com/ios-filled/24/null/settings.png" /> Settings</a></li>
-            </ul>
-        </nav>
-
-        <!-- Main Dashboard Content -->
+        <!-- Main Content -->
         <main class="dashboard-main">
+            <div class="page-header">
+                <div class="page-title">
+                    <h2>Welcome back, {{ username }}</h2>
+                    <p class="welcome-message">Here's what's happening with your classes today</p>
+                </div>
+                <div class="action-buttons">
+                    <a href="{{ url_for('video_conference') }}" class="btn btn-primary">
+                        <i class="fas fa-video"></i> New Session
+                    </a>
+                    <a href="{{ url_for('create_assignment')}}" class="btn btn-outline">
+                        <i class="fas fa-plus"></i> New Assignment
+                    </a>
+                </div>
+            </div>
+
             {% block content %}
-                <section id="welcome" class="dashboard-section">
-                    <h2>{{ username }}, Welcome to Your Dashboard</h2>
-                    <p>Manage your classes and interact with students effectively.</p>
-
-                    <div class="cards-container">
-                        <!-- Manage Students Card -->
-                        <div class="card">
-                            <img src="https://img.icons8.com/ios-filled/64/null/user-male-circle.png" alt="Students">
-                            <h3>Manage Students</h3>
-                            <p>View and update student profiles.</p>
-                            <button onclick="window.location.href='#'">Go</button>
-                        </div>
-
-                        <!-- Create Assignments Card -->
-                        <div class="card">
-                            <img src="https://img.icons8.com/ios-filled/64/null/book-shelf.png" alt="Assignments">
-                            <h3>Create Assignments</h3>
-                            <p>Design and assign coursework.</p>
-                            <button onclick="window.location.href='#'">Go</button>
-                        </div>
-
-                        <!-- Schedule Sessions Card -->
-                        <div class="card">
-                            <img src="https://img.icons8.com/ios-filled/64/null/video-call.png" alt="Sessions">
-                            <h3>Schedule Sessions</h3>
-                            <p>Plan and host online classes.</p>
-                            <a href="{{ url_for('video_conference') }}">Create Session</a>
-                        </div>
-
-                        <!-- Review Grades Card -->
-                        <div class="card">
-                            <img src="https://img.icons8.com/ios-filled/64/null/report-card.png" alt="Grades">
-                            <h3>Review Grades</h3>
-                            <p>Evaluate student performance.</p>
-                            <button onclick="window.location.href='#'">Go</button>
-                        </div>
+            <div class="cards-grid">
+                <div class="card">
+                    <div class="card-icon subjects">
+                        <i class="fas fa-book-open"></i>
                     </div>
-                </section>
-
-                <!-- Face Monitoring Section -->
-                <section id="monitoring" class="dashboard-section">
-                    <h2>Real-Time Student Monitoring</h2>
-                    <p>View and manage student participation during live sessions.</p>
-
-                    <div id="student-monitoring">
-                        <table class="monitoring-table">
-                            <thead>
-                                <tr>
-                                    <th>Student Name</th>
-                                    <th>Status</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="monitoring-body">
-                                <!-- Data will be dynamically populated -->
-                            </tbody>
-                        </table>
+                    <h3>My Subjects</h3>
+                    <p>Manage your teaching subjects, upload materials, and track student progress.</p>
+                    <a href="#" class="card-link">
+                        View subjects <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+                <div class="card">
+                    <div class="card-icon grades">
+                        <i class="fas fa-chart-bar"></i>
                     </div>
-                </section>
+                    <h3>Gradebook</h3>
+                    <p>Record and analyze student grades, generate reports, and provide feedback.</p>
+                    <a href="#" class="card-link">
+                        Open gradebook <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+                <div class="card">
+                    <div class="card-icon sessions">
+                        <i class="fas fa-video"></i>
+                    </div>
+                    <h3>Live Sessions</h3>
+                    <p>Start virtual classes, record lectures, and manage student participation.</p>
+                    <a href="{{ url_for('video_conference') }}" class="card-link">
+                        Start session <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+                <div class="card">
+                    <div class="card-icon settings">
+                        <i class="fas fa-cogs"></i>
+                    </div>
+                    <h3>Class Settings</h3>
+                    <p>Configure your classroom preferences, notifications, and access controls.</p>
+                    <a href="#" class="card-link">
+                        Configure <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+
+            <div class="recent-activity">
+                <div class="section-header">
+                    <h3>Recent Activity</h3>
+                    <a href="#">View all <i class="fas fa-chevron-right"></i></a>
+                </div>
+                <ul class="activity-list">
+                    <li class="activity-item">
+                        <div class="activity-icon">
+                            <i class="fas fa-book"></i>
+                        </div>
+                        <div class="activity-content">
+                            <div class="activity-title">New assignment posted</div>
+                            <div class="activity-meta">
+                                <i class="fas fa-clock"></i> 2 hours ago • Math 101
+                            </div>
+                        </div>
+                    </li>
+                    <li class="activity-item">
+                        <div class="activity-icon">
+                            <i class="fas fa-user-graduate"></i>
+                        </div>
+                        <div class="activity-content">
+                            <div class="activity-title">5 students submitted assignment</div>
+                            <div class="activity-meta">
+                                <i class="fas fa-clock"></i> 5 hours ago • Science 201
+                            </div>
+                        </div>
+                    </li>
+                    <li class="activity-item">
+                        <div class="activity-icon">
+                            <i class="fas fa-comment"></i>
+                        </div>
+                        <div class="activity-content">
+                            <div class="activity-title">New discussion started</div>
+                            <div class="activity-meta">
+                                <i class="fas fa-clock"></i> Yesterday • English 101
+                            </div>
+                        </div>
+                    </li>
+                    <li class="activity-item">
+                        <div class="activity-icon">
+                            <i class="fas fa-video"></i>
+                        </div>
+                        <div class="activity-content">
+                            <div class="activity-title">Class recording available</div>
+                            <div class="activity-meta">
+                                <i class="fas fa-clock"></i> 2 days ago • History 301
+                            </div>
+                        </div>
+                    </li>
+                </ul>
+            </div>
             {% endblock %}
         </main>
-
-        <!-- Notifications -->
-        <div class="notification">
-            <h3><span class="notification-icon" id="notification-count">3</span> Notifications</h3>
-            <ul class="notification-list">
-                <li><a href="#">New assignment added for Mathematics.</a></li>
-                <li><a href="#">Upcoming session on Science at 11:00 AM.</a></li>
-                <li><a href="#">Grades for History have been updated.</a></li>
-            </ul>
-        </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/class_monitoring.js') }}"></script>
+    <footer class="dashboard-footer">
+        <p>&copy; 2023 EduConnect Teacher Dashboard. All rights reserved.</p>
+    </footer>
+
+    <!-- Bootstrap 5 JS Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
     <script>
+        // Toggle sidebar on mobile
+        function toggleSidebar() {
+            document.querySelector('.sidebar').classList.toggle('active');
+        }
+
+        // Toggle user dropdown
         function toggleDropdown() {
-            document.getElementById('dropdown-menu').classList.toggle('active');
+            document.querySelector('.user-dropdown').classList.toggle('active');
         }
 
-        // WebSocket for real-time student monitoring
-        const socket = new WebSocket("ws://localhost:5000/face-monitoring");
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.user-profile')) {
+                document.querySelector('.user-dropdown').classList.remove('active');
+            }
+        });
 
-        socket.onopen = () => console.log("WebSocket connected to monitoring server.");
-        socket.onclose = () => console.log("WebSocket disconnected from monitoring server.");
-
-        socket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            const monitoringBody = document.getElementById("monitoring-body");
-
-            monitoringBody.innerHTML = ""; // Clear table
-
-            data.students.forEach(student => {
-                const row = document.createElement("tr");
-
-                row.innerHTML = `
-                    <td>${student.name}</td>
-                    <td>${student.status ? "Active" : "Inactive"}</td>
-                    <td><button onclick="removeStudent('${student.id}')">Remove</button></td>
-                `;
-
-                monitoringBody.appendChild(row);
+        // Toggle submenus
+        document.querySelectorAll('.has-submenu > a').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                const submenu = this.nextElementSibling;
+                const arrow = this.querySelector('.menu-arrow');
+                
+                submenu.classList.toggle('show');
+                arrow.classList.toggle('fa-chevron-down');
+                arrow.classList.toggle('fa-chevron-up');
             });
-        };
+        });
 
-        function removeStudent(studentID) {
-            socket.send(JSON.stringify({ action: "remove_student", id: studentID }));
-            alert("Student removed successfully.");
+        // Close sidebar when clicking a link on mobile
+        if (window.innerWidth < 992) {
+            document.querySelectorAll('.sidebar-menu a').forEach(link => {
+                link.addEventListener('click', () => {
+                    document.querySelector('.sidebar').classList.remove('active');
+                });
+            });
         }
+
+        // Add active class to current page link
+        const currentPage = window.location.pathname.split('/').pop() || 'teacher_dashboard';
+        document.querySelectorAll('.sidebar-menu a').forEach(link => {
+            if (link.getAttribute('href').includes(currentPage)) {
+                link.classList.add('active');
+                // Also activate parent menu if this is a submenu item
+                let parentMenu = link.closest('.submenu');
+                if (parentMenu) {
+                    parentMenu.classList.add('show');
+                    const parentLink = parentMenu.previousElementSibling;
+                    parentLink.classList.add('active');
+                    const arrow = parentLink.querySelector('.menu-arrow');
+                    arrow.classList.remove('fa-chevron-down');
+                    arrow.classList.add('fa-chevron-up');
+                }
+            }
+        });
     </script>
 </body>
-
 </html>

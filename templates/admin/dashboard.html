@@ -1,0 +1,57 @@
+{% extends "admin/base.html" %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="page-title">
+        <h2>Dashboard Overview</h2>
+        <div class="breadcrumb">
+            <a href="{{ url_for('admin_dashboard') }}">Home</a>
+            <span class="separator">/</span>
+            <span>Dashboard</span>
+        </div>
+    </div>
+    <div class="action-buttons">
+        <button class="btn btn-outline" id="exportData">
+            <i class="fas fa-download"></i> Export
+        </button>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#quickActionModal">
+            <i class="fas fa-plus"></i> Quick Action
+        </button>
+    </div>
+</div>
+
+{% include "admin/components/cards.html" %}
+{% include "admin/components/activity.html" %}
+
+<!-- Dashboard Specific Content -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3>Recent Registrations</h3>
+            </div>
+            <div class="card-body">
+                <!-- Recent registrations table -->
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3>System Status</h3>
+            </div>
+            <div class="card-body">
+                <!-- System status indicators -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

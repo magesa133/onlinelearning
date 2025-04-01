@@ -1,0 +1,761 @@
+{% extends 'teacher_dashboard.html' %}
+
+{% block content %}
+<div class="quiz-management-container">
+    <!-- Header Section -->
+    <div class="page-header">
+        <div class="header-content">
+            <h2><i class="fas fa-tasks"></i> Quiz Management</h2>
+            <p class="welcome-message">Create, manage, and track student progress on quizzes</p>
+        </div>
+        <button id="toggleQuizForm" class="btn btn-primary">
+            <i class="fas fa-plus"></i> New Quiz
+        </button>
+    </div>
+
+    <!-- Quiz Creation Form -->
+    <div id="quizFormContainer" class="form-card" style="display: none;">
+        <form id="quizForm" method="POST" action="{{ url_for('create_quiz') }}">
+            <div class="form-header">
+                <h3><i class="fas fa-edit"></i> Create New Quiz</h3>
+                <button type="button" id="closeQuizForm" class="btn-icon">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="form-grid">
+                <div class="form-group">
+                    <label for="quiz_title"><i class="fas fa-heading"></i> Quiz Title</label>
+                    <input type="text" id="quiz_title" name="title" required placeholder="Enter quiz title">
+                </div>
+                
+                <div class="form-group">
+                    <label for="class_id"><i class="fas fa-users"></i> Class</label>
+                    <select id="class_id" name="class_id" required>
+                        <option value="" disabled selected>Select a class</option>
+                        {% for class in teacher_classes %}
+                        <option value="{{ class.id }}">{{ class.class_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="subject_id"><i class="fas fa-book"></i> Subject</label>
+                    <select id="subject_id" name="subject_id" required>
+                        <option value="" disabled selected>Select a subject</option>
+                        {% for subject in subjects %}
+                        <option value="{{ subject.id }}">{{ subject.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="due_date"><i class="fas fa-calendar-alt"></i> Due Date</label>
+                    <input type="datetime-local" id="due_date" name="due_date" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="time_limit"><i class="fas fa-clock"></i> Time Limit (minutes)</label>
+                    <input type="number" id="time_limit" name="time_limit" min="1" placeholder="Optional">
+                </div>
+                
+                <div class="form-group full-width">
+                    <label for="instructions"><i class="fas fa-info-circle"></i> Instructions</label>
+                    <textarea id="instructions" name="instructions" rows="3" placeholder="Add instructions for students"></textarea>
+                </div>
+            </div>
+            
+            <!-- Questions Section -->
+            <div class="questions-section">
+                <h4><i class="fas fa-question-circle"></i> Questions</h4>
+                <div id="questionsContainer">
+                    <!-- Questions will be added here dynamically -->
+                </div>
+                <button type="button" id="addQuestionBtn" class="btn btn-outline">
+                    <i class="fas fa-plus"></i> Add Question
+                </button>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i> Save Quiz
+                </button>
+                <button type="button" id="cancelQuizForm" class="btn btn-outline">
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Quiz List Section -->
+    <div class="quiz-list-section">
+        <div class="list-controls">
+            <div class="search-box">
+                <i class="fas fa-search"></i>
+                <input type="text" id="quizSearch" placeholder="Search quizzes...">
+            </div>
+            <div class="filter-controls">
+                <select id="classFilter">
+                    <option value="">All Classes</option>
+                    {% for class in teacher_classes %}
+                    <option value="{{ class.id }}">{{ class.class_name }}</option>
+                    {% endfor %}
+                </select>
+                <select id="statusFilter">
+                    <option value="">All Statuses</option>
+                    <option value="active">Active</option>
+                    <option value="upcoming">Upcoming</option>
+                    <option value="expired">Expired</option>
+                </select>
+                <select id="sortFilter">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="title">By Title</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="quizzes-table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Class</th>
+                        <th>Subject</th>
+                        <th>Due Date</th>
+                        <th>Questions</th>
+                        <th>Submissions</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for quiz in quizzes %}
+                    <tr data-class="{{ quiz.classroom.id }}" data-status="{{ 'active' if quiz.is_active else 'expired' }}">
+                        <td>
+                            <a href="{{ url_for('view_quiz', quiz_id=quiz.id) }}" class="quiz-title">
+                                {{ quiz.title }}
+                            </a>
+                        </td>
+                        <td>{{ quiz.classroom.class_name }}</td>
+                        <td>{{ quiz.subject.name }}</td>
+                        <td>{{ quiz.due_date.strftime('%b %d, %Y %I:%M %p') }}</td>
+                        <td>{{ quiz.questions|length }}</td>
+                        <td>{{ quiz.submissions|length }}/{{ quiz.classroom.students|length }}</td>
+                        <td>
+                            <span class="status-badge {{ 'active' if quiz.is_active else 'expired' }}">
+                                {{ 'Active' if quiz.is_active else 'Expired' }}
+                                {% if quiz.due_date > datetime.utcnow() and not quiz.is_active %}
+                                (Upcoming)
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td class="actions">
+                            <div class="action-buttons">
+                                <a href="{{ url_for('view_quiz', quiz_id=quiz.id) }}" class="btn-icon view" title="View">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{{ url_for('edit_quiz', quiz_id=quiz.id) }}" class="btn-icon edit" title="Edit">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="{{ url_for('quiz_results', quiz_id=quiz.id) }}" class="btn-icon results" title="Results">
+                                    <i class="fas fa-chart-bar"></i>
+                                </a>
+                                <a href="{{ url_for('delete_quiz', quiz_id=quiz.id) }}" class="btn-icon danger" title="Delete" onclick="return confirm('Are you sure? This will delete all related submissions.')">
+                                    <i class="fas fa-trash-alt"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="empty">
+                            <i class="fas fa-info-circle"></i> No quizzes created yet
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="pagination-controls">
+            <button id="prevPage" class="btn btn-outline" disabled>
+                <i class="fas fa-chevron-left"></i> Previous
+            </button>
+            <span class="page-info">Page 1 of 1</span>
+            <button id="nextPage" class="btn btn-outline" disabled>
+                Next <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Base Container */
+    .quiz-management-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 25px;
+        font-family: 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+    
+    /* Header Styles */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #e0e6ed;
+    }
+    
+    .header-content h2 {
+        margin: 0;
+        font-size: 28px;
+        color: #2c3e50;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .welcome-message {
+        margin: 8px 0 0 35px;
+        color: #7f8c8d;
+        font-size: 15px;
+    }
+    
+    /* Form Card Styles */
+    .form-card {
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+        padding: 30px;
+        margin-bottom: 40px;
+        border: 1px solid #e0e6ed;
+    }
+    
+    .form-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #e0e6ed;
+    }
+    
+    .form-header h3 {
+        margin: 0;
+        font-size: 22px;
+        color: #2c3e50;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 25px;
+        margin-bottom: 25px;
+    }
+    
+    .full-width {
+        grid-column: 1 / -1;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #34495e;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 12px 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 15px;
+        transition: all 0.3s ease;
+        background: #f8fafc;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus,
+    .form-group textarea:focus {
+        border-color: #3498db;
+        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        outline: none;
+        background: white;
+    }
+    
+    /* Questions Section */
+    .questions-section {
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #e0e6ed;
+    }
+    
+    .questions-section h4 {
+        margin-bottom: 20px;
+        color: #2c3e50;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .question-item {
+        background: #f8fafc;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid #e0e6ed;
+        position: relative;
+    }
+    
+    .question-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+    
+    .question-number {
+        font-weight: 600;
+        color: #2c3e50;
+        font-size: 16px;
+    }
+    
+    .question-options {
+        margin: 15px 0;
+    }
+    
+    .option-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+    
+    .option-item input[type="text"] {
+        flex: 1;
+        padding: 10px 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        background: white;
+    }
+    
+    .add-option {
+        margin-top: 10px;
+    }
+    
+    /* Quiz List Styles */
+    .quiz-list-section {
+        margin-top: 40px;
+    }
+    
+    .list-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-bottom: 25px;
+    }
+    
+    .search-box {
+        position: relative;
+        flex: 1;
+        min-width: 250px;
+        max-width: 400px;
+    }
+    
+    .search-box i {
+        position: absolute;
+        left: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #7f8c8d;
+    }
+    
+    .search-box input {
+        width: 100%;
+        padding: 10px 15px 10px 45px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 15px;
+        transition: all 0.3s ease;
+    }
+    
+    .search-box input:focus {
+        border-color: #3498db;
+        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+    }
+    
+    .filter-controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    
+    .filter-controls select {
+        padding: 10px 15px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        font-size: 14px;
+        background: #f8fafc;
+        min-width: 150px;
+    }
+    
+    /* Table Styles */
+    .quizzes-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        font-size: 15px;
+    }
+    
+    .quizzes-table th {
+        background: #f8fafc;
+        color: #2c3e50;
+        padding: 15px;
+        text-align: left;
+        font-weight: 600;
+        border-bottom: 2px solid #e0e6ed;
+        position: sticky;
+        top: 0;
+    }
+    
+    .quizzes-table td {
+        padding: 15px;
+        border-bottom: 1px solid #e0e6ed;
+        vertical-align: middle;
+        background: white;
+    }
+    
+    .quizzes-table tr:hover td {
+        background: #f8fafc;
+    }
+    
+    .quiz-title {
+        color: #3498db;
+        font-weight: 500;
+        text-decoration: none;
+        transition: color 0.2s;
+    }
+    
+    .quiz-title:hover {
+        color: #2980b9;
+        text-decoration: underline;
+    }
+    
+    /* Status Badges */
+    .status-badge {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 50px;
+        font-size: 13px;
+        font-weight: 500;
+    }
+    
+    .status-badge.active {
+        background-color: rgba(46, 204, 113, 0.1);
+        color: #27ae60;
+    }
+    
+    .status-badge.expired {
+        background-color: rgba(231, 76, 60, 0.1);
+        color: #c0392b;
+    }
+    
+    /* Action Buttons */
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .btn-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.05);
+        color: #7f8c8d;
+        transition: all 0.2s ease;
+        border: none;
+        cursor: pointer;
+    }
+    
+    .btn-icon.view:hover {
+        background: rgba(52, 152, 219, 0.1);
+        color: #3498db;
+    }
+    
+    .btn-icon.edit:hover {
+        background: rgba(241, 196, 15, 0.1);
+        color: #f39c12;
+    }
+    
+    .btn-icon.results:hover {
+        background: rgba(155, 89, 182, 0.1);
+        color: #9b59b6;
+    }
+    
+    .btn-icon.danger:hover {
+        background: rgba(231, 76, 60, 0.1);
+        color: #e74c3c;
+    }
+    
+    /* Pagination */
+    .pagination-controls {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 20px;
+        margin-top: 30px;
+    }
+    
+    .page-info {
+        font-size: 14px;
+        color: #7f8c8d;
+    }
+    
+    /* Empty State */
+    .empty {
+        text-align: center;
+        padding: 40px;
+        color: #7f8c8d;
+        font-size: 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .empty i {
+        font-size: 24px;
+        color: #bdc3c7;
+    }
+    
+    /* Responsive Adjustments */
+    @media (max-width: 1200px) {
+        .quizzes-table td, .quizzes-table th {
+            padding: 12px 10px;
+        }
+    }
+    
+    @media (max-width: 992px) {
+        .form-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+        
+        .quizzes-table {
+            display: block;
+            overflow-x: auto;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 15px;
+        }
+        
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .list-controls {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .search-box {
+            max-width: 100%;
+        }
+        
+        .filter-controls {
+            width: 100%;
+        }
+        
+        .filter-controls select {
+            flex: 1;
+            min-width: 0;
+        }
+    }
+    
+    @media (max-width: 576px) {
+        .quiz-management-container {
+            padding: 15px;
+        }
+        
+        .action-buttons {
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .pagination-controls {
+            flex-direction: column;
+            gap: 10px;
+        }
+    }
+</style>
+
+<script>
+    // Toggle Quiz Form Visibility
+    document.getElementById('toggleQuizForm').addEventListener('click', function() {
+        const formContainer = document.getElementById('quizFormContainer');
+        formContainer.style.display = formContainer.style.display === 'none' ? 'block' : 'none';
+        if (formContainer.style.display === 'block') {
+            formContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    });
+
+    document.getElementById('closeQuizForm').addEventListener('click', function() {
+        document.getElementById('quizFormContainer').style.display = 'none';
+    });
+
+    document.getElementById('cancelQuizForm').addEventListener('click', function() {
+        document.getElementById('quizFormContainer').style.display = 'none';
+    });
+
+    // Quiz Question Management
+    let questionCount = 0;
+    const questionsContainer = document.getElementById('questionsContainer');
+    const addQuestionBtn = document.getElementById('addQuestionBtn');
+
+    // Template for new question
+    function createQuestionElement(questionNum) {
+        const questionDiv = document.createElement('div');
+        questionDiv.className = 'question-item';
+        questionDiv.dataset.questionId = questionNum;
+        questionDiv.innerHTML = `
+            <div class="question-header">
+                <span class="question-number">Question ${questionNum}</span>
+                <button type="button" class="btn-icon danger remove-question" title="Remove question">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="form-group">
+                <textarea name="questions[${questionNum}][text]" required placeholder="Enter question text" rows="2"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label><i class="fas fa-check-circle"></i> Correct Answer</label>
+                <input type="text" name="questions[${questionNum}][correct_answer]" required placeholder="Enter correct answer">
+            </div>
+            
+            <div class="form-group">
+                <label><i class="fas fa-list-ol"></i> Points</label>
+                <input type="number" name="questions[${questionNum}][points]" min="1" value="1" required>
+            </div>
+        `;
+        
+        // Add event listener for remove button
+        questionDiv.querySelector('.remove-question').addEventListener('click', function() {
+            if (document.querySelectorAll('.question-item').length > 1) {
+                questionDiv.remove();
+            } else {
+                alert('A quiz must have at least one question');
+            }
+        });
+        
+        return questionDiv;
+    }
+
+    // Add new question
+    addQuestionBtn.addEventListener('click', function() {
+        questionCount++;
+        questionsContainer.appendChild(createQuestionElement(questionCount));
+    });
+
+    // Add initial question
+    document.addEventListener('DOMContentLoaded', function() {
+        questionCount++;
+        questionsContainer.appendChild(createQuestionElement(questionCount));
+    });
+
+    // Search Functionality
+    document.getElementById('quizSearch').addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        const rows = document.querySelectorAll('.quizzes-table tbody tr');
+        
+        rows.forEach(row => {
+            const rowText = row.textContent.toLowerCase();
+            row.style.display = rowText.includes(searchTerm) ? '' : 'none';
+        });
+    });
+
+    // Filter Functionality
+    function applyFilters() {
+        const classFilter = document.getElementById('classFilter').value;
+        const statusFilter = document.getElementById('statusFilter').value;
+        const rows = document.querySelectorAll('.quizzes-table tbody tr');
+        
+        rows.forEach(row => {
+            const rowClass = row.dataset.class;
+            const rowStatus = row.dataset.status;
+            
+            const classMatch = !classFilter || rowClass === classFilter;
+            const statusMatch = !statusFilter || rowStatus === statusFilter;
+            
+            row.style.display = classMatch && statusMatch ? '' : 'none';
+        });
+    }
+
+    document.getElementById('classFilter').addEventListener('change', applyFilters);
+    document.getElementById('statusFilter').addEventListener('change', applyFilters);
+
+    // Sort Functionality
+    document.getElementById('sortFilter').addEventListener('change', function() {
+        const sortValue = this.value;
+        const tbody = document.querySelector('.quizzes-table tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr:not([style*="none"])'));
+        
+        rows.sort((a, b) => {
+            if (sortValue === 'newest') {
+                return new Date(b.querySelector('td:nth-child(4)').dataset.date) - 
+                       new Date(a.querySelector('td:nth-child(4)').dataset.date);
+            } else if (sortValue === 'oldest') {
+                return new Date(a.querySelector('td:nth-child(4)').dataset.date) - 
+                       new Date(b.querySelector('td:nth-child(4)').dataset.date);
+            } else if (sortValue === 'title') {
+                return a.querySelector('td:first-child').textContent.localeCompare(
+                    b.querySelector('td:first-child').textContent
+                );
+            }
+            return 0;
+        });
+        
+        // Re-append sorted rows
+        rows.forEach(row => tbody.appendChild(row));
+    });
+
+    // Form Validation
+    document.getElementById('quizForm').addEventListener('submit', function(e) {
+        const questions = document.querySelectorAll('.question-item');
+        if (questions.length === 0) {
+            e.preventDefault();
+            alert('Please add at least one question to the quiz');
+            return false;
+        }
+        
+        // Additional validation can be added here
+        return true;
+    });
+</script>
+
+{% endblock %}

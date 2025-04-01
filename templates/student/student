@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Student Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #4f46e5;
+            --secondary-color: #818cf8;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --background-color: #f3f4f6;
+            --card-background: #ffffff;
+            --text-primary: #111827;
+            --text-secondary: #4b5563;
+            --sidebar-width: 250px;
+            --header-height: 60px;
+            --footer-height: 40px;
+            --transition-speed: 0.3s;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dashboard-container {
+            display: flex;
+            min-height: calc(100vh - var(--footer-height));
+        }
+
+        /* Sidebar Styling */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: linear-gradient(180deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 1rem;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            transition: transform var(--transition-speed);
+            z-index: 1000;
+        }
+
+        .sidebar h3 {
+            padding: 1rem;
+            font-size: 1.25rem;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 1rem;
+        }
+
+        .nav-links {
+            list-style: none;
+        }
+
+        .nav-link {
+            margin-bottom: 0.5rem;
+        }
+
+        .nav-link a {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            border-radius: 0.5rem;
+            transition: all var(--transition-speed);
+        }
+
+        .nav-link a:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        .nav-link i {
+            margin-right: 0.75rem;
+            width: 20px;
+            text-align: center;
+        }
+
+        /* Main Content Area */
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        /* Header Styling */
+        .dashboard-header {
+            height: var(--header-height);
+            background-color: white;
+            padding: 0 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .toggle-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            font-size: 1.25rem;
+            cursor: pointer;
+            padding: 0.5rem;
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            position: relative;
+        }
+
+        .user-profile img {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .user-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            min-width: 150px;
+            display: none;
+            z-index: 1000;
+        }
+
+        .user-dropdown a {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: background-color var(--transition-speed);
+        }
+
+        .user-dropdown a:hover {
+            background-color: var(--background-color);
+        }
+
+        /* Dashboard Main Content */
+        .dashboard-main {
+            flex: 1;
+            padding: 1.5rem;
+            background-color: var(--background-color);
+        }
+
+        /* Cards Grid */
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            transition: transform var(--transition-speed), box-shadow var(--transition-speed);
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h3 {
+            color: var(--primary-color);
+            margin-bottom: 0.75rem;
+            font-size: 1.25rem;
+        }
+
+        .card p {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        /* Sessions List */
+        .sessions-list {
+            list-style: none;
+            margin-top: 1rem;
+        }
+
+        .sessions-list li {
+            padding: 1rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .sessions-list li:last-child {
+            border-bottom: none;
+        }
+
+        .sessions-list .btn {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background-color: var(--primary-color);
+            color: white;
+            text-decoration: none;
+            border-radius: 0.25rem;
+            margin-top: 0.5rem;
+            transition: background-color var(--transition-speed);
+        }
+
+        .sessions-list .btn:hover {
+            background-color: var(--secondary-color);
+        }
+
+        /* Footer Styling */
+        footer {
+            background-color: white;
+            color: var(--text-secondary);
+            text-align: center;
+            padding: 0.75rem;
+            height: var(--footer-height);
+            margin-top: auto;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .sidebar.active {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .toggle-btn {
+                display: block;
+            }
+
+            .dashboard-main {
+                padding: 1rem;
+            }
+
+            .cards {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <h3>Dashboard</h3>
+            <ul class="nav-links">
+                <li class="nav-link"><a href="{{ url_for('student_dashboard') }}"><i class="fa fa-home"></i>Home</a></li>
+                <li class="nav-link"><a href="#"><i class="fa fa-book"></i>Subjects</a></li>
+                <li class="nav-link"><a href="#"><i class="fa fa-graduation-cap"></i>Grades</a></li>
+                <li class="nav-link"><a href="#"><i class="fa fa-cog"></i>Settings</a></li>
+            </ul>
+        </nav>
+
+        <div class="main-content">
+            <!-- Header -->
+            <header class="dashboard-header">
+                <button class="toggle-btn" onclick="toggleSidebar()">
+                    <i class="fa fa-bars"></i>
+                </button>
+                <h1>Student Dashboard</h1>
+                <div class="user-profile" id="userProfile">
+                    <img src="/api/placeholder/35/35" alt="User Profile" onclick="toggleDropdown()">
+                    <div class="user-dropdown">
+                        <a href="#">Profile</a>
+                        <a href="{{ url_for('logout') }}">Logout</a>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Main Content -->
+            <main class="dashboard-main">
+                <h2>Welcome, {{ username }}</h2>
+                {% block content %}
+                <div class="cards">
+                    <div class="card">
+                        <h3>Subjects</h3>
+                        <p>View your enrolled subjects and course materials.</p>
+                    </div>
+                    <div class="card">
+                        <h3>Grades</h3>
+                        <p>Check your academic performance and grades.</p>
+                    </div>
+                    <div class="card">
+                        <h3>Online Sessions</h3>
+                        <p>Join live classes and recorded sessions.</p>
+                        <ul class="sessions-list" id="sessionsList">
+                            {% if sessions %}
+                                {% for session in sessions %}
+                                    <li>
+                                        <strong>{{ session.session_name }}</strong><br>
+                                        <small class="text-success">Starts at: {{ session.start_time.strftime('%Y-%m-%d %H:%M') }}</small><br>
+                                        <small class="text-danger">Ends at: {{ session.end_time.strftime('%Y-%m-%d %H:%M') }}</small><br>
+                                        <a href="{{ url_for('join_session', room_id=session.room_id) }}" class="btn">Join Session</a>
+                                    </li>
+                                {% endfor %}
+                            {% else %}
+                                <li>No active sessions available at this time.</li>
+                            {% endif %}
+                        </ul>
+                        <button id="seeMoreButton" onclick="toggleSessions()" class="btn">See More</button>
+                    </div>
+                    <div class="card">
+                        <h3>Settings</h3>
+                        <p>Update your profile and account settings.</p>
+                    </div>
+                </div>
+                {% endblock %}
+            </main>
+
+            <!-- Footer -->
+            <footer>
+                <p>© 2025 Student Dashboard</p>
+            </footer>
+        </div>
+    </div>
+
+    <script>
+        let isExpanded = false;
+
+        function toggleSessions() {
+            const sessionsList = document.getElementById('sessionsList');
+            const seeMoreButton = document.getElementById('seeMoreButton');
+            const sessionItems = sessionsList.querySelectorAll('li');
+            
+            sessionItems.forEach((item, index) => {
+                if (index >= 3) {
+                    item.style.display = isExpanded ? 'none' : 'block';
+                }
+            });
+
+            const remainingItems = sessionItems.length - 3;
+            seeMoreButton.innerText = isExpanded ? 
+                `See More (${remainingItems} more)` : 'See Less';
+
+            isExpanded = !isExpanded;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const sessionItems = document.getElementById('sessionsList').querySelectorAll('li');
+            sessionItems.forEach((item, index) => {
+                if (index >= 3) {
+                    item.style.display = 'none';
+                }
+            });
+
+            const remainingItems = sessionItems.length - 3;
+            if (remainingItems > 0) {
+                document.getElementById('seeMoreButton').innerText = `See More (${remainingItems} more)`;
+            }
+        });
+
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            sidebar.classList.toggle('active');
+        }
+
+        function toggleDropdown() {
+            const dropdown = document.querySelector('.user-dropdown');
+            dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+        }
+
+        document.addEventListener('click', function(event) {
+            const userProfile = document.getElementById('userProfile');
+            const dropdown = document.querySelector('.user-dropdown');
+            
+            if (!userProfile.contains(event.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>

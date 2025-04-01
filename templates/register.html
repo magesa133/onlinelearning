@@ -1,178 +1,315 @@
-{% extends 'base.html' %}
 
-{% block content %}
-<style>
-    body {
-        background: linear-gradient(135deg, #007bff, #6c757d);
-        font-family: 'Arial', sans-serif;
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-    }
+    <style>
+        body {
+            background: linear-gradient(135deg, #4ade80, #6366f1, #fb923c);
+            background-size: 400% 400%;
+            animation: gradientBG 12s ease infinite;
+        }
 
-    .register-container {
-        background-color: white;
-        border-radius: 10px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        padding: 30px;
-        max-width: 450px;
-        margin: auto;
-        margin-top: 100px;
-    }
+        p{
+            text-align: center;
+            font-size: 14px;
+        }
 
-    h2 {
-        text-align: center;
-        font-size: 28px;
-        color: #4c4c4c;
-        margin-bottom: 30px;
-    }
+        p a{
+            color:#007bff;
+            text-decoration: none;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
 
-    .form-label {
-        font-weight: 600;
-    }
+        .container {
+            width: 72%;
+            height: 70%;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-repeat: no-repeat;
+            background-size: cover;
+        }
 
-    .form-control {
-        border-radius: 10px;
-        transition: all 0.3s ease-in-out;
-    }
+        .register-container {
+            width: 400px;
+            background-color: #FFFFFF;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+            border-radius: 15px;
+            padding: 20px;
+            animation: slideUp 1s ease-in-out;
+        }
 
-    .form-control:focus {
-        border-color: #007bff;
-    }
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
 
-    .btn-primary {
-        width: 100%;
-        padding: 12px;
-        border-radius: 10px;
-        font-size: 16px;
-        background-color: #007bff;
-        border: none;
-        transition: all 0.3s ease;
-    }
+        h2 {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
 
-    .btn-primary:hover {
-        background-color: #0056b3;
-    }
+        .form-label {
+            font-size: 14px;
+            font-weight: 600;
+        }
 
-    .video-preview {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        margin-top: 20px;
-    }
+        .form-control {
+            border-radius: 10px;
+            height: 40px;
+            font-size: 14px;
+        }
 
-    .video-preview video {
-        width: 100%;
-        max-width: 300px;
-        border: 2px solid #007bff;
-        border-radius: 10px;
-    }
+        .btn {
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+        }
 
-    .alert {
-        padding: 10px 15px;
-        border-radius: 5px;
-        margin-bottom: 20px;
-        display: none;
-    }
+        .navigation-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
 
-    .alert.alert-danger {
-        background-color: #f8d7da;
-        color: #721c24;
-    }
+        .video-preview {
+            text-align: center;
+        }
 
-    .alert.alert-success {
-        background-color: #d4edda;
-        color: #155724;
-    }
-</style>
+        .video-preview video {
+            width: 100%;
+            max-width: 250px;
+            border: 2px solid #3B02ED;
+            border-radius: 10px;
+            margin-top: 10px;
+        }
 
-<div class="register-container">
-    <!-- Flash Messages -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="alert alert-danger" id="flash-message">
-                {% for category, message in messages %}
-                    <p>{{ message }}</p>
-                {% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}
+        .text {
+            width: 350px;
+            height: 50px;
+            box-shadow: 2px 6px 18px rgba(66, 57, 238, .3);
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 10px;
+        }
 
-    <h2>Create an Account</h2>
+        .text input {
+            height: 40px;
+            width: 80%;
+            outline: none;
+            border: none;
+            font-size: 14px;
+            margin: 5px;
+        }
 
-    <!-- Registration Form -->
-    <form id="register-form" method="POST" action="{{ url_for('register') }}">
-        <div class="mb-3">
-            <label for="username" class="form-label">Username</label>
-            <input type="text" class="form-control" id="username" name="username" required>
+        .text img {
+            margin-left: 20px;
+        }
+
+        .conditions {
+            font-family: myriad pro;
+            color: #BBC1CB;
+            font-size: 14px;
+        }
+
+        .conditions a {
+            color: #7D22E3;
+            font-weight: 500;
+        }
+
+        .terms {
+            display: flex;
+            align-items: center;
+        }
+
+        button {
+            width: 200px;
+            height: 40px;
+            outline: none;
+            border: none;
+            border-radius: 20px;
+            background: linear-gradient(-30deg, #3B02ED, #8E2AE0 55%);
+            box-shadow: 2px 6px 16px rgba(66, 57, 238, .3);
+            color: #FFFFFF;
+            font-weight: 600;
+            letter-spacing: 1px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all .3s ease;
+        }
+
+        button:active {
+            transform: scale(1.1);
+        }
+
+        @media screen and (max-width: 1080px) {
+            .container {
+                height: 90%;
+            }
+        }
+
+        @media screen and (max-width: 600px) {
+            .container {
+                width: 85%;
+            }
+        }
+
+        @media screen and (max-width: 500px) {
+            .text {
+                width: 300px;
+            }
+        }
+
+        @media screen and (max-width: 420px) {
+            .container {
+                width: 95%;
+            }
+            .heading {
+                text-align: center;
+            }
+            .conditions {
+                text-align: center;
+            }
+            input[type="checkbox"] {
+                margin-right: 5px;
+            }
+            .text {
+                width: 280px;
+            }
+        }
+    </style>
+</head>
+
+    <div class="container">
+        <div class="register-container">
+            <h2>Register</h2>
+            <form id="register-form" method="POST" action="{{ url_for('register') }}">
+                
+
+                <div class="mb-3 input-step" id="step-1">
+                    <label for="username" class="form-label">What is your username?</label>
+                    <div class="text">
+                        <img src="https://i.postimg.cc/1zgS8WTF/user.png" alt="icon" height="20">
+                        <input type="text" class="form-control" id="username" name="username" placeholder="Enter your username" required>
+                    </div>
+                </div>
+                <div class="mb-3 input-step" id="step-2" style="display: none;">
+                    <label for="email" class="form-label">What is your email address?</label>
+                    <div class="text">
+                        <img src="https://i.postimg.cc/DZBPRgvC/email.png" alt="icon" height="12">
+                        <input type="email" class="form-control" id="email" name="email" placeholder="Enter your Email" required>
+                    </div>
+                </div>
+                <div class="mb-3 input-step" id="step-3" style="display: none;">
+                    <label for="password" class="form-label">What is your password?</label>
+                    <div class="text">
+                        <img src="https://i.postimg.cc/Nj5SDK4q/password.png" alt="icon" height="20">
+                        <input type="password" class="form-control" id="password" name="password" placeholder="Enter ypur password" required>
+                    </div>
+                </div>
+                <div class="mb-3 input-step" id="step-4" style="display: none;">
+                    <label for="confirm_password" class="form-label">Please confirm your password.</label>
+                    <div class="text">
+                        <img src="https://i.postimg.cc/Nj5SDK4q/password.png" alt="icon" height="20">
+                        <input type="password" class="form-control" id="confirm_password" placeholder="Confirm your password" name="confirm_password" required>
+                    </div>
+                </div>
+                <div class="video-preview mb-3 input-step" id="step-5" style="display: none;">
+                    <label class="form-label">Would you like to capture your face?</label>
+                    <video id="video" autoplay></video>
+                    <button type="button" id="capture-btn" class="btn btn-primary mt-3">Capture Your Face</button>
+                    <canvas id="canvas" style="display: none;"></canvas>
+                    <div id="captured-image" style="display: none;">
+                        <h4>Captured Image:</h4>
+                        <img id="image" src="" alt="Captured Face" style="width: 250px; border: 2px solid #3B02ED; border-radius: 10px;">
+                    </div>
+                </div>
+                <input type="hidden" id="image_data" name="image_data">
+                <div class="navigation-buttons">
+                    <button type="button" class="btn btn-secondary" id="prev-btn" style="display: none;">Previous</button>
+                    <button type="button" class="btn btn-primary" id="next-btn">Next</button>
+                </div>
+                <button type="submit" class="btn btn-primary mt-3" id="submit-btn" style="display: none;">Register</button>
+                <p> <a href="{{ url_for('login')}}">I have an account</a></p>
+            </form>
         </div>
-        <div class="mb-3">
-            <label for="email" class="form-label">Email</label>
-            <input type="email" class="form-control" id="email" name="email" required>
-        </div>
-        <div class="mb-3">
-            <label for="password" class="form-label">Password</label>
-            <input type="password" class="form-control" id="password" name="password" required>
-        </div>
-        <div class="mb-3">
-            <label for="confirm_password" class="form-label">Confirm Password</label>
-            <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
-        </div>
+    </div>
 
-        <!-- Webcam for face capture -->
-        <div class="video-preview">
-            <video id="video" autoplay></video>
-            <button type="button" id="capture-btn" class="btn btn-primary mt-3">Capture Face</button>
-        </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const steps = document.querySelectorAll('.input-step');
+            const nextButton = document.getElementById('next-btn');
+            const prevButton = document.getElementById('prev-btn');
+            const submitButton = document.getElementById('submit-btn');
+            let currentStep = 0;
 
-        <!-- Hidden Input for Captured Image -->
-        <input type="hidden" id="image_data" name="image_data">
+            function updateStepVisibility() {
+                steps.forEach((step, index) => {
+                    step.style.display = index === currentStep ? 'block' : 'none';
+                });
+                prevButton.style.display = currentStep > 0 ? 'block' : 'none';
+                nextButton.style.display = currentStep < steps.length - 1 ? 'block' : 'none';
+                submitButton.style.display = currentStep === steps.length - 1 ? 'block' : 'none';
+            }
 
-        <button type="submit" class="btn btn-primary mt-4">Register</button>
-    </form>
-</div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const video = document.getElementById('video');
-        const captureButton = document.getElementById('capture-btn');
-        const imageInput = document.getElementById('image_data');
-
-        // Access the webcam
-        navigator.mediaDevices.getUserMedia({ video: true })
-            .then(stream => {
-                video.srcObject = stream;
-            })
-            .catch(error => {
-                alert('Unable to access the camera.');
-                console.error('Camera access error:', error);
+            nextButton.addEventListener('click', function () {
+                if (currentStep < steps.length - 1) {
+                    currentStep++;
+                    updateStepVisibility();
+                }
             });
 
-        // Capture face on button click
-        captureButton.addEventListener('click', function () {
-            const canvas = document.createElement('canvas');
-            // Use higher dimensions for better quality
-            canvas.width = 300; // Width of the captured image
-            canvas.height = 300; // Height of the captured image
-            const context = canvas.getContext('2d');
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            prevButton.addEventListener('click', function () {
+                if (currentStep > 0) {
+                    currentStep--;
+                    updateStepVisibility();
+                }
+            });
 
-            // Convert to base64 and store in hidden input
-            // Increase quality to 0.8 for a good balance between size and quality
-            const imageData = canvas.toDataURL('image/jpeg', 0.8);
-            imageInput.value = imageData;
+            // Initialize video stream
+            const video = document.getElementById('video');
+            const captureButton = document.getElementById('capture-btn');
+            const imageInput = document.getElementById('image_data');
+            const canvas = document.getElementById('canvas');
+            const capturedImage = document.getElementById('captured-image');
+            const imageElement = document.getElementById('image');
 
-            alert('Face captured successfully with good quality!');
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(stream => {
+                    video.srcObject = stream;
+
+           captureButton.onclick = () => {
+    const context = canvas.getContext('2d');
+    const scaleFactor = 0.5; // Adjust scale factor as needed
+    canvas.width = video.videoWidth * scaleFactor;
+    canvas.height = video.videoHeight * scaleFactor;
+    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const dataURL = canvas.toDataURL('image/jpeg', 0.7); // Compress to JPEG
+    imageInput.value = dataURL;
+    imageElement.src = dataURL;
+    capturedImage.style.display = 'block';
+
+    // Stop the camera after capture
+    stream.getTracks().forEach(track => track.stop());
+};
+
+                })
+                .catch(() => {
+                    alert('Unable to access the camera.');
+                });
+
+            updateStepVisibility();
         });
-    });
+    </script>
 
-    // Handle form submission with captured image
-    document.getElementById('register-form').addEventListener('submit', function (event) {
-        if (!document.getElementById('image_data').value) {
-            event.preventDefault();
-            alert('Please capture your face before submitting the form.');
-        }
-    });
-</script>
-
-{% endblock %}

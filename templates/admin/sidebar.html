@@ -1,0 +1,45 @@
+<nav class="sidebar">
+    <div class="sidebar-header">
+        <h3><i class="fas fa-graduation-cap"></i> EduAdmin</h3>
+    </div>
+    <ul class="sidebar-menu">
+        <li>
+            <a href="{{ url_for('admin_dashboard') }}" class="{{ 'active' if request.endpoint == 'admin_dashboard' }}">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </a>
+        </li>
+        <li>
+            <a href="{{ url_for('manage_teachers') }}" class="{{ 'active' if request.endpoint == 'manage_teachers' }}">
+                <i class="fas fa-chalkboard-teacher"></i> Teachers
+                <span class="badge">{{ teacher_count }}</span>
+            </a>
+        </li>
+        <li>
+            <a href="{{ url_for('manage_students') }}" class="{{ 'active' if request.endpoint == 'manage_students' }}">
+                <i class="fas fa-users"></i> Students
+                <span class="badge">{{ student_count }}</span>
+            </a>
+        </li>
+        <li>
+            <a href="{{ url_for('manage_classes') }}" class="{{ 'active' if request.endpoint == 'manage_classes' }}">
+                <i class="fas fa-book-open"></i> Classes
+            </a>
+        </li>
+        <li>
+            <a href="{{ url_for('manage_departments') }}" class="{{ 'active' if request.endpoint == 'manage_departments' }}">
+                <i class="fas fa-building"></i> Departments
+            </a>
+        </li>
+        <li>
+            <a href="{{ url_for('manage_subjects') }}" class="{{ 'active' if request.endpoint == 'manage_subjects' }}">
+                <i class="fas fa-book"></i> Subjects
+            </a>
+        </li>
+        <li class="divider"></li>
+        <li>
+            <a href="{{ url_for('admin_settings') }}" class="{{ 'active' if request.endpoint == 'admin_settings' }}">
+                <i class="fas fa-cog"></i> Settings
+            </a>
+        </li>
+    </ul>
+</nav>

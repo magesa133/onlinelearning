@@ -1,0 +1,434 @@
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import UserMixin
+from flask import current_app
+from sqlalchemy import func, event
+from datetime import datetime, timezone, timedelta
+import os
+import json
+
+db = SQLAlchemy()
+
+# Constants
+class UserRole:
+    STUDENT = 'student'
+    TEACHER = 'teacher'
+    ADMIN = 'admin'
+
+# Association Tables
+teacher_subjects = db.Table('teacher_subjects',
+    db.Column('teacher_id', db.Integer, db.ForeignKey('teachers.id'), primary_key=True),
+    db.Column('subject_id', db.Integer, db.ForeignKey('subjects.id'), primary_key=True),
+    db.Column('created_at', db.DateTime, default=datetime.utcnow)
+)
+
+resource_tags = db.Table('resource_tags',
+    db.Column('resource_id', db.Integer, db.ForeignKey('resources.id'), primary_key=True),
+    db.Column('tag_id', db.Integer, db.ForeignKey('tags.id'), primary_key=True)
+)
+
+class_students = db.Table('class_students',
+    db.Column('class_id', db.Integer, db.ForeignKey('classrooms.id'), primary_key=True),
+    db.Column('student_id', db.Integer, db.ForeignKey('students.id'), primary_key=True),
+    db.Column('enrollment_date', db.DateTime, default=datetime.utcnow)
+)
+
+# User Model
+class User(UserMixin, db.Model):
+    __tablename__ = 'users'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100), unique=True, nullable=False, index=True)
+    email = db.Column(db.String(120), unique=True, nullable=False, index=True)
+    password = db.Column(db.String(200), nullable=False)
+    role = db.Column(db.String(50), nullable=False)
+    face_image = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_login = db.Column(db.DateTime)
+    is_active = db.Column(db.Boolean, default=True)
+
+    # Relationships
+    teacher_profile = db.relationship('Teacher', back_populates='user', uselist=False, cascade='all, delete-orphan')
+    student_profile = db.relationship('Student', back_populates='user', uselist=False, cascade='all, delete-orphan')
+    uploaded_resources = db.relationship('Resource', back_populates='teacher')
+    created_assignments = db.relationship('Assignment', back_populates='author', cascade='all, delete-orphan')
+    created_sessions = db.relationship('OnlineSession', back_populates='creator', cascade='all, delete-orphan')
+    submissions = db.relationship('Submission', back_populates='student', cascade='all, delete-orphan')
+    comments = db.relationship('ResourceComment', back_populates='user')
+
+    def __repr__(self):
+        return f"<User {self.username}, Role: {self.role}>"
+
+# Department Model
+class Department(db.Model):
+    __tablename__ = 'departments'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+    description = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    students = db.relationship('Student', back_populates='department')
+    teachers = db.relationship('Teacher', back_populates='department')
+    subjects = db.relationship('Subject', back_populates='department')
+
+    def __repr__(self):
+        return f"<Department {self.name}>"
+
+# Subject Model
+class Subject(db.Model):
+    __tablename__ = 'subjects'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), unique=True, nullable=False, index=True)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    department_id = db.Column(db.Integer, db.ForeignKey('departments.id'))
+
+    # Relationships
+    department = db.relationship('Department', back_populates='subjects')
+    teachers = db.relationship('Teacher', secondary='teacher_subjects', back_populates='subjects')
+    classrooms = db.relationship('Classroom', back_populates='subject')
+    resources = db.relationship('Resource', back_populates='subject')
+    assignments = db.relationship('Assignment', back_populates='subject')
+    quizzes = db.relationship('Quiz', back_populates='subject')
+    grades = db.relationship('Grade', back_populates='subject')
+
+    def __repr__(self):
+        return f"<Subject {self.name}>"
+
+# Teacher Model
+class Teacher(db.Model):
+    __tablename__ = 'teachers'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
+    department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=False)
+    teacher_name = db.Column(db.String(100))
+    specialization = db.Column(db.String(100))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    user = db.relationship('User', back_populates='teacher_profile')
+    department = db.relationship('Department', back_populates='teachers')
+    subjects = db.relationship('Subject', secondary='teacher_subjects', back_populates='teachers')
+    classrooms = db.relationship('Classroom', back_populates='teacher', cascade='all, delete-orphan')
+
+    def __repr__(self):
+        return f"<Teacher {self.teacher_name}>"
+
+# Student Model
+class Student(db.Model):
+    __tablename__ = 'students'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
+    first_name = db.Column(db.String(100), nullable=False)
+    last_name = db.Column(db.String(100), nullable=False)
+    date_of_birth = db.Column(db.Date, nullable=False)
+    department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=False)
+    enrollment_date = db.Column(db.DateTime, default=datetime.utcnow)
+    graduation_date = db.Column(db.DateTime)
+
+    # Relationships
+    user = db.relationship('User', back_populates='student_profile')
+    department = db.relationship('Department', back_populates='students')
+    class_enrollments = db.relationship('ClassStudent', back_populates='student', cascade='all, delete-orphan')
+    grades = db.relationship('Grade', back_populates='student', cascade='all, delete-orphan')
+
+    def __repr__(self):
+        return f"<Student {self.first_name} {self.last_name}>"
+
+# Classroom Model
+class Classroom(db.Model):
+    __tablename__ = 'classrooms'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    class_name = db.Column(db.String(100), nullable=False)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
+    teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    subject = db.relationship('Subject', back_populates='classrooms')
+    teacher = db.relationship('Teacher', back_populates='classrooms')
+    enrolled_students = db.relationship('ClassStudent', back_populates='classroom', cascade='all, delete-orphan')
+    sessions = db.relationship('OnlineSession', back_populates='classroom', cascade='all, delete-orphan')
+    assignments = db.relationship('Assignment', back_populates='classroom', cascade='all, delete-orphan')
+    resources = db.relationship('Resource', back_populates='classroom', cascade='all, delete-orphan')
+
+    def __repr__(self):
+        return f"<Classroom {self.class_name}>"
+
+# Class Enrollment Model
+class ClassStudent(db.Model):
+    __tablename__ = 'class_students'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    class_id = db.Column(db.Integer, db.ForeignKey('classrooms.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
+    enrollment_date = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    classroom = db.relationship('Classroom', back_populates='enrolled_students')
+    student = db.relationship('Student', back_populates='class_enrollments')
+
+    def __repr__(self):
+        return f"<ClassStudent class_id={self.class_id} student_id={self.student_id}>"
+
+# Resource Model
+class Resource(db.Model):
+    __tablename__ = 'resources'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    file_path = db.Column(db.String(300), nullable=False)
+    file_name = db.Column(db.String(200), nullable=False)
+    file_size = db.Column(db.Integer)
+    file_type = db.Column(db.String(50))
+    resource_type = db.Column(db.String(20), nullable=False)
+    upload_date = db.Column(db.DateTime, default=datetime.utcnow)
+    download_count = db.Column(db.Integer, default=0)
+    views_count = db.Column(db.Integer, default=0)
+    is_approved = db.Column(db.Boolean, default=False)
+    is_featured = db.Column(db.Boolean, default=False)
+    thumbnail_path = db.Column(db.String(300))
+    
+    # Foreign Keys
+    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'))
+    classroom_id = db.Column(db.Integer, db.ForeignKey('classrooms.id'))
+    teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+        
+    # Relationships
+    subject = db.relationship('Subject', back_populates='resources')
+    classroom = db.relationship('Classroom', back_populates='resources')
+    teacher = db.relationship('User', back_populates='uploaded_resources')
+    tags = db.relationship('Tag', secondary='resource_tags', back_populates='resources')
+    comments = db.relationship('ResourceComment', back_populates='resource')
+
+    def get_file_size(self):
+        """Return human-readable file size"""
+        if self.file_size:
+            for unit in ['B', 'KB', 'MB', 'GB']:
+                if self.file_size < 1024.0:
+                    return f"{self.file_size:.1f} {unit}"
+                self.file_size /= 1024.0
+        return "0 B"
+
+    def get_icon(self):
+        """Return appropriate icon based on resource type"""
+        icons = {
+            'document': 'fa-file-alt',
+            'image': 'fa-image',
+            'audio': 'fa-music',
+            'video': 'fa-video'
+        }
+        return icons.get(self.resource_type, 'fa-file')
+
+    def is_media(self):
+        """Check if resource is media (image, audio, video)"""
+        return self.resource_type in ['image', 'audio', 'video']
+
+    def increment_view(self):
+        """Increment view count"""
+        self.views_count += 1
+        db.session.commit()
+
+    def can_preview(self):
+        """Check if resource can be previewed in browser"""
+        return self.resource_type in ['image', 'audio', 'video']
+
+    def get_absolute_path(self):
+        """Get absolute file system path"""
+        return os.path.join(current_app.config['UPLOAD_FOLDER'], self.file_path)
+
+    def __repr__(self):
+        return f"<Resource {self.id}: {self.title} ({self.resource_type})>"
+
+# Tag Model
+class Tag(db.Model):
+    __tablename__ = 'tags'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    
+    resources = db.relationship('Resource', secondary='resource_tags', back_populates='tags')
+
+    def __repr__(self):
+        return f"<Tag {self.name}>"
+
+# Resource Comment Model
+class ResourceComment(db.Model):
+    __tablename__ = 'resource_comments'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    resource_id = db.Column(db.Integer, db.ForeignKey('resources.id'), nullable=False)
+    
+    user = db.relationship('User', back_populates='comments')
+    resource = db.relationship('Resource', back_populates='comments')
+
+    def __repr__(self):
+        return f"<Comment {self.id} by User {self.user_id}>"
+
+# Assignment Model
+class Assignment(db.Model):
+    __tablename__ = 'assignments'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(150), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    due_date = db.Column(db.DateTime, nullable=False)
+    max_score = db.Column(db.Integer, default=100)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
+    class_id = db.Column(db.Integer, db.ForeignKey('classrooms.id'), nullable=False)
+    author_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    subject = db.relationship('Subject', back_populates='assignments')
+    classroom = db.relationship('Classroom', back_populates='assignments')
+    author = db.relationship('User', back_populates='created_assignments')
+    submissions = db.relationship('Submission', back_populates='assignment', cascade='all, delete-orphan')
+
+    def __repr__(self):
+        return f"<Assignment {self.title}>"
+
+# Submission Model
+class Submission(db.Model):
+    __tablename__ = 'submissions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.Text, nullable=False)
+    file_path = db.Column(db.String(300))
+    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)
+    score = db.Column(db.Float)
+    feedback = db.Column(db.Text)
+    assignment_id = db.Column(db.Integer, db.ForeignKey('assignments.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+
+    # Relationships
+    assignment = db.relationship('Assignment', back_populates='submissions')
+    student = db.relationship('User', back_populates='submissions')
+
+    def __repr__(self):
+        return f"<Submission by {self.student.username} for {self.assignment.title}>"
+
+# Quiz Model
+class Quiz(db.Model):
+    __tablename__ = 'quizzes'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(150), nullable=False)
+    description = db.Column(db.Text)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    due_date = db.Column(db.DateTime, nullable=False)
+    time_limit = db.Column(db.Integer)  # in minutes
+
+    # Relationships
+    subject = db.relationship('Subject', back_populates='quizzes')
+    questions = db.relationship('Question', back_populates='quiz', cascade='all, delete-orphan')
+
+    def __repr__(self):
+        return f"<Quiz {self.title}>"
+
+# Question Model
+class Question(db.Model):
+    __tablename__ = 'questions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    text = db.Column(db.Text, nullable=False)
+    options = db.Column(db.JSON, nullable=False)  # Stores as {'A': 'Option 1', 'B': 'Option 2'}
+    correct_option = db.Column(db.String(1), nullable=False)
+    points = db.Column(db.Integer, default=1)
+    quiz_id = db.Column(db.Integer, db.ForeignKey('quizzes.id'), nullable=False)
+
+    # Relationships
+    quiz = db.relationship('Quiz', back_populates='questions')
+
+    def __repr__(self):
+        return f"<Question {self.text[:30]}...>"
+
+# Online Session Model
+class OnlineSession(db.Model):
+    __tablename__ = 'online_sessions'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    room_id = db.Column(db.String(100), unique=True, nullable=False)
+    session_name = db.Column(db.String(200), nullable=False)
+    session_link = db.Column(db.String(500), nullable=False)
+    class_id = db.Column(db.Integer, db.ForeignKey('classrooms.id'), nullable=False)
+    creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    start_time = db.Column(db.DateTime, nullable=False)
+    end_time = db.Column(db.DateTime)
+    recording_url = db.Column(db.String(500))
+
+    # Relationships
+    classroom = db.relationship('Classroom', back_populates='sessions')
+    creator = db.relationship('User', back_populates='created_sessions')
+
+    def __repr__(self):
+        return f"<OnlineSession {self.session_name} (Room: {self.room_id})>"
+
+# Grade Model
+class Grade(db.Model):
+    __tablename__ = 'grades'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
+    quiz_score = db.Column(db.Float)
+    assignment_score = db.Column(db.Float)
+    participation_score = db.Column(db.Float)
+    final_score = db.Column(db.Float)
+    grade_letter = db.Column(db.String(2))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    student = db.relationship('Student', back_populates='grades')
+    subject = db.relationship('Subject', back_populates='grades')
+
+    def __repr__(self):
+        return f"<Grade Student: {self.student_id}, Subject: {self.subject_id}, Score: {self.final_score}>"
+
+# Activity Log Model
+class Activity(db.Model):
+    __tablename__ = 'activities'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    action = db.Column(db.String(100), nullable=False)
+    details = db.Column(db.Text)
+    ip_address = db.Column(db.String(50))
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    icon = db.Column(db.String(30))
+
+    def __repr__(self):
+        return f"<Activity {self.action} by {self.user_id}>"
+
+# Event listeners for automatic grade calculation
+@event.listens_for(Grade, 'before_insert')
+@event.listens_for(Grade, 'before_update')
+def calculate_final_score(mapper, connection, target):
+    if target.quiz_score is not None and target.assignment_score is not None:
+        # Calculate final score (adjust weights as needed)
+        target.final_score = (target.quiz_score * 0.4) + (target.assignment_score * 0.5) + (target.participation_score or 0 * 0.1)
+        
+        # Determine letter grade
+        if target.final_score >= 90:
+            target.grade_letter = 'A'
+        elif target.final_score >= 80:
+            target.grade_letter = 'B'
+        elif target.final_score >= 70:
+            target.grade_letter = 'C'
+        elif target.final_score >= 60:
+            target.grade_letter = 'D'
+        else:
+            target.grade_letter = 'F'

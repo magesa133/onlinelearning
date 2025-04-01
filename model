@@ -1,0 +1,263 @@
+# Removed unused import
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import UserMixin
+from sqlalchemy import func
+from sqlalchemy import event
+
+# Initialize the database object
+db = SQLAlchemy()
+
+# Define User Roles
+class UserRole:
+    STUDENT = 'student'
+    TEACHER = 'teacher'
+
+# User Model
+class User(UserMixin, db.Model):
+    __tablename__ = 'user'
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100), unique=True, nullable=False, index=True)
+    email = db.Column(db.String(120), unique=True, nullable=False, index=True)
+    password = db.Column(db.String(200), nullable=False)
+    role = db.Column(db.String(50), nullable=False)
+    face_image = db.Column(db.String(255), nullable=True)  # Store image file path or URL
+
+    # Relationships
+    teacher = db.relationship('Teacher', backref='user', uselist=False)
+    uploaded_notes = db.relationship('Notes', backref='user', cascade="all, delete-orphan")
+    created_assignments = db.relationship('Assignment', backref='teacher', cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<User {self.username}, Role: {self.role}>"
+
+# Department Model
+class Department(db.Model):
+    __tablename__ = 'department'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+    description = db.Column(db.String(255), nullable=True)
+
+    # Relationship with Students
+    students = db.relationship('Student', back_populates='department')
+
+    # Relationship with Subjects
+    subjects = db.relationship('Subject', back_populates='department')
+
+    def __repr__(self):
+        return f"<Department {self.name}>"
+
+# Classroom Model (Renamed from 'Class' to avoid reserved word conflict)
+class Classroom(db.Model):
+    __tablename__ = 'classroom'
+
+    id = db.Column(db.Integer, primary_key=True)
+    class_name = db.Column(db.String(100), nullable=False)
+
+    # Foreign key to Subject
+    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
+
+    # Relationship to Subject (no cascade="all, delete-orphan" here)
+    subject = db.relationship('Subject', backref='subject_classrooms', single_parent=True)
+
+    # Foreign key to Teacher
+    teacher_id = db.Column(db.Integer, db.ForeignKey('teacher.id'), nullable=False)
+    teacher = db.relationship('Teacher', backref='teacher_classes')
+
+    # Relationship to ClassStudent (enrolled students)
+    enrolled_students = db.relationship('ClassStudent', backref='classroom', cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<Classroom {self.class_name}>"
+
+# ClassStudent Model
+class ClassStudent(db.Model):
+    __tablename__ = 'class_student'
+
+    id = db.Column(db.Integer, primary_key=True)
+    class_id = db.Column(db.Integer, db.ForeignKey('classroom.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
+
+    # Relationships for back-population
+    class_ = db.relationship('Classroom', back_populates='enrolled_students')  # Link to Classroom
+    student = db.relationship('Student', backref='class_students')
+
+    def __repr__(self):
+        return f"<ClassStudent class_id={self.class_id} student_id={self.student_id}>"
+
+# Student Model
+class Student(db.Model):
+    __tablename__ = 'student'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    first_name = db.Column(db.String(100), nullable=False)
+    last_name = db.Column(db.String(100), nullable=False)
+    date_of_birth = db.Column(db.Date, nullable=False)
+    department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=False)
+
+    # Relationships
+    user = db.relationship('User', backref='student_profile', uselist=False)
+    department = db.relationship('Department', back_populates='students')
+
+    # Many-to-many relationship with Classroom via ClassStudent
+    enrolled_classes = db.relationship('ClassStudent', back_populates='student')
+
+    def __repr__(self):
+        return f"<Student {self.first_name} {self.last_name}>"
+
+# Teacher Model
+class Teacher(db.Model):
+    __tablename__ = 'teacher'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=False)
+    teacher_name = db.Column(db.String(100))
+    subject = db.Column(db.String(100))
+
+    department = db.relationship('Department', backref='teachers')
+    # Change backref name here to avoid conflict with Classroom's 'backref'
+    classes = db.relationship('Classroom', backref='teacher_classes', cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<Teacher {self.teacher_name}>"
+
+# Assignment Model
+class Assignment(db.Model):
+    __tablename__ = 'assignment'
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(150), nullable=False)
+    description = db.Column(db.Text, nullable=False)
+    due_date = db.Column(db.DateTime, nullable=False)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
+    class_id = db.Column(db.Integer, db.ForeignKey('classroom.id'), nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    class_ = db.relationship('Classroom', backref='assignments')
+
+    def __repr__(self):
+        return f"<Assignment {self.title}>"
+
+# Submission Model
+class Submission(db.Model):
+    __tablename__ = 'submissions'
+
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.Text, nullable=False)
+    submitted_at = db.Column(db.DateTime, default=func.now(), nullable=False)
+    assignment_id = db.Column(db.Integer, db.ForeignKey('assignment.id'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    assignment = db.relationship('Assignment', backref='submissions')
+    student = db.relationship('User', backref='submissions')
+
+    def __repr__(self):
+        return f"<Submission by {self.student.username} for {self.assignment.title}>"
+
+# Quiz Model
+class Quiz(db.Model):
+    __tablename__ = 'quiz'
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(150), nullable=False)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
+
+    questions = db.relationship('Question', backref='quiz', lazy=True, cascade='all, delete')
+
+    def __repr__(self):
+        return f"<Quiz {self.title}>"
+
+# Notes Model
+class Notes(db.Model):
+    __tablename__ = 'notes'
+
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(150), nullable=False)
+    file_path = db.Column(db.String(255), nullable=False)
+    uploaded_at = db.Column(db.DateTime, default=func.now(), nullable=False)
+    uploaded_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
+
+    def __repr__(self):
+        return f"<Notes {self.title}>"
+
+# Subject Model
+class Subject(db.Model):
+    __tablename__ = 'subject'
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), unique=True, nullable=False, index=True)
+    description = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, default=func.now(), nullable=False)
+
+    # Department relationship
+    department_id = db.Column(db.Integer, db.ForeignKey('department.id'), nullable=False)
+    department = db.relationship('Department', back_populates='subjects')
+
+    # Relationships
+    classes = db.relationship('Classroom', backref='subject_ref', cascade="all, delete-orphan")
+
+    # Other relationships
+    notes = db.relationship('Notes', backref='subject', cascade="all, delete-orphan")
+    quizzes = db.relationship('Quiz', backref='subject', cascade="all, delete-orphan")
+    assignments = db.relationship('Assignment', backref='subject', cascade="all, delete-orphan")
+    grades = db.relationship('Grade', backref='subject', cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<Subject {self.name}>"
+
+# Question Model
+class Question(db.Model):
+    __tablename__ = 'question'
+
+    id = db.Column(db.Integer, primary_key=True)
+    text = db.Column(db.Text, nullable=False)
+    options = db.Column(db.JSON, nullable=False)
+    correct_option = db.Column(db.String(1), nullable=False)
+    quiz_id = db.Column(db.Integer, db.ForeignKey('quiz.id'), nullable=False)
+
+    def __repr__(self):
+        return f"<Question {self.text[:30]}...>"
+
+# Online Session Model
+class OnlineSession(db.Model):
+    __tablename__ = 'online_session'
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    room_id = db.Column(db.String(100), nullable=False, unique=True, index=True)
+    session_name = db.Column(db.String(200), nullable=False)
+    session_link = db.Column(db.String(500), nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=func.now(), nullable=False)
+    start_time = db.Column(db.DateTime, nullable=False, default=func.now())
+    end_time = db.Column(db.DateTime, nullable=True)
+
+    def __repr__(self):
+        return f"<OnlineSession {self.session_name} (Room: {self.room_id})>"
+
+# Grade Model
+class Grade(db.Model):
+    __tablename__ = 'grade'
+
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
+    subject_id = db.Column(db.Integer, db.ForeignKey('subject.id'), nullable=False)
+    quiz_score = db.Column(db.Float, nullable=True)
+    assignment_score = db.Column(db.Float, nullable=True)
+    final_score = db.Column(db.Float, nullable=True)
+    created_at = db.Column(db.DateTime, default=func.now())
+
+    def __repr__(self):
+        return f"<Grade Student: {self.student_id}, Subject: {self.subject_id}, Final Score: {self.final_score}>"
+
+# Event listener to update the final score before insert or update
+def update_final_score(mapper, connection, target):
+    if target.quiz_score is not None and target.assignment_score is not None:
+        target.final_score = (target.quiz_score + target.assignment_score) / 2
+
+# Register the event listeners
+event.listen(Grade, 'before_insert', update_final_score)
+event.listen(Grade, 'before_update', update_final_score)

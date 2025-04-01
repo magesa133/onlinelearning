@@ -1,0 +1,302 @@
+{% extends "student_dashboard.html" %}
+
+{% extends "student_dashboard.html" %}
+
+{% block content %}
+<div class="resources-container">
+    <div class="page-header">
+        <h2><i class="fas fa-book-open"></i> Study Resources</h2>
+        {% if subjects %}
+        <div class="resource-filters">
+            <div class="filter-group">
+                <label for="subject-filter"><i class="fas fa-filter"></i> Filter by Subject:</label>
+                <select id="subject-filter" class="filter-select">
+                    <option value="all">All Subjects</option>
+                    {% for subject in subjects %}
+                    <option value="{{ subject.id }}">{{ subject.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="search-resources">
+                <i class="fas fa-search"></i>
+                <input type="text" id="resource-search" placeholder="Search resources...">
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if not subjects %}
+    <div class="empty-resources">
+        <i class="fas fa-user-graduate fa-3x"></i>
+        <h3>No Enrolled Classes</h3>
+        <p>You are not currently enrolled in any classes.</p>
+    </div>
+    {% elif not notes %}
+    <div class="empty-resources">
+        <i class="fas fa-book-open fa-3x"></i>
+        <h3>No Study Resources Available</h3>
+        <p>Your teachers haven't uploaded any notes yet for your enrolled classes.</p>
+    </div>
+    {% else %}
+    <div class="resources-grid">
+        {% for note in notes %}
+        <div class="resource-card" data-subject="{{ note.subject.id }}">
+            <div class="resource-card-header">
+                <div class="resource-icon">
+                    {% if note.file_type == 'pdf' %}
+                    <i class="fas fa-file-pdf"></i>
+                    {% elif note.file_type in ['doc', 'docx'] %}
+                    <i class="fas fa-file-word"></i>
+                    {% elif note.file_type in ['ppt', 'pptx'] %}
+                    <i class="fas fa-file-powerpoint"></i>
+                    {% else %}
+                    <i class="fas fa-file-alt"></i>
+                    {% endif %}
+                </div>
+                <h3 class="resource-title">{{ note.title }}</h3>
+                <span class="resource-subject">{{ note.subject.name }}</span>
+            </div>
+            
+            <div class="resource-meta">
+                <div class="meta-item">
+                    <i class="fas fa-user-tie"></i>
+                    <span>{{ note.teacher.teacher_name }}</span>
+                </div>
+                <div class="meta-item">
+                    <i class="far fa-calendar-alt"></i>
+                    <span>{{ note.upload_date.strftime('%b %d, %Y') }}</span>
+                </div>
+            </div>
+            
+            <div class="resource-actions">
+                <a href="{{ url_for('download_note', note_id=note.id) }}" class="btn-download">
+                    <i class="fas fa-download"></i> Download
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    /* Inherit dashboard styles and add resource-specific styles */
+    .resources-container {
+        padding: 2rem;
+    }
+    
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+    
+    .page-header h2 {
+        margin: 0;
+        color: var(--primary);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .resource-filters {
+        display: flex;
+        gap: 1.5rem;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    
+    .filter-group {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .filter-select {
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius);
+        border: 1px solid rgba(0,0,0,0.1);
+        background-color: var(--white);
+    }
+    
+    .search-resources {
+        display: flex;
+        align-items: center;
+        background-color: var(--white);
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius);
+        border: 1px solid rgba(0,0,0,0.1);
+    }
+    
+    .search-resources input {
+        border: none;
+        outline: none;
+        margin-left: 0.5rem;
+        width: 200px;
+    }
+    
+    .resources-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .resource-card {
+        background-color: var(--white);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        box-shadow: var(--shadow-sm);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+    
+    .resource-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-md);
+    }
+    
+    .resource-card-header {
+        margin-bottom: 1rem;
+    }
+    
+    .resource-icon {
+        font-size: 2rem;
+        color: var(--primary);
+        margin-bottom: 0.5rem;
+    }
+    
+    .resource-title {
+        margin: 0 0 0.25rem 0;
+        font-size: 1.1rem;
+    }
+    
+    .resource-subject {
+        display: inline-block;
+        background-color: var(--primary-lighter);
+        color: var(--primary);
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    
+    .resource-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin: 1rem 0;
+        font-size: 0.85rem;
+        color: var(--dark-gray);
+    }
+    
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .resource-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: auto;
+    }
+    
+    .btn-download {
+        background-color: var(--primary);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: var(--radius);
+        text-decoration: none;
+        font-weight: 500;
+        transition: background-color 0.2s ease;
+    }
+    
+    .btn-download:hover {
+        background-color: var(--secondary);
+    }
+    
+    .file-size {
+        font-size: 0.8rem;
+        color: var(--medium-gray);
+    }
+    
+    .resource-description {
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid rgba(0,0,0,0.05);
+        font-size: 0.9rem;
+        color: var(--dark-gray);
+    }
+    
+    .empty-resources {
+        grid-column: 1 / -1;
+        text-align: center;
+        padding: 3rem;
+        color: var(--medium-gray);
+    }
+    
+    .empty-resources i {
+        margin-bottom: 1rem;
+        color: var(--primary-light);
+    }
+    
+    @media (max-width: 768px) {
+        .resources-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .page-header {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .resource-filters {
+            width: 100%;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+    }
+</style>
+
+<script>
+    // Filter resources by subject
+    document.getElementById('subject-filter').addEventListener('change', function() {
+        const subjectId = this.value;
+        const resources = document.querySelectorAll('.resource-card');
+        
+        resources.forEach(resource => {
+            if (subjectId === 'all' || resource.dataset.subject === subjectId) {
+                resource.style.display = 'block';
+            } else {
+                resource.style.display = 'none';
+            }
+        });
+    });
+    
+    // Search functionality
+    document.getElementById('resource-search').addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        const resources = document.querySelectorAll('.resource-card');
+        
+        resources.forEach(resource => {
+            const title = resource.querySelector('.resource-title').textContent.toLowerCase();
+            const subject = resource.querySelector('.resource-subject').textContent.toLowerCase();
+            const description = resource.querySelector('.resource-description') ? 
+                resource.querySelector('.resource-description').textContent.toLowerCase() : '';
+            
+            if (title.includes(searchTerm) || subject.includes(searchTerm) || description.includes(searchTerm)) {
+                resource.style.display = 'block';
+            } else {
+                resource.style.display = 'none';
+            }
+        });
+    });
+</script>
+{% endblock %}
