@@ -1,6 +1,128 @@
-<h2>Subjects</h2>
-<ul>
-    {% for subject in subjects %}
-    <li>{{ subject.name }} - <a href="{{ url_for('upload_notes') }}">Upload Notes</a></li>
-    {% endfor %}
-</ul>
+<!-- templates/teacher/subjects.html -->
+{% extends "teacher_dashboard.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="fas fa-book-open me-2"></i>My Subjects</h2>
+        <a href="#" class="btn btn-outline-primary">
+            <i class="fas fa-envelope me-2"></i>Contact Admin
+        </a>
+    </div>
+
+    {% if not subjects and show_contact %}
+    <div class="alert alert-info">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-info-circle fa-2x me-3"></i>
+            <div>
+                <h4>No Subjects Assigned</h4>
+                <p>You haven't been assigned to teach any subjects yet. Please contact your department administrator.</p>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="row">
+        {% for data in subjects %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-1">{{ data.subject.name }}</h5>
+                    <small class="text-white-50"> Department: {{ data.subject.department.name }}</small>
+                </div>
+                <div class="card-body">
+                    <p class="card-text">{{ data.subject.description|default('No description available', true) }}</p>
+                    
+                    <div class="subject-stats mb-3">
+                        <div class="stat-item">
+                            <i class="fas fa-users"></i>
+                            <span>{{ data.stats.class_count }} Classes</span>
+                        </div>
+                        <div class="stat-item">
+                            <i class="fas fa-tasks"></i>
+                            <span>{{ data.stats.assignment_count }} Assignments</span>
+                        </div>
+                        <div class="stat-item">
+                            <i class="fas fa-question-circle"></i>
+                            <span>{{ data.stats.quiz_count }} Quizzes</span>
+                        </div>
+                        <div class="stat-item">
+                            <i class="fas fa-book"></i>
+                            <span>{{ data.stats.resource_count }} Resources</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-white border-top">
+                <div class="d-flex justify-content-between align-items-center">
+                    <!-- Classes Button -->
+                    <a href="{{ url_for('subject_assignments', subject_id=data.subject.id) }}" 
+                    class="btn btn-sm btn-outline-primary rounded-pill px-3"
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="View Classes">
+                        <i class="fas fa-users me-1"></i>
+                        <span class="d-none d-md-inline">Classes</span>
+                        <!-- {% if data.classrooms %}
+                        <span class="badge bg-primary ms-1">{{ data.classrooms|length }}</span>
+                        {% endif %} -->
+                    </a>
+
+                    <!-- Assignments Button -->
+                    <a href="{{ url_for('subject_assignments', subject_id=data.subject.id) }}" 
+                    class="btn btn-sm btn-outline-secondary rounded-pill px-3"
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="View Assignments">
+                        <i class="fas fa-tasks me-1"></i>
+                        <span class="d-none d-md-inline">Assignments</span>
+                        {% if data.stats.assignments %}
+                        <span class="badge bg-secondary ms-1">{{ data.stats.assignments }}</span>
+                        {% endif %}
+                    </a>
+
+                    <!-- Quizzes Button -->
+                    <a href="{{ url_for('subject_quizzes', subject_id=data.subject.id) }}" 
+                    class="btn btn-sm btn-outline-success rounded-pill px-3"
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="View Quizzes">
+                        <i class="fas fa-question-circle me-1"></i>
+                        <span class="d-none d-md-inline">Quizzes</span>
+                        {% if data.stats.quizzes %}
+                        <span class="badge bg-success ms-1">{{ data.stats.quizzes }}</span>
+                        {% endif %}
+                    </a>
+
+                    <!-- Resources Button -->
+                    <a href="{{ url_for('subject_resources', subject_id=data.subject.id) }}" 
+                    class="btn btn-sm btn-outline-info rounded-pill px-3"
+                    data-bs-toggle="tooltip" data-bs-placement="top" title="View Resources">
+                        <i class="fas fa-book me-1"></i>
+                        <span class="d-none d-md-inline">Resources</span>
+                        {% if data.stats.resources %}
+                        <span class="badge bg-info ms-1">{{ data.stats.resources }}</span>
+                        {% endif %}
+                    </a>
+                </div>
+            </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .subject-stats {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 15px;
+    }
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.85rem;
+        background: #f8f9fa;
+        padding: 5px 10px;
+        border-radius: 5px;
+    }
+    .stat-item i {
+        color: #6c757d;
+    }
+</style>
+{% endblock %}

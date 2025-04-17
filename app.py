@@ -7,13 +7,37 @@ import logging
 from sqlalchemy import text
 from config import Config
 from models import db, OnlineSession, User
+from datetime import datetime
+from forms import TimeSinceFormatter  # Import the formatter class
+
 
 # Initialize Flask app
 app = Flask(__name__)
+
+# Register the template filter after app creation
+# Correct way to register a filter
+@app.template_filter('timesince')
+def timesince_filter(dt):
+    return TimeSinceFormatter().format_time_since(dt)
+
+# Verify registration
+# print("Registered filters:", app.jinja_env.filters.keys())  # Should show 'timesince'
+
+# Define the datetimeformat filter
+@app.template_filter('datetimeformat')
+def datetimeformat(value, format='%b %d, %Y at %I:%M %p'):
+    """Custom Jinja2 filter to format datetime objects."""
+    if value is None:
+        return ""
+    return value.strftime(format)
+
 app.config.from_object(Config)
 
 # Disable CSRF protection globally
 app.config['WTF_CSRF_ENABLED'] = False
+
+print(app.url_map)
+
 
 # Database and migration setup
 db.init_app(app)

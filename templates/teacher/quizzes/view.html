@@ -2,61 +2,149 @@
 
 {% block content %}
 <div class="container py-4">
+    <!-- Quiz Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3 font-weight-bold text-primary">
-            <i class="fas fa-eye me-2"></i>Quiz: {{ quiz.title }}
-            <span class="badge bg-{{ 'success' if quiz.status == 'published' else 'warning' }} ms-2">
-                {{ quiz.status|capitalize }}
+        <div>
+            <h1 class="h2 font-weight-bold text-primary">
+                <i class="fas fa-eye me-2"></i>{{ quiz.title }}
+            </h1>
+            <span class="badge bg-{% if quiz.is_published %}success{% else %}warning{% endif %}">
+                {% if quiz.is_published %}Published{% else %}Draft{% endif %}
             </span>
-        </h1>
-        <a href="{{ url_for('create_quiz') }}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left me-2"></i>Back to Quiz Creation
-        </a>
-    </div>
-
-    <div class="card mb-4">
-        <div class="card-body">
-            <h5 class="card-title">Quiz Details</h5>
-            <p class="card-text">{{ quiz.description }}</p>
-            <ul class="list-group list-group-flush">
-                <li class="list-group-item">
-                    <strong>Subject:</strong> {{ quiz.subject.name }} ({{ quiz.subject.department.name }})
-                </li>
-                <li class="list-group-item">
-                    <strong>Classroom:</strong> {{ quiz.classroom.class_name }}
-                </li>
-                <li class="list-group-item">
-                    <strong>Due Date:</strong> {{ quiz.due_date.strftime('%Y-%m-%d %H:%M') if quiz.due_date else 'Not set' }}
-                </li>
-                <li class="list-group-item">
-                    <strong>Duration:</strong> {{ quiz.time_limit // 60 }} minutes
-                </li>
-            </ul>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('edit_quiz', quiz_id=quiz.id) }}" class="btn btn-outline-primary">
+                <i class="fas fa-edit me-2"></i>Edit
+            </a>
+            <a href="{{ url_for('list_quizzes') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to List
+            </a>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-header">
+    <!-- Quiz Details Card -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Quiz Details</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <h6>Description</h6>
+                    <p class="text-muted">{{ quiz.description or "No description provided" }}</p>
+                </div>
+                <div class="col-md-4">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">
+                            <strong><i class="fas fa-book me-2"></i>Subject:</strong> 
+                            {{ quiz.subject.name }}
+                        </li>
+                        <li class="list-group-item">
+                            <strong><i class="fas fa-users me-2"></i>Classroom:</strong> 
+                            {{ quiz.classroom.class_name }}
+                        </li>
+                        <li class="list-group-item">
+                            <strong><i class="fas fa-calendar-alt me-2"></i>Due Date:</strong> 
+                            {{ quiz.due_date.strftime('%B %d, %Y at %H:%M') if quiz.due_date else "Not set" }}
+                        </li>
+                        <li class="list-group-item">
+                            <strong><i class="fas fa-clock me-2"></i>Time Limit:</strong> 
+                            {{ quiz.time_limit }} minutes
+                        </li>
+                        <li class="list-group-item">
+                            <strong><i class="fas fa-star me-2"></i>Total Points:</strong> 
+                            {{ quiz.total_points }}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Questions Section -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Questions ({{ quiz.questions|length }})</h5>
+            <span class="badge bg-primary">
+                {{ quiz.total_points }} Total Points
+            </span>
         </div>
         <div class="card-body">
             {% for question in quiz.questions %}
             <div class="mb-4 pb-3 border-bottom">
-                <h6>Question #{{ loop.index }} ({{ question.points }} point{{ 's' if question.points > 1 }})</h6>
-                <p>{{ question.text }}</p>
-                <ul class="list-group mb-3">
+                <div class="d-flex justify-content-between align-items-start">
+                    <h6 class="mb-2">
+                        <span class="badge bg-info me-2">#{{ loop.index }}</span>
+                        {{ question.text }}
+                    </h6>
+                    <span class="badge bg-dark">
+                        {{ question.points }} point{{ 's' if question.points > 1 }}
+                    </span>
+                </div>
+                
+                {% if question.options %}
+                <ul class="list-group mt-3 mb-2">
                     {% for option in question.options %}
-                    <li class="list-group-item 
-                        {% if question.correct_option.upper() == ['A', 'B', 'C', 'D', 'E', 'F'][loop.index0] %}
-                            list-group-item-success
-                        {% endif %}">
-                        {{ ['A', 'B', 'C', 'D', 'E', 'F'][loop.index0] }}: {{ option }}
+                    <li class="list-group-item {% if loop.index0 == question.correct_option %}list-group-item-success{% endif %}">
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-secondary me-2">{{ ['A', 'B', 'C', 'D', 'E', 'F'][loop.index0] }}</span>
+                            <span>{{ option }}</span>
+                            {% if loop.index0 == question.correct_option %}
+                            <span class="ms-auto badge bg-success">
+                                <i class="fas fa-check"></i> Correct Answer
+                            </span>
+                            {% endif %}
+                        </div>
                     </li>
                     {% endfor %}
                 </ul>
-                <small class="text-muted">Time limit: {{ question.time_limit }} seconds</small>
+                {% endif %}
+                
+                <div class="d-flex justify-content-between text-muted small">
+                    <span>Time limit: {{ question.time_limit }} seconds</span>
+                    <span>Question ID: {{ question.id }}</span>
+                </div>
             </div>
             {% endfor %}
+        </div>
+    </div>
+
+    <!-- Status Controls -->
+    <div class="card shadow-sm border-{% if quiz.is_published %}success{% else %}warning{% endif %}">
+        <div class="card-header bg-{% if quiz.is_published %}success{% else %}warning{% endif %} text-white">
+            <h5 class="mb-0">
+                <i class="fas fa-{% if quiz.is_published %}check-circle{% else %}hourglass-half{% endif %} me-2"></i>
+                Quiz Status
+            </h5>
+        </div>
+        <div class="card-body">
+            {% if quiz.is_published %}
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle me-2"></i>
+                This quiz is currently published and visible to students.
+            </div>
+            <form action="{{ url_for('unpublish_quiz', quiz_id=quiz.id) }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-warning">
+                    <i class="fas fa-eye-slash me-2"></i>Unpublish Quiz
+                </button>
+            </form>
+            {% else %}
+            <div class="alert alert-warning">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                This quiz is in draft mode and not visible to students.
+            </div>
+            <div class="d-flex gap-3">
+                <form action="{{ url_for('publish_quiz', quiz_id=quiz.id) }}" method="POST">
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check-circle me-2"></i>Publish Quiz
+                    </button>
+                </form>
+                <a href="{{ url_for('edit_quiz', quiz_id=quiz.id) }}" class="btn btn-primary">
+                    <i class="fas fa-edit me-2"></i>Make Changes
+                </a>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>

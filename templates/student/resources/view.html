@@ -1,0 +1,88 @@
+{% extends "student_dashboard.html" %}
+
+{% block content %}
+<div class="resource-detail">
+    <div class="resource-header">
+        <span class="resource-type {{ resource.resource_type }}">
+            {{ resource.resource_type|upper }}
+        </span>
+        <h2>{{ resource.title }}</h2>
+        
+        <div class="resource-meta">
+            <span class="course-name">
+                <i class="fas fa-book"></i>
+                {{ resource.subject.name }} - {{ resource.classroom.class_name }}
+            </span>
+            <span class="teacher-name">
+                <i class="fas fa-chalkboard-teacher"></i>
+                Uploaded by {{ resource.teacher.user.username }}
+            </span>
+            <span class="upload-date">
+                <i class="far fa-calendar-alt"></i>
+                {{ resource.upload_date|datetimeformat('%b %d, %Y at %I:%M %p') }}
+            </span>
+        </div>
+    </div>
+    
+    <div class="resource-content">
+        <div class="resource-description">
+            <h3>Description</h3>
+            <p>{{ resource.description }}</p>
+        </div>
+        
+        <div class="resource-file">
+            <h3>File Details</h3>
+            <div class="file-details">
+                <div class="file-icon">
+                    {% if resource.resource_type == 'pdf' %}
+                    <i class="fas fa-file-pdf"></i>
+                    {% elif resource.resource_type in ['doc', 'docx'] %}
+                    <i class="fas fa-file-word"></i>
+                    {% elif resource.resource_type in ['ppt', 'pptx'] %}
+                    <i class="fas fa-file-powerpoint"></i>
+                    {% elif resource.resource_type in ['xls', 'xlsx'] %}
+                    <i class="fas fa-file-excel"></i>
+                    {% elif resource.resource_type in ['jpg', 'jpeg', 'png', 'gif'] %}
+                    <i class="fas fa-file-image"></i>
+                    {% elif resource.resource_type in ['mp4', 'mov', 'avi'] %}
+                    <i class="fas fa-file-video"></i>
+                    {% elif resource.resource_type in ['mp3', 'wav'] %}
+                    <i class="fas fa-file-audio"></i>
+                    {% elif resource.resource_type == 'zip' %}
+                    <i class="fas fa-file-archive"></i>
+                    {% else %}
+                    <i class="fas fa-file"></i>
+                    {% endif %}
+                </div>
+                <div class="file-info">
+                    <p class="file-name">{{ resource.file_name }}</p>
+                    <p class="file-size">{{ (resource.file_size / 1024 / 1024)|round(2) }} MB</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="resource-stats">
+            <div class="stat-card">
+                <i class="fas fa-download"></i>
+                <h4>{{ resource.download_count }}</h4>
+                <p>Downloads</p>
+            </div>
+            <div class="stat-card">
+                <i class="fas fa-eye"></i>
+                <h4>{{ resource.views_count }}</h4>
+                <p>Views</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="resource-actions">
+        <a href="{{ url_for('student_download_resource', resource_id=resource.id) }}" 
+           class="btn btn-primary btn-lg">
+            <i class="fas fa-download"></i> Download Resource
+        </a>
+        <a href="{{ url_for('student_resources') }}" class="btn btn-outline-secondary">
+            Back to Resources
+        </a>
+    </div>
+</div>
+{% endblock %}

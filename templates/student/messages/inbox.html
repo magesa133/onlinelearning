@@ -1,0 +1,125 @@
+{% extends "student_dashboard.html" %}
+
+{% block content %}
+<div class="messages-content">
+    <div class="messages-header">
+        <h2>Your Messages</h2>
+        <div class="messages-actions">
+            <a href="{{ url_for('student_new_message') }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> New Message
+            </a>
+        </div>
+    </div>
+
+    <div class="messages-filters">
+        <div class="filter-buttons">
+            <a href="{{ url_for('student_messages', type='all') }}" 
+               class="btn btn-sm {% if message_type == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                All Messages
+            </a>
+            <a href="{{ url_for('student_messages', type='announcement') }}" 
+               class="btn btn-sm {% if message_type == 'announcement' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                Announcements
+            </a>
+            <a href="{{ url_for('student_messages', type='personal') }}" 
+               class="btn btn-sm {% if message_type == 'personal' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                Personal Messages
+            </a>
+        </div>
+        <div class="filter-buttons">
+            <a href="{{ url_for('student_messages', read='unread') }}" 
+               class="btn btn-sm {% if is_read == 'unread' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                Unread
+            </a>
+            <a href="{{ url_for('student_messages', read='read') }}" 
+               class="btn btn-sm {% if is_read == 'read' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                Read
+            </a>
+        </div>
+    </div>
+
+    <div class="messages-list">
+        {% if messages.items %}
+        {% for message in messages.items %}
+        <div class="message-item {% if not message.is_read and message.recipient_id == current_user.student_profile.id %}unread{% endif %}">
+            <div class="message-preview">
+                <div class="message-sender">
+                    {% if message.is_announcement %}
+                    <i class="fas fa-bullhorn announcement-icon"></i>
+                    {% else %}
+                    <img src="{{ url_for('static', filename='images/default-avatar.png') }}" 
+                         alt="{{ message.sender_user.username }}" 
+                         class="sender-avatar">
+                    {% endif %}
+                </div>
+                <div class="message-content">
+                    <h4>
+                        <a href="{{ url_for('student_view_message', message_id=message.id) }}">
+                            {{ message.title }}
+                        </a>
+                        {% if message.is_urgent %}
+                        <span class="badge badge-danger">Urgent</span>
+                        {% endif %}
+                    </h4>
+                    <p class="message-excerpt">
+                        {{ message.content|truncate(100) }}
+                    </p>
+                    <div class="message-meta">
+                        <span class="sender-name">
+                            {% if message.is_announcement %}
+                            Announcement
+                            {% else %}
+                            {{ message.sender_user.username }}
+                            {% endif %}
+                        </span>
+                        <span class="message-date">
+                            {{ message.timestamp|datetimeformat('%b %d, %Y at %I:%M %p') }}
+                        </span>
+                        {% if message.classroom %}
+                        <span class="message-course">
+                            {{ message.classroom.class_name }}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        
+        <!-- Pagination -->
+        <div class="pagination">
+            {% if messages.has_prev %}
+            <a href="{{ url_for('student_messages', page=messages.prev_num, type=message_type, read=is_read) }}" 
+               class="page-link">
+                &laquo; Previous
+            </a>
+            {% endif %}
+            
+            {% for page_num in messages.iter_pages() %}
+            {% if page_num %}
+            <a href="{{ url_for('student_messages', page=page_num, type=message_type, read=is_read) }}" 
+               class="page-link {% if page_num == messages.page %}active{% endif %}">
+                {{ page_num }}
+            </a>
+            {% else %}
+            <span class="ellipsis">...</span>
+            {% endif %}
+            {% endfor %}
+            
+            {% if messages.has_next %}
+            <a href="{{ url_for('student_messages', page=messages.next_num, type=message_type, read=is_read) }}" 
+               class="page-link">
+                Next &raquo;
+            </a>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="no-messages">
+            <i class="fas fa-envelope-open"></i>
+            <h3>No messages found</h3>
+            <p>You don't have any messages matching your filters.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

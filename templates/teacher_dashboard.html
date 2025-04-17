@@ -6,32 +6,48 @@
     <title>Teacher Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-        <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
-
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         :root {
             --primary: #4361ee;
             --primary-light: #4895ef;
             --secondary: #3f37c9;
             --accent: #f72585;
-            --dark: #212529;
-            --dark-gray: #495057;
-            --medium-gray: #adb5bd;
-            --light-gray: #f8f9fa;
             --white: #ffffff;
-            --success: #4cc9f0;
-            --warning: #f8961e;
-            --danger: #ef233c;
-            --sidebar-width: 280px;
-            --header-height: 80px;
-            --transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1);
-            --radius: 12px;
-            --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
-            --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
-            --shadow-lg: 0 15px 30px rgba(0,0,0,0.12);
+            --light-gray: #f8f9fa;
+            --medium-gray: #adb5bd;
+            --dark-gray: #495057;
+            --dark: #212529;
+            
+            /* Light mode defaults */
+            --bg-color: var(--light-gray);
+            --text-color: var(--dark);
+            --card-bg: var(--white);
+            --sidebar-bg: var(--white);
+            --header-bg: var(--white);
+            --border-color: rgba(0, 0, 0, 0.05);
+            --dropdown-bg: var(--white);
+            --dropdown-text: var(--dark-gray);
+            --dropdown-hover: rgba(67, 97, 238, 0.1);
+            --icon-color: var(--dark-gray);
+            --form-text: var(--dark);
+            --placeholder-color: #6c757d;
+        }
+
+        body.dark-mode {
+            --bg-color: #121212;
+            --text-color: #f8f9fa;
+            --card-bg: #1e1e1e;
+            --sidebar-bg: #1e1e1e;
+            --header-bg: #1e1e1e;
+            --border-color: rgba(255, 255, 255, 0.1);
+            --dropdown-bg: #2d2d2d;
+            --dropdown-text: #e9ecef;
+            --dropdown-hover: rgba(67, 97, 238, 0.2);
+            --icon-color: #9e9e9e;
+            --form-text: #f8f9fa;
+            --placeholder-color: #9e9e9e;
+            --medium-gray: #757575;
         }
 
         * {
@@ -42,32 +58,31 @@
 
         body {
             font-family: 'Inter', sans-serif;
-            background-color: var(--light-gray);
-            color: var(--dark);
+            background-color: var(--bg-color);
+            color: var(--text-color);
             line-height: 1.6;
+            transition: all 0.3s ease;
         }
 
         .dashboard-container {
             display: grid;
-            grid-template-areas:
-                "sidebar header"
-                "sidebar main";
-            grid-template-columns: var(--sidebar-width) 1fr;
-            grid-template-rows: var(--header-height) 1fr;
+            grid-template-areas: "sidebar header" "sidebar main";
+            grid-template-columns: 280px 1fr;
+            grid-template-rows: 80px 1fr;
             min-height: 100vh;
         }
 
         /* Sidebar Styles */
         .sidebar {
             grid-area: sidebar;
-            background: var(--white);
-            border-right: 1px solid rgba(0, 0, 0, 0.05);
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border-color);
             padding: 2rem 0;
             position: fixed;
-            width: var(--sidebar-width);
+            width: 280px;
             height: 100%;
             z-index: 100;
-            transition: var(--transition);
+            transition: all 0.3s ease;
             overflow-y: auto;
         }
 
@@ -93,7 +108,7 @@
         .sidebar-header h3 {
             font-size: 1.25rem;
             font-weight: 700;
-            color: var(--dark);
+            color: var(--text-color);
         }
 
         .sidebar-menu {
@@ -112,14 +127,13 @@
             padding: 0.85rem 1rem;
             color: var(--dark-gray);
             text-decoration: none;
-            border-radius: var(--radius);
-            transition: var(--transition);
+            border-radius: 12px;
+            transition: all 0.3s ease;
             font-weight: 500;
             font-size: 0.95rem;
         }
 
-        .sidebar-menu a:hover,
-        .sidebar-menu a.active {
+        .sidebar-menu a:hover, .sidebar-menu a.active {
             background-color: rgba(67, 97, 238, 0.1);
             color: var(--primary);
         }
@@ -133,13 +147,14 @@
             text-align: center;
             margin-right: 0.75rem;
             font-size: 1.1rem;
+            color: var(--icon-color);
         }
 
         .sidebar-menu .menu-arrow {
             margin-left: auto;
-            transition: var(--transition);
+            transition: all 0.3s ease;
             font-size: 0.8rem;
-            color: var(--medium-gray);
+            color: var(--icon-color);
         }
 
         .sidebar-menu .submenu {
@@ -147,7 +162,7 @@
             padding-left: 1.5rem;
             max-height: 0;
             overflow: hidden;
-            transition: var(--transition);
+            transition: all 0.3s ease;
         }
 
         .sidebar-menu .submenu.show {
@@ -174,16 +189,17 @@
         /* Header Styles */
         .dashboard-header {
             grid-area: header;
-            background-color: var(--white);
+            background-color: var(--header-bg);
             padding: 0 2rem;
             display: flex;
             align-items: center;
             justify-content: space-between;
-            box-shadow: var(--shadow-sm);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
             position: sticky;
             top: 0;
             z-index: 90;
-            height: var(--header-height);
+            height: 80px;
+            transition: background-color 0.3s ease;
         }
 
         .header-left {
@@ -196,16 +212,15 @@
             background: none;
             border: none;
             font-size: 1.25rem;
-            color: var(--dark-gray);
+            color: var(--text-color);
             cursor: pointer;
-            display: none;
             width: 40px;
             height: 40px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: var(--transition);
+            transition: all 0.3s ease;
         }
 
         .toggle-btn:hover {
@@ -223,9 +238,13 @@
             border: none;
             border-radius: 30px;
             font-size: 0.9rem;
-            transition: var(--transition);
+            transition: all 0.3s ease;
             background-color: var(--light-gray);
-            color: var(--dark);
+            color: var(--form-text);
+        }
+
+        .search-bar input::placeholder {
+            color: var(--placeholder-color);
         }
 
         .search-bar input:focus {
@@ -238,13 +257,32 @@
             left: 1rem;
             top: 50%;
             transform: translateY(-50%);
-            color: var(--medium-gray);
+            color: var(--icon-color);
         }
 
         .header-actions {
             display: flex;
             align-items: center;
-            gap: 1rem;
+            gap: 1.5rem;
+        }
+
+        .theme-toggle {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 30px;
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        .theme-toggle i {
+            font-size: 1.1rem;
+            color: var(--text-color);
         }
 
         .notification-btn {
@@ -256,10 +294,10 @@
             justify-content: center;
             background: none;
             border: none;
-            color: var(--dark-gray);
+            color: var(--text-color);
             cursor: pointer;
             position: relative;
-            transition: var(--transition);
+            transition: all 0.3s ease;
         }
 
         .notification-btn:hover {
@@ -274,9 +312,10 @@
             height: 8px;
             background-color: var(--accent);
             border-radius: 50%;
-            border: 2px solid var(--white);
+            border: 2px solid var(--header-bg);
         }
 
+        /* Profile Dropdown Styles */
         .user-profile {
             display: flex;
             align-items: center;
@@ -285,7 +324,7 @@
             cursor: pointer;
             padding: 0.5rem;
             border-radius: 30px;
-            transition: var(--transition);
+            transition: all 0.3s ease;
         }
 
         .user-profile:hover {
@@ -293,11 +332,12 @@
         }
 
         .user-avatar {
-            width: 40px;
-            height: 40px;
+            width: 42px;
+            height: 42px;
             border-radius: 50%;
             object-fit: cover;
             border: 2px solid var(--light-gray);
+            transition: all 0.3s ease;
         }
 
         .user-info {
@@ -308,6 +348,7 @@
         .user-name {
             font-weight: 600;
             font-size: 0.95rem;
+            color: var(--text-color);
         }
 
         .user-role {
@@ -319,16 +360,18 @@
             position: absolute;
             top: calc(100% + 10px);
             right: 0;
-            background: var(--white);
-            min-width: 220px;
-            border-radius: var(--radius);
-            box-shadow: var(--shadow-lg);
-            padding: 0.5rem 0;
+            background: var(--dropdown-bg);
+            width: 280px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+            padding: 0;
             opacity: 0;
             visibility: hidden;
             transform: translateY(10px);
-            transition: var(--transition);
-            z-index: 100;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.1);
+            z-index: 1000;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
         }
 
         .user-dropdown.active {
@@ -338,18 +381,20 @@
         }
 
         .dropdown-header {
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            padding: 16px;
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 12px;
+            border-bottom: 1px solid var(--border-color);
+            background-color: rgba(0, 0, 0, 0.03);
         }
 
         .dropdown-avatar {
-            width: 40px;
-            height: 40px;
+            width: 48px;
+            height: 48px;
             border-radius: 50%;
             object-fit: cover;
+            border: 2px solid var(--border-color);
         }
 
         .dropdown-user-info {
@@ -358,54 +403,85 @@
 
         .dropdown-user-name {
             font-weight: 600;
-            font-size: 0.95rem;
+            font-size: 1rem;
+            color: var(--dropdown-text);
+            margin-bottom: 4px;
         }
 
         .dropdown-user-email {
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             color: var(--medium-gray);
         }
 
         .dropdown-menu {
-            list-style: none;
-            padding: 0.5rem 0;
+            padding: 8px 0;
         }
 
-        .dropdown-menu li a {
+        .dropdown-item {
             display: flex;
             align-items: center;
-            padding: 0.75rem 1.5rem;
-            color: var(--dark-gray);
+            padding: 12px 20px;
+            color: var(--dropdown-text);
             text-decoration: none;
-            transition: var(--transition);
-            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
         }
 
-        .dropdown-menu li a:hover {
-            background-color: rgba(67, 97, 238, 0.1);
+        .dropdown-item:hover {
+            background-color: var(--dropdown-hover);
             color: var(--primary);
         }
 
-        .dropdown-menu li a i {
-            width: 20px;
-            margin-right: 0.75rem;
+        .dropdown-item i {
+            width: 24px;
+            margin-right: 12px;
             text-align: center;
+            font-size: 1rem;
             color: var(--medium-gray);
         }
 
         .dropdown-divider {
             height: 1px;
-            background-color: rgba(0, 0, 0, 0.05);
-            margin: 0.5rem 0;
+            background-color: var(--border-color);
+            margin: 8px 0;
+        }
+
+        .dropdown-footer {
+            padding: 12px 20px;
+            border-top: 1px solid var(--border-color);
+            background-color: rgba(0, 0, 0, 0.03);
+        }
+
+        .badge-notification {
+            background-color: var(--accent);
+            color: white;
+            font-size: 0.75rem;
+            padding: 2px 6px;
+            border-radius: 10px;
+            margin-left: auto;
+        }
+
+        .logout-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--dropdown-text);
+            text-decoration: none;
+            font-size: 0.95rem;
+        }
+
+        .logout-btn:hover {
+            color: var(--primary);
         }
 
         /* Main Content Styles */
         .dashboard-main {
             grid-area: main;
             padding: 2rem;
-            background-color: var(--light-gray);
+            background-color: var(--bg-color);
             overflow-y: auto;
-            min-height: calc(100vh - var(--header-height));
+            min-height: calc(100vh - 80px);
+            transition: background-color 0.3s ease;
         }
 
         .page-header {
@@ -418,7 +494,7 @@
         .page-title h2 {
             font-size: 1.75rem;
             font-weight: 700;
-            color: var(--dark);
+            color: var(--text-color);
             margin-bottom: 0.5rem;
         }
 
@@ -433,28 +509,70 @@
             gap: 1rem;
         }
 
-        /* Cards Grid */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 500;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: none;
+            text-decoration: none;
+            gap: 0.5rem;
+        }
+
+        .btn i {
+            font-size: 0.9rem;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: var(--white);
+            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.2);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--secondary);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(67, 97, 238, 0.25);
+        }
+
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid var(--medium-gray);
+            color: var(--text-color);
+        }
+
+        .btn-outline:hover {
+            background-color: rgba(0, 0, 0, 0.02);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
         .cards-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 1.5rem;
             margin-bottom: 2rem;
         }
 
         .card {
-            background: var(--white);
-            border-radius: var(--radius);
+            background: var(--card-bg);
+            border-radius: 12px;
             padding: 1.75rem;
-            box-shadow: var(--shadow-sm);
-            transition: var(--transition);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
             position: relative;
             overflow: hidden;
-            border: 1px solid rgba(0, 0, 0, 0.03);
+            border: 1px solid var(--border-color);
         }
 
         .card:hover {
             transform: translateY(-5px);
-            box-shadow: var(--shadow-md);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             border-color: rgba(67, 97, 238, 0.1);
         }
 
@@ -491,7 +609,7 @@
             font-size: 1.25rem;
             font-weight: 600;
             margin-bottom: 0.75rem;
-            color: var(--dark);
+            color: var(--text-color);
         }
 
         .card p {
@@ -508,12 +626,12 @@
             font-weight: 500;
             text-decoration: none;
             font-size: 0.9rem;
-            transition: var(--transition);
+            transition: all 0.3s ease;
         }
 
         .card-link i {
             margin-left: 0.5rem;
-            transition: var(--transition);
+            transition: all 0.3s ease;
             font-size: 0.8rem;
         }
 
@@ -525,62 +643,13 @@
             transform: translateX(3px);
         }
 
-        /* Buttons */
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0.75rem 1.5rem;
-            border-radius: var(--radius);
-            font-weight: 500;
-            font-size: 0.95rem;
-            cursor: pointer;
-            transition: var(--transition);
-            border: none;
-            text-decoration: none;
-            gap: 0.5rem;
-        }
-
-        .btn i {
-            font-size: 0.9rem;
-        }
-
-        .btn-primary {
-            background-color: var(--primary);
-            color: var(--white);
-            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.2);
-        }
-
-        .btn-primary:hover {
-            background-color: var(--secondary);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(67, 97, 238, 0.25);
-        }
-
-        .btn-outline {
-            background-color: transparent;
-            border: 1px solid var(--medium-gray);
-            color: var(--dark-gray);
-        }
-
-        .btn-outline:hover {
-            background-color: rgba(0, 0, 0, 0.02);
-            border-color: var(--primary);
-            color: var(--primary);
-        }
-
-        .btn-sm {
-            padding: 0.6rem 1.25rem;
-            font-size: 0.85rem;
-        }
-
-        /* Recent Activity */
         .recent-activity {
-            background: var(--white);
-            border-radius: var(--radius);
+            background: var(--card-bg);
+            border-radius: 12px;
             padding: 1.75rem;
-            box-shadow: var(--shadow-sm);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
             margin-top: 2rem;
+            border: 1px solid var(--border-color);
         }
 
         .section-header {
@@ -593,6 +662,7 @@
         .section-header h3 {
             font-size: 1.25rem;
             font-weight: 600;
+            color: var(--text-color);
         }
 
         .section-header a {
@@ -612,7 +682,7 @@
         .activity-item {
             display: flex;
             padding: 1rem 0;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            border-bottom: 1px solid var(--border-color);
         }
 
         .activity-item:last-child {
@@ -640,6 +710,7 @@
         .activity-title {
             font-weight: 500;
             margin-bottom: 0.25rem;
+            color: var(--text-color);
         }
 
         .activity-meta {
@@ -654,16 +725,54 @@
             font-size: 0.7rem;
         }
 
-        /* Footer */
+        .form-control {
+            background-color: var(--light-gray);
+            color: var(--form-text);
+            border: 1px solid var(--border-color);
+        }
+
+        .form-control:focus {
+            background-color: var(--light-gray);
+            color: var(--form-text);
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 0.25rem rgba(67, 97, 238, 0.25);
+        }
+
+        .form-control::placeholder {
+            color: var(--placeholder-color);
+            opacity: 1;
+        }
+
+        .form-label {
+            color: var(--text-color);
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .form-check-input {
+            background-color: var(--light-gray);
+            border: 1px solid var(--border-color);
+        }
+
+        .form-check-input:checked {
+            background-color: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .form-check-label {
+            color: var(--text-color);
+        }
+
         .dashboard-footer {
             text-align: center;
             padding: 1.5rem;
             color: var(--medium-gray);
             font-size: 0.85rem;
             margin-top: 2rem;
+            background-color: var(--card-bg);
+            border-top: 1px solid var(--border-color);
         }
 
-        /* Responsive Design */
         @media (max-width: 1200px) {
             .search-bar {
                 width: 300px;
@@ -672,9 +781,7 @@
 
         @media (max-width: 992px) {
             .dashboard-container {
-                grid-template-areas:
-                    "header"
-                    "main";
+                grid-template-areas: "header" "main";
                 grid-template-columns: 1fr;
             }
 
@@ -751,80 +858,96 @@
                 width: 100%;
                 justify-content: center;
             }
+
+            .user-dropdown {
+                min-width: 260px;
+                right: -20px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="dashboard-container">
-        <!-- Sidebar -->
-<nav class="sidebar">
-    <div class="sidebar-header">
-        <div class="logo">E</div>
-        <h3>EduConnect</h3>
-    </div>
-    <ul class="sidebar-menu">
-        <li>
-            <a href="{{ url_for('teacher_dashboard') }}" class="active">
-                <i class="fas fa-home"></i> Dashboard
-            </a>
-        </li>
-        <li>
-            <a href="{{ url_for('add_student') }}">
-                <i class="fas fa-user-graduate"></i> Students
-            </a>
-        </li>
-        <li class="has-submenu">
-            <a href="#">
-                <i class="fas fa-book-open"></i> Subjects
-                <i class="fas fa-chevron-down menu-arrow"></i>
-            </a>
-            <ul class="submenu">
-                <li><a href="#"><i class="fas fa-list"></i> My Subjects</a></li>
-                <li><a href="{{ url_for('upload_resource')}}"><i class="fas fa-upload"></i> Upload Notes</a></li>
-            </ul>
-        </li>
-        <li class="has-submenu">
-            <a href="#">
-                <i class="fas fa-question-circle"></i> Quizzes
-                <i class="fas fa-chevron-down menu-arrow"></i>
-            </a>
-            <ul class="submenu">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">E</div>
+                <h3>EduConnect</h3>
+            </div>
+            <ul class="sidebar-menu">
                 <li>
-                    <a href="{{ url_for('create_quiz') }}">
-                        <i class="fas fa-plus-circle"></i> Create Quiz
+                    <a href="{{ url_for('teacher_dashboard') }}" class="active">
+                        <i class="fas fa-home"></i> Dashboard
                     </a>
                 </li>
                 <li>
-                    <a href="{{ url_for('view_quiz') }}">
-                        <i class="fas fa-list"></i> View Quizzes
+                    <a href="{{ url_for('add_student') }}">
+                        <i class="fas fa-user-graduate"></i> Students
+                    </a>
+                </li>
+                <li class="has-submenu">
+                    <a href="">
+                        <i class="fas fa-book-open"></i> Subjects | Resources
+                        <i class="fas fa-chevron-down menu-arrow"></i>
+                    </a>
+                    <ul class="submenu">
+                        <li><a href="{{ url_for('teacher_subjects') }}"><i class="fas fa-list"></i> My Subjects</a></li>
+                        <li><a href="{{ url_for('upload_resource')}}"><i class="fas fa-upload"></i> Upload Resources</a></li>
+                    </ul>
+                </li>
+                <li class="has-submenu">
+                    <a href="#">
+                        <i class="fas fa-question-circle"></i> Quizzes
+                        <i class="fas fa-chevron-down menu-arrow"></i>
+                    </a>
+                    <ul class="submenu">
+                        <li>
+                            <a href="{{ url_for('create_quiz') }}">
+                                <i class="fas fa-plus-circle"></i> Create Quiz
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('list_quizzes') }}">
+                                <i class="fas fa-list"></i> View Quizzes in List
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <li class="has-submenu">
+                    <a href="#">
+                        <i class="fas fa-question-circle"></i> Assignments
+                        <i class="fas fa-chevron-down menu-arrow"></i>
+                    </a>
+                    <ul class="submenu">
+                        <li>
+                            <a href="{{ url_for('create_assignment') }}">
+                                <i class="fas fa-plus-circle"></i> Create Assignment
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('list_assignments') }}">
+                                <i class="fas fa-list"></i> All Assignments
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="#">
+                        <i class="fas fa-chart-line"></i> Grades
+                    </a>
+                </li>
+                <li>
+                    <a href="#">
+                        <i class="fas fa-calendar-alt"></i> Schedule
+                    </a>
+                </li>
+                <li>
+                    <a href="#">
+                        <i class="fas fa-cog"></i> Settings
                     </a>
                 </li>
             </ul>
-        </li>
-        <li>
-            <a href="{{ url_for('create_assignment') }}">
-                <i class="fas fa-tasks"></i> Assignments
-            </a>
-        </li>
-        <li>
-            <a href="#">
-                <i class="fas fa-chart-line"></i> Grades
-            </a>
-        </li>
-        <li>
-            <a href="#">
-                <i class="fas fa-calendar-alt"></i> Schedule
-            </a>
-        </li>
-        <li>
-            <a href="#">
-                <i class="fas fa-cog"></i> Settings
-            </a>
-        </li>
-    </ul>
-</nav>
+        </nav>
 
-        <!-- Header -->
         <header class="dashboard-header">
             <div class="header-left">
                 <button class="toggle-btn" onclick="toggleSidebar()">
@@ -836,6 +959,9 @@
                 </div>
             </div>
             <div class="header-actions">
+                <div class="theme-toggle" id="themeToggle">
+                    <i class="fas fa-moon" id="themeIcon"></i>
+                </div>
                 <button class="notification-btn">
                     <i class="fas fa-bell"></i>
                     <span class="notification-badge"></span>
@@ -846,41 +972,37 @@
                         <span class="user-name">{{ username }}</span>
                         <span class="user-role">Teacher</span>
                     </div>
-                    <ul class="user-dropdown">
-                        <li class="dropdown-header">
+                    <div class="user-dropdown">
+                        <div class="dropdown-header">
                             <img src="https://randomuser.me/api/portraits/women/45.jpg" alt="User Avatar" class="dropdown-avatar">
                             <div class="dropdown-user-info">
                                 <div class="dropdown-user-name">{{ username }}</div>
                                 <div class="dropdown-user-email">teacher@school.edu</div>
                             </div>
-                        </li>
-                        <li>
-                            <a href="#">
+                        </div>
+                        <div class="dropdown-menu">
+                            <a href="#" class="dropdown-item">
                                 <i class="fas fa-user"></i> My Profile
                             </a>
-                        </li>
-                        <li>
-                            <a href="#">
+                            <a href="#" class="dropdown-item">
                                 <i class="fas fa-cog"></i> Settings
                             </a>
-                        </li>
-                        <li>
-                            <a href="#">
+                            <a href="#" class="dropdown-item">
                                 <i class="fas fa-envelope"></i> Messages
+                                <span class="badge-notification">3</span>
                             </a>
-                        </li>
-                        <li class="dropdown-divider"></li>
-                        <li>
-                            <a href="{{ url_for('logout')}}">
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <div class="dropdown-footer">
+                            <a href="{{ url_for('logout')}}" class="logout-btn">
                                 <i class="fas fa-sign-out-alt"></i> Logout
                             </a>
-                        </li>
-                    </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
         </header>
 
-        <!-- Main Content -->
         <main class="dashboard-main">
             <div class="page-header">
                 <div class="page-title">
@@ -905,7 +1027,7 @@
                     </div>
                     <h3>My Subjects</h3>
                     <p>Manage your teaching subjects, upload materials, and track student progress.</p>
-                    <a href="#" class="card-link">
+                    <a href="{{ url_for('teacher_subjects') }}" class="card-link">
                         View subjects <i class="fas fa-arrow-right"></i>
                     </a>
                 </div>
@@ -993,6 +1115,27 @@
                     </li>
                 </ul>
             </div>
+
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h3 class="mb-4">Sample Form</h3>
+                    <form>
+                        <div class="mb-3">
+                            <label for="exampleInputEmail1" class="form-label">Email address</label>
+                            <input type="email" class="form-control" id="exampleInputEmail1" placeholder="Enter email">
+                        </div>
+                        <div class="mb-3">
+                            <label for="exampleInputPassword1" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="exampleInputPassword1" placeholder="Password">
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="exampleCheck1">
+                            <label class="form-check-label" for="exampleCheck1">Remember me</label>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Submit</button>
+                    </form>
+                </div>
+            </div>
             {% endblock %}
         </main>
     </div>
@@ -1001,40 +1144,33 @@
         <p>&copy; 2023 EduConnect Teacher Dashboard. All rights reserved.</p>
     </footer>
 
-    <!-- Bootstrap 5 JS Bundle with Popper -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Toggle sidebar on mobile
         function toggleSidebar() {
             document.querySelector('.sidebar').classList.toggle('active');
         }
 
-        // Toggle user dropdown
         function toggleDropdown() {
             document.querySelector('.user-dropdown').classList.toggle('active');
         }
 
-        // Close dropdown when clicking outside
         document.addEventListener('click', function(e) {
             if (!e.target.closest('.user-profile')) {
                 document.querySelector('.user-dropdown').classList.remove('active');
             }
         });
 
-        // Toggle submenus
         document.querySelectorAll('.has-submenu > a').forEach(item => {
             item.addEventListener('click', function(e) {
                 e.preventDefault();
                 const submenu = this.nextElementSibling;
                 const arrow = this.querySelector('.menu-arrow');
-                
                 submenu.classList.toggle('show');
                 arrow.classList.toggle('fa-chevron-down');
                 arrow.classList.toggle('fa-chevron-up');
             });
         });
 
-        // Close sidebar when clicking a link on mobile
         if (window.innerWidth < 992) {
             document.querySelectorAll('.sidebar-menu a').forEach(link => {
                 link.addEventListener('click', () => {
@@ -1043,12 +1179,10 @@
             });
         }
 
-        // Add active class to current page link
         const currentPage = window.location.pathname.split('/').pop() || 'teacher_dashboard';
         document.querySelectorAll('.sidebar-menu a').forEach(link => {
             if (link.getAttribute('href').includes(currentPage)) {
                 link.classList.add('active');
-                // Also activate parent menu if this is a submenu item
                 let parentMenu = link.closest('.submenu');
                 if (parentMenu) {
                     parentMenu.classList.add('show');
@@ -1058,6 +1192,55 @@
                     arrow.classList.remove('fa-chevron-down');
                     arrow.classList.add('fa-chevron-up');
                 }
+            }
+        });
+
+        const themeToggle = document.getElementById('themeToggle');
+        const themeIcon = document.getElementById('themeIcon');
+        const body = document.body;
+
+        const savedTheme = localStorage.getItem('theme') || 
+                          (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        
+        if (savedTheme === 'dark') {
+            body.classList.add('dark-mode');
+            themeIcon.classList.remove('fa-moon');
+            themeIcon.classList.add('fa-sun');
+        }
+
+        themeToggle.addEventListener('click', () => {
+            body.classList.toggle('dark-mode');
+            if (body.classList.contains('dark-mode')) {
+                themeIcon.classList.remove('fa-moon');
+                themeIcon.classList.add('fa-sun');
+                localStorage.setItem('theme', 'dark');
+            } else {
+                themeIcon.classList.remove('fa-sun');
+                themeIcon.classList.add('fa-moon');
+                localStorage.setItem('theme', 'light');
+            }
+        });
+
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+            if (!localStorage.getItem('theme')) {
+                if (e.matches) {
+                    body.classList.add('dark-mode');
+                    themeIcon.classList.remove('fa-moon');
+                    themeIcon.classList.add('fa-sun');
+                } else {
+                    body.classList.remove('dark-mode');
+                    themeIcon.classList.remove('fa-sun');
+                    themeIcon.classList.add('fa-moon');
+                }
+            }
+        });
+
+        window.addEventListener('click', function(event) {
+            if (!event.target.matches('.user-profile') && !event.target.closest('.user-profile')) {
+                const dropdowns = document.querySelectorAll('.user-dropdown');
+                dropdowns.forEach(dropdown => {
+                    dropdown.classList.remove('active');
+                });
             }
         });
     </script>

@@ -1,0 +1,91 @@
+{% extends "student_dashboard.html" %}
+
+{% block content %}
+<div class="assignments-content">
+    <div class="assignments-header">
+        <h2>Your Assignments</h2>
+        <div class="assignment-filters">
+            <form method="get" class="filter-form">
+                <div class="form-group">
+                    <label for="status">Status:</label>
+                    <select name="status" id="status" class="form-control">
+                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Assignments</option>
+                        <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                        <option value="submitted" {% if status_filter == 'submitted' %}selected{% endif %}>Submitted</option>
+                        <option value="overdue" {% if status_filter == 'overdue' %}selected{% endif %}>Overdue</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="subject">Subject:</label>
+                    <select name="subject_id" id="subject" class="form-control">
+                        <option value="">All Subjects</option>
+                        {% for subject in subjects %}
+                        <option value="{{ subject.id }}" {% if selected_subject == subject.id %}selected{% endif %}>
+                            {{ subject.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Apply Filters</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="assignments-list">
+        {% if assignments %}
+        {% for assignment in assignments %}
+        <div class="assignment-card {% if assignment.id in submissions %}submitted{% endif %} 
+            {% if assignment.due_date < now %}overdue{% endif %}">
+            <div class="assignment-header">
+                <h3>{{ assignment.title }}</h3>
+                <span class="course-name">{{ assignment.subject.name }}</span>
+            </div>
+            
+            <div class="assignment-details">
+                <div class="due-date">
+                    <i class="far fa-clock"></i>
+                    <strong>Due:</strong> {{ assignment.due_date.strftime('%b %d, %Y at %I:%M %p') }}
+                </div>
+                
+                <div class="assignment-status">
+                    {% if assignment.id in submissions %}
+                    <span class="badge badge-success">
+                        <i class="fas fa-check"></i> Submitted
+                    </span>
+                    {% elif assignment.due_date < now %}
+                    <span class="badge badge-danger">
+                        <i class="fas fa-exclamation-triangle"></i> Overdue
+                    </span>
+                    {% else %}
+                    <span class="badge badge-warning">
+                        <i class="fas fa-clock"></i> Pending
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="assignment-actions">
+                <a href="{{ url_for('student_view_assignment', assignment_id=assignment.id) }}" 
+                   class="btn btn-primary">
+                    View Details
+                </a>
+                
+                {% if assignment.id not in submissions and assignment.due_date > now %}
+                <a href="{{ url_for('student_submit_assignment', assignment_id=assignment.id) }}" 
+                   class="btn btn-success">
+                    Submit Assignment
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="no-assignments">
+            <i class="fas fa-check-circle"></i>
+            <h3>No assignments found</h3>
+            <p>You're all caught up with your work!</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

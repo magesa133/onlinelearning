@@ -24,6 +24,7 @@
         font-size: 28px;
         color: #2c3e50;
         font-weight: 600;
+        margin: 0;
     }
 
     /* Button Styles */
@@ -47,10 +48,6 @@
         box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     }
 
-    .btn-primary i {
-        font-size: 18px;
-    }
-
     /* Modal Styles */
     .modal-overlay {
         display: none;
@@ -63,7 +60,6 @@
         z-index: 1000;
         justify-content: center;
         align-items: center;
-        animation: fadeIn 0.3s;
     }
 
     .modal-content {
@@ -74,7 +70,6 @@
         max-height: 90vh;
         overflow-y: auto;
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-        animation: slideUp 0.4s;
         position: relative;
     }
 
@@ -90,6 +85,7 @@
         font-size: 22px;
         color: #2c3e50;
         font-weight: 600;
+        margin: 0;
     }
 
     .close-btn {
@@ -99,10 +95,7 @@
         cursor: pointer;
         color: #7f8c8d;
         transition: color 0.2s;
-    }
-
-    .close-btn:hover {
-        color: #e74c3c;
+        padding: 0;
     }
 
     /* Form Styles */
@@ -137,6 +130,11 @@
         transition: border 0.3s;
     }
 
+    select.form-control {
+        height: auto;
+        min-height: 44px;
+    }
+
     .form-control:focus {
         border-color: #3498db;
         outline: none;
@@ -154,10 +152,6 @@
         font-weight: 500;
         cursor: pointer;
         transition: all 0.3s;
-    }
-
-    .btn-submit:hover {
-        background-color: #27ae60;
     }
 
     /* Alert Styles */
@@ -186,6 +180,7 @@
         overflow-x: auto;
         box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
         border-radius: 8px;
+        background-color: white;
     }
 
     .data-table {
@@ -204,6 +199,8 @@
         background-color: #f8f9fa;
         font-weight: 600;
         color: #34495e;
+        position: sticky;
+        top: 0;
     }
 
     .data-table tr:hover {
@@ -223,41 +220,23 @@
         cursor: pointer;
         transition: all 0.2s;
         border: none;
+        display: flex;
+        align-items: center;
+        gap: 5px;
     }
 
-    .btn-edit {
-        background-color: #3498db;
-        color: white;
+    /* Multiple Select Styles */
+    select[multiple] {
+        min-height: 150px;
     }
 
-    .btn-edit:hover {
-        background-color: #2980b9;
+    select[multiple] option {
+        padding: 8px 12px;
+        border-bottom: 1px solid #eee;
     }
 
-    .btn-delete {
-        background-color: #e74c3c;
-        color: white;
-    }
-
-    .btn-delete:hover {
-        background-color: #c0392b;
-    }
-
-    /* Animations */
-    @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
-
-    @keyframes slideUp {
-        from {
-            transform: translateY(20px);
-            opacity: 0;
-        }
-        to {
-            transform: translateY(0);
-            opacity: 1;
-        }
+    select[multiple] option:hover {
+        background-color: #f5f5f5;
     }
 
     /* Responsive Adjustments */
@@ -276,20 +255,12 @@
         .data-table td {
             padding: 10px;
         }
+
+        .action-btns {
+            flex-direction: column;
+            gap: 5px;
+        }
     }
-
-    select[multiple] {
-    min-height: 150px;
-}
-
-select[multiple] option {
-    padding: 8px 12px;
-    border-bottom: 1px solid #eee;
-}
-
-select[multiple] option:hover {
-    background-color: #f5f5f5;
-}
 </style>
 
 <div class="admin-container">
@@ -309,21 +280,17 @@ select[multiple] option:hover {
             </div>
             
             <div class="form-container">
-                {% if errors %}
-                    <div class="alert alert-error">
-                        {% for error in errors %}
-                            <p>{{ error }}</p>
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ 'error' if category == 'danger' else 'success' }}">
+                                {{ message }}
+                            </div>
                         {% endfor %}
-                    </div>
-                {% endif %}
+                    {% endif %}
+                {% endwith %}
                 
-                {% if success %}
-                    <div class="alert alert-success">
-                        {{ success }}
-                    </div>
-                {% endif %}
-                
-                <form method="POST">
+                <form method="POST" action="{{ url_for('add_teacher') }}">
                     <div class="form-grid">
                         <div class="form-group">
                             <label class="form-label" for="username">Username</label>
@@ -340,13 +307,13 @@ select[multiple] option:hover {
                         <div class="form-group">
                             <label class="form-label" for="password">Password</label>
                             <input class="form-control" type="password" id="password" name="password" 
-                                   placeholder="••••••••" required>
+                                   placeholder="••••••••" required minlength="3">
                         </div>
                         
                         <div class="form-group">
                             <label class="form-label" for="confirm_password">Confirm Password</label>
                             <input class="form-control" type="password" id="confirm_password" name="confirm_password" 
-                                   placeholder="••••••••" required>
+                                   placeholder="••••••••" required minlength="3">
                         </div>
                         
                         <div class="form-group">
@@ -365,7 +332,7 @@ select[multiple] option:hover {
                                     </option>
                                 {% endfor %}
                             </select>
-                            <small class="form-text text-muted">Hold Ctrl/Cmd to select multiple subjects</small>
+                            <small class="form-text">Hold Ctrl/Cmd to select multiple subjects</small>
                         </div>
                         
                         <div class="form-group">
@@ -374,11 +341,17 @@ select[multiple] option:hover {
                                 <option value="" disabled selected>Select Department</option>
                                 {% for department in departments %}
                                     <option value="{{ department.id }}" 
-                                        {% if form_data and form_data.department_id == department.id %}selected{% endif %}>
+                                        {% if form_data and form_data.department_id|string == department.id|string %}selected{% endif %}>
                                         {{ department.name }}
                                     </option>
                                 {% endfor %}
                             </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label class="form-label" for="specialization">Specialization</label>
+                            <input class="form-control" type="text" id="specialization" name="specialization" 
+                                   placeholder="e.g., Mathematics, Physics" value="{{ form_data.specialization if form_data else '' }}">
                         </div>
                     </div>
                     
@@ -398,7 +371,7 @@ select[multiple] option:hover {
                     <th>Username</th>
                     <th>Email</th>
                     <th>Full Name</th>
-                    <th>Subject</th>
+                    <th>Subjects</th>
                     <th>Department</th>
                     <th>Actions</th>
                 </tr>
@@ -409,18 +382,30 @@ select[multiple] option:hover {
                         <td>{{ teacher.user.username }}</td>
                         <td>{{ teacher.user.email }}</td>
                         <td>{{ teacher.teacher_name }}</td>
-                        <td>{{ teacher.subject }}</td>
+                        <td>
+                            {% if teacher.subjects %}
+                                {% for subject in teacher.subjects %}
+                                    {{ subject.name }}{% if not loop.last %}, {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                None assigned
+                            {% endif %}
+                        </td>
                         <td>{{ teacher.department.name }}</td>
                         <td>
                             <div class="action-btns">
-                                <button class="btn-action btn-edit">
+                                <button class="btn-action btn-edit" onclick="editTeacher('{{ teacher.id }}')">
                                     <i class="fas fa-edit"></i> Edit
                                 </button>
-                                <button class="btn-action btn-delete">
+                                <button class="btn-action btn-delete" onclick="confirmBlock('{{ teacher.id }}')">
                                     <i class="fas fa-ban"></i> Block
                                 </button>
                             </div>
                         </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="6" style="text-align: center;">No teachers found</td>
                     </tr>
                 {% endfor %}
             </tbody>
@@ -435,12 +420,12 @@ select[multiple] option:hover {
     // Modal functions
     function openModal() {
         document.getElementById('teacherModal').style.display = 'flex';
-        document.body.style.overflow = 'hidden'; // Prevent scrolling
+        document.body.style.overflow = 'hidden';
     }
 
     function closeModal() {
         document.getElementById('teacherModal').style.display = 'none';
-        document.body.style.overflow = 'auto'; // Re-enable scrolling
+        document.body.style.overflow = 'auto';
     }
 
     // Close modal when clicking outside
@@ -450,14 +435,48 @@ select[multiple] option:hover {
         }
     }
 
-    // Add confirmation for delete actions
-    document.querySelectorAll('.btn-delete').forEach(button => {
-        button.addEventListener('click', function() {
-            if (confirm('Are you sure you want to block this teacher?')) {
-                // Add your delete logic here
-                console.log('Teacher blocked');
-            }
-        });
+    // Teacher actions
+    function editTeacher(teacherId) {
+        // Implement edit functionality
+        alert('Edit teacher with ID: ' + teacherId);
+        // You would typically open a modal with the teacher's data
+    }
+
+    function confirmBlock(teacherId) {
+        if (confirm('Are you sure you want to block this teacher?')) {
+            // Implement block functionality
+            fetch(`/teachers/${teacherId}/block`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred');
+            });
+        }
+    }
+
+    // Form validation
+    document.querySelector('form').addEventListener('submit', function(e) {
+        const password = document.getElementById('password').value;
+        const confirmPassword = document.getElementById('confirm_password').value;
+        
+        if (password !== confirmPassword) {
+            e.preventDefault();
+            alert('Passwords do not match!');
+            return false;
+        }
+        return true;
     });
 </script>
 

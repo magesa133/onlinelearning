@@ -1,0 +1,76 @@
+{% extends "student_dashboard.html" %}
+
+{% block content %}
+<div class="new-message">
+    <h2>New Message</h2>
+    
+    <form method="POST" class="message-form">
+        <div class="form-group">
+            <label for="recipient">Recipient:</label>
+            <select name="recipient_id" id="recipient" class="form-control">
+                <option value="">Select a teacher...</option>
+                {% for classroom in classrooms %}
+                <option value="{{ classroom.teacher.id }}">
+                    {{ classroom.teacher.user.username }} ({{ classroom.class_name }})
+                </option>
+                {% endfor %}
+            </select>
+            <small class="form-text text-muted">
+                Or select a class below to message the teacher
+            </small>
+        </div>
+        
+        <div class="form-group">
+            <label for="class">Class (optional):</label>
+            <select name="class_id" id="class" class="form-control">
+                <option value="">Select a class...</option>
+                {% for classroom in classrooms %}
+                <option value="{{ classroom.id }}">
+                    {{ classroom.class_name }} ({{ classroom.subject.name }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="title">Subject:</label>
+            <input type="text" name="title" id="title" class="form-control" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="content">Message:</label>
+            <textarea name="content" id="content" class="form-control" rows="8" required></textarea>
+        </div>
+        
+        <div class="form-group form-check">
+            <input type="checkbox" name="is_urgent" id="is_urgent" class="form-check-input">
+            <label for="is_urgent" class="form-check-label">Mark as urgent</label>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-paper-plane"></i> Send Message
+            </button>
+            <a href="{{ url_for('student_messages') }}" class="btn btn-outline-secondary">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+// Update recipient when class is selected and vice versa
+document.getElementById('class').addEventListener('change', function() {
+    if (this.value) {
+        const teacherId = this.options[this.selectedIndex].getAttribute('data-teacher-id');
+        document.getElementById('recipient').value = teacherId;
+    }
+});
+
+document.getElementById('recipient').addEventListener('change', function() {
+    if (this.value) {
+        document.getElementById('class').value = '';
+    }
+});
+</script>
+{% endblock %}

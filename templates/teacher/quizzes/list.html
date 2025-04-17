@@ -2,63 +2,388 @@
 
 {% block content %}
 <div class="container py-4">
+    <!-- Page Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3 font-weight-bold text-primary">
-            <i class="fas fa-question-circle me-2"></i>My Quizzes
-        </h1>
+        <div>
+            <h1 class="h3 font-weight-bold text-primary">
+                <i class="fas fa-list-ol me-2"></i>My Quizzes
+            </h1>
+            <p class="text-muted mb-0">Manage your published and draft quizzes</p>
+        </div>
         <a href="{{ url_for('create_quiz') }}" class="btn btn-primary">
             <i class="fas fa-plus me-2"></i>Create New Quiz
         </a>
     </div>
 
-    <div class="card">
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead>
-                        <tr>
-                            <th>Title</th>
-                            <th>Subject</th>
-                            <th>Classroom</th>
-                            <th>Status</th>
-                            <th>Created</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for quiz in quizzes %}
-                        <tr>
-                            <td>{{ quiz.title }}</td>
-                            <td>{{ quiz.subject.name }}</td>
-                            <td>{{ quiz.classroom.class_name }}</td>
-                            <td>
-                                <span class="badge bg-{{ 'success' if quiz.status == 'published' else 'warning' }}">
-                                    {{ quiz.status|capitalize }}
-                                </span>
-                            </td>
-                            <td>{{ quiz.created_at.strftime('%Y-%m-%d') }}</td>
-                            <td>
-                                <a href="{{ url_for('teacher_quiz_view', quiz_id=quiz.id) }}" class="btn btn-sm btn-outline-primary">
-                                    <i class="fas fa-eye"></i> View
-                                </a>
-                                {% if quiz.status == 'draft' %}
-                                <a href="{{ url_for('preview_quiz', quiz_id=quiz.id) }}" class="btn btn-sm btn-outline-info ms-1">
-                                    <i class="fas fa-edit"></i> Edit
-                                </a>
+    <!-- Debug Information (visible only when debug=true) -->
+    {% if request.args.get('debug') %}
+    <div class="alert alert-warning mb-4">
+        <h5><i class="fas fa-bug me-2"></i>Debug Information</h5>
+        <ul class="mb-0">
+            <li>Teacher ID: {{ current_user.teacher_profile.id }}</li>
+            <li>Total Quizzes: {{ Quiz.query.filter_by(teacher_id=current_user.teacher_profile.id).count() }}</li>
+            <li>Active Quizzes: {{ active_quizzes|length }}</li>
+            <li>Draft Quizzes: {{ draft_quizzes|length }}</li>
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- Status Tabs -->
+    <ul class="nav nav-tabs mb-4" id="quizTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="active-tab" data-bs-toggle="tab" 
+                    data-bs-target="#active" type="button" role="tab">
+                <i class="fas fa-check-circle me-1"></i> Active
+                <span class="badge bg-primary ms-1">{{ active_quizzes|length }}</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="drafts-tab" data-bs-toggle="tab" 
+                    data-bs-target="#drafts" type="button" role="tab">
+                <i class="fas fa-edit me-1"></i> Drafts
+                <span class="badge bg-secondary ms-1">{{ draft_quizzes|length }}</span>
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="all-tab" data-bs-toggle="tab" 
+                    data-bs-target="#all" type="button" role="tab">
+                <i class="fas fa-list me-1"></i> All Quizzes
+                <span class="badge bg-info ms-1">{{ all_quizzes|length }}</span>
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab Content -->
+    <div class="tab-content" id="quizTabsContent">
+        <!-- Active Quizzes Tab -->
+        <div class="tab-pane fade show active" id="active" role="tabpanel">
+            {% if active_quizzes %}
+                <div class="row">
+                    {% for quiz in active_quizzes %}
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100 shadow-sm border-start border-3 border-success">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h5 class="card-title mb-0">
+                                        {{ quiz.title }}
+                                        <span class="badge bg-success ms-2">Published</span>
+                                    </h5>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                                type="button" data-bs-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item" href="{{ url_for('view_quiz', quiz_id=quiz.id) }}">
+                                                    <i class="fas fa-eye me-2"></i>View
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="{{ url_for('edit_quiz', quiz_id=quiz.id) }}">
+                                                    <i class="fas fa-edit me-2"></i>Edit
+                                                </a>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <form action="{{ url_for('unpublish_quiz', quiz_id=quiz.id) }}" method="POST">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                    <button type="submit" class="dropdown-item text-warning">
+                                                        <i class="fas fa-eye-slash me-2"></i>Unpublish
+                                                    </button>
+                                                </form>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                
+                                <p class="card-text text-muted small mb-3">
+                                    {{ quiz.description|truncate(100) if quiz.description else "No description" }}
+                                </p>
+                                
+                                <div class="d-flex flex-wrap gap-3 mb-3">
+                                    {% if quiz.subject %}
+                                    <div class="d-flex align-items-center text-muted small">
+                                        <i class="fas fa-book me-2"></i>
+                                        {{ quiz.subject.name }}
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if quiz.classroom %}
+                                    <div class="d-flex align-items-center text-muted small">
+                                        <i class="fas fa-users me-2"></i>
+                                        {{ quiz.classroom.class_name }}
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <div class="d-flex align-items-center text-muted small">
+                                        <i class="fas fa-question-circle me-2"></i>
+                                        {{ quiz.questions|length }} questions
+                                    </div>
+                                </div>
+                                
+                                {% if quiz.due_date %}
+                                <div class="alert alert-{% if quiz.due_date > now %}info{% else %}warning{% endif %} py-2 mb-0">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <i class="fas fa-clock me-2"></i>
+                                            <strong>Due:</strong> 
+                                            {{ quiz.due_date.strftime('%b %d, %Y at %H:%M') }}
+                                        </div>
+                                        <span class="badge bg-{% if quiz.due_date > now %}primary{% else %}secondary{% endif %}">
+                                            {% if quiz.due_date > now %}
+                                                Due in {{ (quiz.due_date - now).days }} days
+                                            {% else %}
+                                                Expired
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                </div>
                                 {% endif %}
-                            </td>
-                        </tr>
-                        {% else %}
-                        <tr>
-                            <td colspan="6" class="text-center text-muted py-4">
-                                No quizzes found. <a href="{{ url_for('create_quiz') }}">Create your first quiz</a>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-info-circle fa-2x me-3"></i>
+                        <div>
+                            <h5 class="alert-heading mb-1">No Active Quizzes</h5>
+                            <p class="mb-0">You haven't published any quizzes yet. Create a new one or publish your drafts.</p>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Draft Quizzes Tab -->
+        <div class="tab-pane fade" id="drafts" role="tabpanel">
+            {% if draft_quizzes %}
+                <div class="row">
+                    {% for quiz in draft_quizzes %}
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100 shadow-sm border-start border-3 border-warning">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h5 class="card-title mb-0">
+                                        {{ quiz.title }}
+                                        <span class="badge bg-warning text-dark ms-2">Draft</span>
+                                    </h5>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                                type="button" data-bs-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-end">
+                                            <li>
+                                                <a class="dropdown-item" href="{{ url_for('preview_quiz', quiz_id=quiz.id) }}">
+                                                    <i class="fas fa-eye me-2"></i>Preview
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="{{ url_for('edit_quiz', quiz_id=quiz.id) }}">
+                                                    <i class="fas fa-edit me-2"></i>Edit
+                                                </a>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <form action="{{ url_for('publish_quiz', quiz_id=quiz.id) }}" method="POST">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                    <button type="submit" class="dropdown-item text-success" 
+                                                            {% if not quiz.questions %}disabled{% endif %}>
+                                                        <i class="fas fa-check me-2"></i>Publish
+                                                    </button>
+                                                </form>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                
+                                <p class="card-text text-muted small mb-3">
+                                    {{ quiz.description|truncate(100) if quiz.description else "No description" }}
+                                </p>
+                                
+                                <div class="d-flex flex-wrap gap-3 mb-3">
+                                    {% if quiz.subject %}
+                                    <div class="d-flex align-items-center text-muted small">
+                                        <i class="fas fa-book me-2"></i>
+                                        {{ quiz.subject.name }}
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% if quiz.classroom %}
+                                    <div class="d-flex align-items-center text-muted small">
+                                        <i class="fas fa-users me-2"></i>
+                                        {{ quiz.classroom.class_name }}
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <div class="d-flex align-items-center text-muted small">
+                                        <i class="fas fa-question-circle me-2"></i>
+                                        {{ quiz.questions|length }} questions
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted">
+                                        <i class="fas fa-calendar-plus me-1"></i>
+                                        Created {{ quiz.created_at|timesince }} ago
+                                    </small>
+                                    
+                                    {% if not quiz.questions %}
+                                    <span class="badge bg-danger">
+                                        <i class="fas fa-exclamation-circle me-1"></i>
+                                        Needs questions
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-info-circle fa-2x me-3"></i>
+                        <div>
+                            <h5 class="alert-heading mb-1">No Draft Quizzes</h5>
+                            <p class="mb-0">You don't have any quiz drafts. Create a new quiz to get started.</p>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- All Quizzes Tab -->
+        <div class="tab-pane fade" id="all" role="tabpanel">
+            {% if all_quizzes %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Title</th>
+                                <th>Status</th>
+                                <th>Subject</th>
+                                <th>Classroom</th>
+                                <th>Questions</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for quiz in all_quizzes %}
+                            <tr>
+                                <td>{{ quiz.title }}</td>
+                                <td>
+                                    {% if quiz.is_published %}
+                                        <span class="badge bg-success">Published</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">Draft</span>
+                                    {% endif %}
+                                    {% if quiz.is_deleted %}
+                                        <span class="badge bg-danger ms-1">Deleted</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ quiz.subject.name if quiz.subject else '-' }}</td>
+                                <td>{{ quiz.classroom.class_name if quiz.classroom else '-' }}</td>
+                                <td>{{ quiz.questions|length }}</td>
+                                <td>{{ quiz.created_at.strftime('%Y-%m-%d') }}</td>
+                                <td>
+                                    <div class="dropdown">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                                type="button" data-bs-toggle="dropdown">
+                                            <i class="fas fa-ellipsis-v"></i>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item" href="{{ url_for('view_quiz', quiz_id=quiz.id) }}">View</a></li>
+                                            <li><a class="dropdown-item" href="{{ url_for('edit_quiz', quiz_id=quiz.id) }}">Edit</a></li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-info-circle fa-2x me-3"></i>
+                        <div>
+                            <h5 class="alert-heading mb-1">No Quizzes Found</h5>
+                            <p class="mb-0">You haven't created any quizzes yet.</p>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    .card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1) !important;
+    }
+    .dropdown-toggle::after {
+        display: none;
+    }
+    .badge {
+        font-weight: 500;
+    }
+    .table-hover tbody tr:hover {
+        background-color: rgba(0, 0, 0, 0.02);
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // Remember tab selection
+    const quizTabs = document.getElementById('quizTabs');
+    if (quizTabs) {
+        quizTabs.addEventListener('click', function(e) {
+            if (e.target.classList.contains('nav-link')) {
+                localStorage.setItem('lastQuizTab', e.target.id);
+            }
+        });
+
+        // Restore last tab
+        const lastTab = localStorage.getItem('lastQuizTab');
+        if (lastTab) {
+            const tab = document.getElementById(lastTab);
+            if (tab) {
+                new bootstrap.Tab(tab).show();
+            }
+        }
+    }
+
+    // Confirm before unpublishing
+    const unpublishForms = document.querySelectorAll('form[action*="/unpublish"]');
+    unpublishForms.forEach(form => {
+        form.addEventListener('submit', function(e) {
+            if (!confirm('Are you sure you want to unpublish this quiz? Students will no longer be able to access it.')) {
+                e.preventDefault();
+            }
+        });
+    });
+});
+</script>
 {% endblock %}

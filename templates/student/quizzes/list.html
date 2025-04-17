@@ -1,0 +1,162 @@
+{% extends "student_dashboard.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 font-weight-bold text-primary">
+            <i class="fas fa-question-circle me-2"></i>My Quizzes
+        </h1>
+        
+        <div class="d-flex">
+            <a href="{{ url_for('student.student_dashboard') }}" class="btn btn-outline-secondary me-2">
+                <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters Section -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label for="status" class="form-label">Status</label>
+                    <select name="status" id="status" class="form-select">
+                        <option value="upcoming" {% if status_filter == 'upcoming' %}selected{% endif %}>
+                            Upcoming Quizzes
+                        </option>
+                        <option value="past" {% if status_filter == 'past' %}selected{% endif %}>
+                            Past Quizzes
+                        </option>
+                    </select>
+                </div>
+                
+                <div class="col-md-4">
+                <label for="subject" class="form-label">
+                    <i class="fas fa-book me-1"></i> Subject
+                </label>
+                <select 
+                    name="subject_id" 
+                    id="subject" 
+                    class="form-select select2"  <!-- Added select2 for searchable dropdown -->
+                    aria-label="Filter by subject"
+                >
+                    <option value="">All Subjects</option>
+                    {% for subject in subjects %}
+                    <option 
+                        value="{{ subject.id }}" 
+                        {% if selected_subject == subject.id %}selected{% endif %}
+                        data-subject-color="{{ subject.color_code|default('#6c757d') }}"  <!-- For colored options -->
+                    >
+                        {{ subject.name }}
+                        {% if subject.code %} ({{ subject.code }}){% endif %}  <!-- Show subject code if exists -->
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+                
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter me-2"></i>Apply Filters
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Quizzes Table -->
+    <div class="card">
+        <div class="card-body">
+            {% if quizzes %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Title</th>
+                            <th>Subject</th>
+                            <th>Class</th>
+                            <th>Due Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for quiz in quizzes %}
+                        <tr>
+                            <td>{{ quiz.title }}</td>
+                            <td>{{ quiz.subject.name }}</td>
+                            <td>{{ quiz.classroom.class_name }}</td>
+                            <td>
+                                {{ quiz.due_date.strftime('%b %d, %Y at %I:%M %p') }}
+                                {% if quiz.due_date > now %}
+                                    <br>
+                                    <small class="text-muted">
+                                        (Due in {{ (quiz.due_date - now).days }} day{% if (quiz.due_date - now).days != 1 %}s{% endif %})
+                                    </small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if quiz.id in attempts %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check-circle me-1"></i>Completed
+                                    </span>
+                                {% elif quiz.due_date < now %}
+                                    <span class="badge bg-secondary">
+                                        <i class="fas fa-clock me-1"></i>Expired
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-primary">
+                                        <i class="fas fa-play-circle me-1"></i>Available
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if quiz.id in attempts %}
+                                    <a href="{{ url_for('student.quiz_results', attempt_id=attempts[quiz.id].id) }}" 
+                                       class="btn btn-sm btn-outline-success">
+                                        <i class="fas fa-chart-bar me-1"></i>View Results
+                                    </a>
+                                {% elif quiz.due_date >= now %}
+                                    <a href="{{ url_for('student.start_quiz', quiz_id=quiz.id) }}" 
+                                       class="btn btn-sm btn-primary">
+                                        <i class="fas fa-play me-1"></i>Start Quiz
+                                    </a>
+                                {% else %}
+                                    <button class="btn btn-sm btn-outline-secondary" disabled>
+                                        <i class="fas fa-ban me-1"></i>Unavailable
+                                    </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <div class="mb-3">
+                    <i class="fas fa-check-circle text-muted" style="font-size: 3rem;"></i>
+                </div>
+                <h4 class="text-muted mb-3">No quizzes found</h4>
+                <p class="text-muted">
+                    {% if status_filter == 'upcoming' %}
+                    You don't have any upcoming quizzes at the moment.
+                    {% else %}
+                    You haven't completed any quizzes yet.
+                    {% endif %}
+                </p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+// Format datetime display on client side if needed
+document.addEventListener('DOMContentLoaded', function() {
+    // You can add JavaScript datetime formatting here if needed
+});
+</script>
+{% endblock %}

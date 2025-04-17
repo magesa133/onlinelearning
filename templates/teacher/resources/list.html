@@ -1,0 +1,126 @@
+{% extends "student_dashboard.html" %}
+
+{% block content %}
+<div class="resources-content">
+    <div class="resources-header">
+        <h2>Study Resources</h2>
+        <div class="resources-filters">
+            <form method="get" class="filter-form">
+                <div class="form-group">
+                    <label for="type">Resource Type:</label>
+                    <select name="type" id="type" class="form-control">
+                        <option value="all" {% if current_type == 'all' %}selected{% endif %}>All Types</option>
+                        {% for type in resource_types %}
+                        <option value="{{ type }}" {% if current_type == type %}selected{% endif %}>
+                            {{ type|upper }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="subject">Subject:</label>
+                    <select name="subject_id" id="subject" class="form-control">
+                        <option value="">All Subjects</option>
+                        {% for subject in subjects %}
+                        <option value="{{ subject.id }}" {% if selected_subject == subject.id %}selected{% endif %}>
+                            {{ subject.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Apply Filters</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="resources-list">
+        {% if resources.items %}
+        {% for resource in resources.items %}
+        <div class="resource-card">
+            <div class="resource-header">
+                <span class="resource-type {{ resource.resource_type }}">
+                    {{ resource.resource_type|upper }}
+                </span>
+                <h3>{{ resource.title }}</h3>
+            </div>
+            
+            <div class="resource-meta">
+                <span class="course-name">
+                    <i class="fas fa-book"></i>
+                    {{ resource.subject.name }} - {{ resource.classroom.class_name }}
+                </span>
+                <span class="upload-date">
+                    <i class="far fa-calendar-alt"></i>
+                    {{ resource.upload_date|datetimeformat('%b %d, %Y') }}
+                </span>
+                <span class="teacher-name">
+                    <i class="fas fa-chalkboard-teacher"></i>
+                    {{ resource.teacher.user.username }}
+                </span>
+            </div>
+            
+            <p class="resource-description">
+                {{ resource.description|truncate(150) }}
+            </p>
+            
+            <div class="resource-stats">
+                <span class="downloads">
+                    <i class="fas fa-download"></i>
+                    {{ resource.download_count }} downloads
+                </span>
+                <span class="views">
+                    <i class="fas fa-eye"></i>
+                    {{ resource.views_count }} views
+                </span>
+            </div>
+            
+            <div class="resource-actions">
+                <a href="{{ url_for('student_view_resource', resource_id=resource.id) }}" 
+                   class="btn btn-outline-primary">
+                    View Details
+                </a>
+                <a href="{{ url_for('student_download_resource', resource_id=resource.id) }}" 
+                   class="btn btn-primary">
+                    <i class="fas fa-download"></i> Download
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+        
+        <!-- Pagination -->
+        <div class="pagination">
+            {% if resources.has_prev %}
+            <a href="{{ url_for('student_resources', page=resources.prev_num, type=current_type, subject_id=selected_subject) }}" 
+               class="page-link">
+                &laquo; Previous
+            </a>
+            {% endif %}
+            
+            {% for page_num in resources.iter_pages() %}
+            {% if page_num %}
+            <a href="{{ url_for('student_resources', page=page_num, type=current_type, subject_id=selected_subject) }}" 
+               class="page-link {% if page_num == resources.page %}active{% endif %}">
+                {{ page_num }}
+            </a>
+            {% else %}
+            <span class="ellipsis">...</span>
+            {% endif %}
+            {% endfor %}
+            
+            {% if resources.has_next %}
+            <a href="{{ url_for('student_resources', page=resources.next_num, type=current_type, subject_id=selected_subject) }}" 
+               class="page-link">
+                Next &raquo;
+            </a>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="no-resources">
+            <i class="fas fa-book-open"></i>
+            <h3>No resources found</h3>
+            <p>There are no resources available matching your filters.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

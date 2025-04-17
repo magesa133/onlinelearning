@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 font-weight-bold text-primary">
+            <i class="fas fa-upload me-2"></i>Submit Assignment
+        </h1>
+        <a href="{{ url_for('view_assignment', assignment_id=assignment.id) }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Assignment
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">{{ assignment.title }}</h5>
+        </div>
+        <div class="card-body">
+            <form method="POST" enctype="multipart/form-data">
+                {{ form.hidden_tag() }}
+                
+                <div class="mb-3">
+                    {{ form.content.label(class="form-label") }}
+                    {{ form.content(class="form-control" + (' is-invalid' if form.content.errors else ''), rows=8) }}
+                    {% for error in form.content.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                    {% endfor %}
+                    <small class="text-muted">Write your answer or response to the assignment</small>
+                </div>
+                
+                <div class="mb-4">
+                    {{ form.file.label(class="form-label") }}
+                    {{ form.file(class="form-control" + (' is-invalid' if form.file.errors else '')) }}
+                    {% for error in form.file.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                    {% endfor %}
+                    <small class="text-muted">Optional: Upload supporting files (PDF, Word, Text, ZIP)</small>
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane me-2"></i>Submit Assignment
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,581 @@
+{% extends "teacher_dashboard.html" %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    /* Modern Professional Design System */
+    :root {
+        --primary-color: #4F46E5;  /* Professional indigo */
+        --secondary-color: #10B981; /* Professional emerald */
+        --accent-color: #F59E0B;   /* Professional amber */
+        --dark-color: #1F2937;      /* Professional gray-800 */
+        --light-color: #F9FAFB;     /* Professional gray-50 */
+        --border-radius: 12px;
+        --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+        --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.08);
+        --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Professional Container System */
+    .form-container {
+        max-width: 1024px;
+        margin: 2.5rem auto;
+        padding: 0 1.5rem;
+    }
+    
+    /* Elevated Card Design */
+    .form-card {
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-lg);
+        border: 1px solid rgba(0, 0, 0, 0.03);
+        overflow: hidden;
+        background: white;
+        transition: var(--transition);
+    }
+    
+    .form-card:hover {
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.12);
+    }
+    
+    /* Professional Header */
+    .form-header {
+        background: var(--primary-color);
+        color: white;
+        padding: 1.75rem 2.5rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .form-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, transparent 100%);
+    }
+    
+    .form-header h3 {
+        position: relative;
+        font-weight: 600;
+        letter-spacing: 0.25px;
+        display: flex;
+        align-items: center;
+    }
+    
+    /* Professional Form Body */
+    .form-body {
+        padding: 2.5rem;
+        background: var(--light-color);
+    }
+    
+    /* Section Design */
+    .form-section {
+        margin-bottom: 2.5rem;
+        background: white;
+        padding: 2rem;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-sm);
+        border-left: 4px solid var(--primary-color);
+        transition: var(--transition);
+    }
+    
+    .form-section:hover {
+        box-shadow: var(--shadow-md);
+        border-left: 4px solid var(--secondary-color);
+    }
+    
+    .section-title {
+        position: relative;
+        padding-bottom: 0.75rem;
+        margin-bottom: 1.5rem;
+        color: var(--dark-color);
+        font-weight: 600;
+        font-size: 1.15rem;
+        display: flex;
+        align-items: center;
+    }
+    
+    .section-title i {
+        margin-right: 0.75rem;
+        color: var(--primary-color);
+    }
+    
+    .section-title::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        bottom: 0;
+        width: 48px;
+        height: 3px;
+        background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+        border-radius: 3px;
+    }
+    
+    /* Professional Form Controls */
+    .form-control, .form-select {
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        border: 1px solid #E5E7EB;
+        transition: var(--transition);
+        background-color: white;
+        font-size: 0.95rem;
+    }
+    
+    .form-control:focus, .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+        outline: none;
+    }
+    
+    .form-label {
+        font-weight: 500;
+        color: var(--dark-color);
+        margin-bottom: 0.5rem;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+    }
+    
+    .form-label i {
+        margin-right: 0.5rem;
+        color: var(--primary-color);
+        width: 1.25rem;
+        text-align: center;
+    }
+    
+    /* Markdown Editor Styles */
+    .markdown-editor {
+        border-radius: 8px;
+        border: 1px solid #E5E7EB;
+        transition: var(--transition);
+    }
+    
+    .markdown-editor:focus-within {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+    }
+    
+    .markdown-toolbar {
+        background: #F3F4F6;
+        border-bottom: 1px solid #E5E7EB;
+        padding: 0.5rem;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+    
+    .markdown-toolbar button {
+        background: white;
+        border: 1px solid #E5E7EB;
+        border-radius: 4px;
+        padding: 0.25rem 0.5rem;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+    
+    .markdown-toolbar button:hover {
+        background: #EDE9FE;
+        border-color: var(--primary-color);
+    }
+    
+    .markdown-preview {
+        padding: 1rem;
+        border-radius: 0 0 8px 8px;
+        background: white;
+        border-top: 1px solid #E5E7EB;
+        min-height: 100px;
+    }
+    
+    /* Professional Buttons */
+    .btn-primary {
+        background: var(--primary-color);
+        border: none;
+        padding: 0.75rem 2rem;
+        font-weight: 500;
+        letter-spacing: 0.25px;
+        transition: var(--transition);
+        border-radius: 8px;
+    }
+    
+    .btn-primary:hover {
+        background: #4338CA;
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+    
+    .btn-outline-secondary {
+        border-radius: 8px;
+        padding: 0.65rem 1.5rem;
+        font-weight: 500;
+        transition: var(--transition);
+        border: 1px solid #E5E7EB;
+    }
+    
+    /* Professional Validation */
+    .invalid-feedback {
+        font-size: 0.85rem;
+        margin-top: 0.25rem;
+        color: #DC2626;
+        font-weight: 500;
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 992px) {
+        .form-body {
+            padding: 2rem;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .form-container {
+            padding: 0 1rem;
+        }
+        
+        .form-body {
+            padding: 1.5rem;
+        }
+        
+        .form-section {
+            padding: 1.5rem;
+        }
+        
+        .markdown-toolbar {
+            gap: 0.1rem;
+            padding: 0.25rem;
+        }
+    }
+    
+    /* Professional Utility Classes */
+    .input-hint {
+        font-size: 0.85rem;
+        color: #6B7280;
+        margin-top: 0.5rem;
+        line-height: 1.4;
+    }
+    
+    /* Animation for Professional Micro-interactions */
+    @keyframes professionalFadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .animate-fade-in {
+        animation: professionalFadeIn 0.3s ease-out forwards;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5 animate-fade-in">
+    <div class="form-container">
+        <div class="d-flex justify-content-between align-items-center mb-5">
+            <div>
+                <h2 class="h4 font-weight-semibold text-gray-800 mb-2">
+                    <i class="fas fa-tasks text-primary mr-2"></i>Create New Assignment
+                </h2>
+                <p class="text-muted mb-0">
+                    <i class="fas fa-lightbulb text-amber-500 mr-2"></i>Design a comprehensive assignment for your students
+                </p>
+            </div>
+            <a href="{{ url_for('list_assignments') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-chevron-left mr-2"></i>Back to List
+            </a>
+        </div>
+
+        <div class="form-card">
+            <div class="form-header">
+                <h3 class="h5 mb-0"><i class="fas fa-pen-fancy mr-2"></i>Assignment Creation</h3>
+            </div>
+            <div class="form-body">
+                <form method="POST" enctype="multipart/form-data" id="assignment-form">
+                    {{ form.hidden_tag() }}
+                    
+                    <!-- Basic Information Section -->
+                    <div class="form-section">
+                        <h6 class="section-title"><i class="fas fa-info-circle"></i>Assignment Details</h6>
+                        
+                        <div class="mb-4">
+                            {{ form.title.label(class="form-label", text="<i class='fas fa-heading'></i> Title") }}
+                            {{ form.title(class="form-control" + (' is-invalid' if form.title.errors else ''), 
+                               placeholder="Example: 'Algebra II - Quadratic Equations Practice'") }}
+                            {% for error in form.title.errors %}
+                            <div class="invalid-feedback"><i class="fas fa-exclamation-circle mr-1"></i>{{ error }}</div>
+                            {% endfor %}
+                            <div class="input-hint">Use a clear, descriptive title that identifies the subject and topic</div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            {{ form.description.label(class="form-label", text="<i class='fas fa-align-left'></i> Instructions") }}
+                            <div class="markdown-editor">
+                                <div class="markdown-toolbar">
+                                    <button type="button" data-md-command="bold"><i class="fas fa-bold"></i></button>
+                                    <button type="button" data-md-command="italic"><i class="fas fa-italic"></i></button>
+                                    <button type="button" data-md-command="heading"><i class="fas fa-heading"></i></button>
+                                    <button type="button" data-md-command="link"><i class="fas fa-link"></i></button>
+                                    <button type="button" data-md-command="image"><i class="fas fa-image"></i></button>
+                                    <button type="button" data-md-command="code"><i class="fas fa-code"></i></button>
+                                    <button type="button" data-md-command="ul"><i class="fas fa-list-ul"></i></button>
+                                    <button type="button" data-md-command="ol"><i class="fas fa-list-ol"></i></button>
+                                    <button type="button" data-md-command="preview"><i class="fas fa-eye"></i> Preview</button>
+                                </div>
+                                {{ form.description(class="form-control markdown-input" + (' is-invalid' if form.description.errors else ''), 
+                                   rows=7, placeholder="Provide detailed instructions including:\n- Learning objectives\n- Required materials\n- Submission guidelines\n- Evaluation criteria",
+                                   style="border-radius: 0; border: none; border-top: 1px solid #E5E7EB;"|safe) }}
+                                <div class="markdown-preview d-none"></div>
+                            </div>
+                            {% for error in form.description.errors %}
+                            <div class="invalid-feedback"><i class="fas fa-exclamation-circle mr-1"></i>{{ error }}</div>
+                            {% endfor %}
+                            <div class="input-hint">
+                                <i class="fas fa-markdown mr-1"></i>Supports professional Markdown formatting. 
+                                <a href="#" data-bs-toggle="modal" data-bs-target="#markdownHelp" class="text-primary">Formatting guide</a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Timeline Section -->
+                    <div class="form-section">
+                        <h6 class="section-title"><i class="fas fa-calendar-alt"></i>Schedule & Evaluation</h6>
+                        <div class="row">
+                            <div class="col-md-6 mb-4">
+                                <div class="position-relative">
+                                    {{ form.due_date.label(class="form-label", text="<i class='far fa-calendar'></i> Due Date") }}
+                                    {{ form.due_date(class="form-control" + (' is-invalid' if form.due_date.errors else ''), 
+                                       type="datetime-local") }}
+                                    <i class="fas fa-calendar position-absolute end-0 top-50 me-3 translate-middle-y text-muted"></i>
+                                    {% for error in form.due_date.errors %}
+                                    <div class="invalid-feedback"><i class="fas fa-exclamation-circle mr-1"></i>{{ error }}</div>
+                                    {% endfor %}
+                                    <div class="input-hint">Recommended: Allow at least 3-5 days for completion</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-4">
+                                {{ form.max_score.label(class="form-label", text="<i class='fas fa-star'></i> Total Points") }}
+                                <div class="input-group">
+                                    {{ form.max_score(class="form-control" + (' is-invalid' if form.max_score.errors else ''), 
+                                       placeholder="100") }}
+                                    <span class="input-group-text">points</span>
+                                </div>
+                                {% for error in form.max_score.errors %}
+                                <div class="invalid-feedback"><i class="fas fa-exclamation-circle mr-1"></i>{{ error }}</div>
+                                {% endfor %}
+                                <div class="input-hint">Standard assignments typically range from 10-100 points</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Class Details Section -->
+                    <div class="form-section">
+                        <h6 class="section-title"><i class="fas fa-chalkboard-teacher"></i> Class Information</h6>
+                        <div class="row">
+                            <!-- Subject Selection -->
+                            <div class="col-md-6 mb-4">
+                                {{ form.subject_id.label(class="form-label", text="<i class='fas fa-book-open'></i> Subject") }}
+                                {{ form.subject_id(class="form-select" + (' is-invalid' if form.subject_id.errors else '')) }}
+                                {% for error in form.subject_id.errors %}
+                                <div class="invalid-feedback"><i class="fas fa-exclamation-circle mr-1"></i>{{ error }}</div>
+                                {% endfor %}
+                                <div class="input-hint">Select the subject this assignment belongs to</div>
+                            </div>
+                            
+                            <!-- Classroom Selection -->
+                            <div class="col-md-6 mb-4">
+                                {{ form.classroom_id.label(class="form-label", text="<i class='fas fa-users'></i> Class") }}
+                                {{ form.classroom_id(class="form-select" + (' is-invalid' if form.classroom_id.errors else '')) }}
+                                {% for error in form.classroom_id.errors %}
+                                <div class="invalid-feedback"><i class="fas fa-exclamation-circle mr-1"></i>{{ error }}</div>
+                                {% endfor %}
+                                <div class="input-hint">Select the class that will receive this assignment</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Form Actions -->
+                    <div class="d-flex justify-content-between align-items-center mt-5 pt-4 border-top">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="draftMode">
+                            <label class="form-check-label text-muted" for="draftMode">Save as draft</label>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-paper-plane mr-2"></i>Publish Assignment
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Professional Markdown Help Modal -->
+<div class="modal fade" id="markdownHelp" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-markdown mr-2"></i>Professional Formatting Guide</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="border rounded p-3 h-100">
+                            <h6 class="font-weight-semibold mb-3">Text Formatting</h6>
+                            <ul class="list-unstyled">
+                                <li class="mb-2"><code class="bg-gray-100 p-1 rounded">**bold**</code> → <strong>Bold Text</strong></li>
+                                <li class="mb-2"><code class="bg-gray-100 p-1 rounded">*italic*</code> → <em>Italic Text</em></li>
+                                <li class="mb-2"><code class="bg-gray-100 p-1 rounded"># Heading</code> → Large section header</li>
+                                <li class="mb-2"><code class="bg-gray-100 p-1 rounded">## Subheading</code> → Medium header</li>
+                                <li class="mb-2"><code class="bg-gray-100 p-1 rounded">> Blockquote</code> → <blockquote>Quoted text</blockquote></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="border rounded p-3 h-100">
+                            <h6 class="font-weight-semibold mb-3">Lists & Structure</h6>
+                            <ul class="list-unstyled">
+                                <li class="mb-2"><code class="bg-gray-100 p-1 rounded">- Item</code> → Bullet point</li>
+                                <li class="mb-2"><code class="bg-gray-100 p-1 rounded">1. First</code> → Numbered list</li>
+                                <li class="mb-2"><code class="bg-gray-100 p-1 rounded">[Link](url)</code> → <a href="#">Hyperlink</a></li>
+                                <li class="mb-2"><code class="bg-gray-100 p-1 rounded">![Alt](img.jpg)</code> → Embedded image</li>
+                                <li class="mb-2"><code class="bg-gray-100 p-1 rounded">```code```</code> → <code>Code block</code></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4 p-3 bg-gray-50 rounded">
+                    <h6 class="font-weight-semibold mb-3">Live Markdown Editor</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <textarea id="liveMarkdownInput" class="form-control" rows="5" placeholder="Type Markdown here..."></textarea>
+                        </div>
+                        <div class="col-md-6">
+                            <div id="liveMarkdownPreview" class="border p-3 bg-white rounded" style="min-height: 150px;">
+                                Rendered output will appear here
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary">View Full Guide</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+    $(document).ready(function() {
+        // Initialize Markdown editor
+        const initMarkdownEditor = () => {
+            const $editor = $('.markdown-editor');
+            const $input = $editor.find('.markdown-input');
+            const $preview = $editor.find('.markdown-preview');
+            const $previewBtn = $editor.find('[data-md-command="preview"]');
+            
+            // Set up toolbar buttons
+            $editor.find('[data-md-command]').click(function() {
+                const command = $(this).data('md-command');
+                const textarea = $input[0];
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                const selectedText = textarea.value.substring(start, end);
+                let newText = '';
+                
+                switch(command) {
+                    case 'bold':
+                        newText = `**${selectedText}**`;
+                        break;
+                    case 'italic':
+                        newText = `*${selectedText}*`;
+                        break;
+                    case 'heading':
+                        newText = `# ${selectedText}`;
+                        break;
+                    case 'link':
+                        newText = `[${selectedText}](url)`;
+                        break;
+                    case 'image':
+                        newText = `![alt](${selectedText})`;
+                        break;
+                    case 'code':
+                        newText = `\`${selectedText}\``;
+                        break;
+                    case 'ul':
+                        newText = selectedText.split('\n').map(line => `- ${line}`).join('\n');
+                        break;
+                    case 'ol':
+                        newText = selectedText.split('\n').map((line, i) => `${i+1}. ${line}`).join('\n');
+                        break;
+                    case 'preview':
+                        $preview.toggleClass('d-none');
+                        $input.toggleClass('d-none');
+                        $(this).find('i').toggleClass('fa-eye fa-edit');
+                        if (!$preview.hasClass('d-none')) {
+                            $preview.html(marked($input.val()));
+                        }
+                        return;
+                }
+                
+                textarea.value = textarea.value.substring(0, start) + newText + 
+                                textarea.value.substring(end);
+                textarea.focus();
+                textarea.selectionStart = start + newText.length;
+                textarea.selectionEnd = start + newText.length;
+            });
+            
+            // Live preview in modal
+            $('#liveMarkdownInput').on('input', function() {
+                $('#liveMarkdownPreview').html(marked($(this).val()));
+            });
+        };
+        
+        // Professional form initialization
+        const initProfessionalForm = () => {
+            // Set minimum datetime (current time + 1 hour)
+            const now = new Date();
+            now.setHours(now.getHours() + 1);
+            const minDateTime = now.toISOString().slice(0, 16);
+            $('input[type="datetime-local"]').attr('min', minDateTime);
+            
+            // Enhanced form submission
+            $('#assignment-form').on('submit', function(e) {
+                const $submitBtn = $('button[type="submit"]');
+                $submitBtn.prop('disabled', true)
+                    .html('<i class="fas fa-circle-notch fa-spin mr-2"></i> Processing...');
+            });
+            
+            // Professional draft mode toggle
+            $('#draftMode').change(function() {
+                const $submitBtn = $('button[type="submit"]');
+                if($(this).is(':checked')) {
+                    $submitBtn.html('<i class="fas fa-save mr-2"></i> Save Draft')
+                        .removeClass('btn-primary').addClass('btn-secondary');
+                } else {
+                    $submitBtn.html('<i class="fas fa-paper-plane mr-2"></i> Publish')
+                        .removeClass('btn-secondary').addClass('btn-primary');
+                }
+            });
+            
+            // Professional character counter
+            $('.markdown-input').on('input', function() {
+                const count = $(this).val().length;
+                if(!$('#charCounter').length) {
+                    $(this).closest('.form-group').append('<div id="charCounter" class="text-muted text-end small mt-1"></div>');
+                }
+                $('#charCounter').text(`${count} characters`);
+            });
+        };
+        
+        initMarkdownEditor();
+        initProfessionalForm();
+    });
+</script>
+{% endblock %}

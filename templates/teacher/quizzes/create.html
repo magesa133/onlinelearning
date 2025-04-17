@@ -2,768 +2,762 @@
 
 {% block content %}
 <div class="container py-4">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="flashes">
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} alert-dismissible fade show">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                {% endfor %}
-            </div>
-        {% endif %}
-    {% endwith %}
-
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3 font-weight-bold text-primary">
-            <i class="fas fa-plus-circle me-2"></i>Create New Quiz
-        </h1>
-        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
-            <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
-        </a>
+        <h2 class="mb-0">Create New Quiz</h2>
+        <div>
+            <a href="{{ url_for('list_quizzes') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Back to Quizzes
+            </a>
+        </div>
     </div>
-
-    <div class="card border-0 shadow-sm">
-        <div class="card-body p-4">
-            <form method="POST" id="quiz-form" novalidate enctype="multipart/form-data">
-                {{ form.hidden_tag() }}
-
-                <section class="mb-5">
-                    <h4 class="text-dark mb-4 border-bottom pb-2">
-                        <i class="fas fa-info-circle me-2 text-info"></i>Quiz Details
-                    </h4>
+    
+    <form method="POST" id="quiz-form" novalidate>
+        <!-- Basic Information Card -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <i class="fas fa-info-circle me-2"></i>Basic Information
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <!-- Quiz Title -->
+                    <div class="col-md-12">
+                        <div class="form-floating">
+                            {{ form.title(class="form-control", id="quiz-title", placeholder="Enter quiz title") }}
+                            {{ form.title.label(class="form-label") }}
+                            {% for error in form.title.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
                     
-                    <div class="form-group mb-3">
-                        <label class="font-weight-bold">{{ form.title.label }}</label>
-                        {{ form.title(class="form-control form-control-lg" + (' is-invalid' if form.title.errors else ''), 
-                           placeholder="Enter quiz title") }}
-                        {% if form.title.errors %}
-                            <div class="invalid-feedback d-block">
-                                {% for error in form.title.errors %}
-                                    <span class="text-danger">{{ error }}</span><br>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                    </div>
-
-                    <div class="form-group mb-3">
-                        <label class="font-weight-bold">{{ form.description.label }}</label>
-                        {{ form.description(class="form-control" + (' is-invalid' if form.description.errors else ''), 
-                           rows=3, placeholder="Provide instructions for students") }}
-                        {% if form.description.errors %}
-                            <div class="invalid-feedback d-block">
-                                {% for error in form.description.errors %}
-                                    <span class="text-danger">{{ error }}</span><br>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="font-weight-bold">Subject</label>
-                            <select name="subject_id" class="form-control select2 {{ 'is-invalid' if form.subject_id.errors }}" required>
-                                <option value="">Select Subject</option>
-                                {% for subject in current_user.teacher_profile.subjects %}
-                                <option value="{{ subject.id }}" 
-                                    {% if form.subject_id.data == subject.id %}selected{% endif %}>
-                                    {{ subject.name }} ({{ subject.department.name }})
-                                </option>
-                                {% endfor %}
-                            </select>
-                            {% if form.subject_id.errors %}
-                                <div class="invalid-feedback d-block">
-                                    {% for error in form.subject_id.errors %}
-                                        <span class="text-danger">{{ error }}</span><br>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="font-weight-bold">Classroom</label>
-                            <select name="classroom_id" class="form-control select2 {{ 'is-invalid' if form.classroom_id.errors }}" required>
-                                <option value="">Select Classroom</option>
-                                {% for classroom in current_user.teacher_profile.classrooms %}
-                                <option value="{{ classroom.id }}" 
-                                    {% if form.classroom_id.data == classroom.id %}selected{% endif %}>
-                                    {{ classroom.class_name }} ({{ classroom.subject.name }})
-                                </option>
-                                {% endfor %}
-                            </select>
-                            {% if form.classroom_id.errors %}
-                                <div class="invalid-feedback d-block">
-                                    {% for error in form.classroom_id.errors %}
-                                        <span class="text-danger">{{ error }}</span><br>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
+                    <!-- Quiz Description -->
+                    <div class="col-md-12">
+                        <div class="form-floating">
+                            {{ form.description(class="form-control", id="quiz-description", placeholder="Enter description", style="height: 100px") }}
+                            {{ form.description.label(class="form-label") }}
                         </div>
                     </div>
-
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="font-weight-bold">{{ form.due_date.label }}</label>
+                    
+                    <!-- Subject and Classroom -->
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            {{ form.subject_id(class="form-select", id="quiz-subject") }}
+                            {{ form.subject_id.label(class="form-label") }}
+                            {% for error in form.subject_id.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                            <div id="subject-info" class="small text-muted mt-1"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            {{ form.classroom_id(class="form-select", id="quiz-classroom") }}
+                            {{ form.classroom_id.label(class="form-label") }}
+                            {% for error in form.classroom_id.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                            <div id="classroom-info" class="small text-muted mt-1">
+                                <div><strong>Code:</strong> <span id="class-code"></span></div>
+                                <div><strong>Students:</strong> <span id="class-students"></span></div>
+                                <div><strong>Schedule:</strong> <span id="class-schedule"></span></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Due Date and Time Limit -->
+                    <div class="col-md-6">
+                        <div class="form-floating">
                             <input type="datetime-local" 
-                                   class="form-control {{ 'is-invalid' if form.due_date.errors }}" 
-                                   name="due_date"
-                                   id="due_date"
-                                   value="{% if form.due_date.data %}{{ form.due_date.data.strftime('%Y-%m-%dT%H:%M') }}{% endif %}"
-                                   required>
-                            {% if form.due_date.errors %}
-                                <div class="invalid-feedback d-block">
-                                    {% for error in form.due_date.errors %}
-                                        <span class="text-danger">{{ error }}</span><br>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="font-weight-bold">Quiz Duration (minutes)</label>
-                            <input type="number" 
                                    class="form-control" 
-                                   name="duration"
-                                   min="5"
-                                   value="{{ form.duration.data if form.duration.data else 30 }}"
-                                   required>
+                                   id="quiz-due-date" 
+                                   name="due_date"
+                                   min="{{ min_due_date }}"
+                                   value="{{ form.due_date.data.strftime('%Y-%m-%dT%H:%M') if form.due_date.data else '' }}"
+                                   placeholder="Select due date">
+                            <label for="quiz-due-date">Due Date</label>
+                            {% for error in form.due_date.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
                         </div>
                     </div>
-                </section>
-
-                <section class="mb-4">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h4 class="text-dark border-bottom pb-2">
-                            <i class="fas fa-question-circle me-2 text-info"></i>Questions
-                            <span class="badge bg-primary ms-2" id="question-count">{{ form.questions.entries|length }}</span>
-                        </h4>
-                        <div>
-                            <button type="button" class="btn btn-sm btn-outline-primary me-2" id="add-question">
-                                <i class="fas fa-plus me-2"></i>Add Question
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-info" id="save-draft">
-                                <i class="fas fa-save me-2"></i>Save Draft
-                            </button>
-                        </div>
-                    </div>
-
-                    <div id="questions-container">
-                        {% for question in form.questions %}
-                        <div class="card mb-3 question-item border-start border-primary border-3">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <h5 class="question-number text-muted mb-0">Question #{{ loop.index }}</h5>
-                                    <button type="button" class="btn btn-sm btn-outline-danger remove-question">
-                                        <i class="fas fa-trash-alt"></i>
-                                    </button>
-                                </div>
-
-                                <div class="form-group mb-3">
-                                    <label class="font-weight-bold">Question Text</label>
-                                    <textarea name="questions-{{ loop.index0 }}-text" 
-                                              class="form-control {{ 'is-invalid' if question.text.errors }}" 
-                                              rows="2" 
-                                              required>{{ question.text.data }}</textarea>
-                                    {% if question.text.errors %}
-                                        <div class="invalid-feedback d-block">
-                                            {% for error in question.text.errors %}
-                                                <span class="text-danger">{{ error }}</span><br>
-                                            {% endfor %}
-                                        </div>
-                                    {% endif %}
-                                </div>
-                                
-                                <div class="form-group mb-3">
-                                    <label class="font-weight-bold">Options (comma separated)</label>
-                                    <input type="text" 
-                                           name="questions-{{ loop.index0 }}-options" 
-                                           class="form-control options-input {{ 'is-invalid' if question.options.errors }}"
-                                           value="{{ question.options.data if question.options.data else '' }}"
-                                           placeholder="Option A, Option B, Option C, Option D"
-                                           required>
-                                    <small class="form-text text-muted">Separate options with commas (minimum 2)</small>
-                                    {% if question.options.errors %}
-                                        <div class="invalid-feedback d-block">
-                                            {% for error in question.options.errors %}
-                                                <span class="text-danger">{{ error }}</span><br>
-                                            {% endfor %}
-                                        </div>
-                                    {% endif %}
-                                </div>
-                                
-                                <div class="row">
-                                    <div class="col-md-4 mb-3">
-                                        <div class="form-group">
-                                            <label class="font-weight-bold">Correct Answer</label>
-                                            <select name="questions-{{ loop.index0 }}-correct_option" 
-                                                    class="form-control correct-answer-select {{ 'is-invalid' if question.correct_option.errors }}" 
-                                                    required>
-                                                {% if question.options.data %}
-                                                    {% set options = question.options.data.split(',') %}
-                                                    {% for option in options %}
-                                                        {% set letter = ['A', 'B', 'C', 'D', 'E', 'F'][loop.index0] %}
-                                                        <option value="{{ letter }}" 
-                                                                {% if question.correct_option.data == letter %}selected{% endif %}>
-                                                            {{ letter }}: {{ option }}
-                                                        </option>
-                                                    {% endfor %}
-                                                {% else %}
-                                                    <option value="">Add options first</option>
-                                                {% endif %}
-                                            </select>
-                                            {% if question.correct_option.errors %}
-                                                <div class="invalid-feedback d-block">
-                                                    {% for error in question.correct_option.errors %}
-                                                        <span class="text-danger">{{ error }}</span><br>
-                                                    {% endfor %}
-                                                </div>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4 mb-3">
-                                        <div class="form-group">
-                                            <label class="font-weight-bold">Points</label>
-                                            <input type="number" 
-                                                   name="questions-{{ loop.index0 }}-points" 
-                                                   class="form-control {{ 'is-invalid' if question.points.errors }}" 
-                                                   min="1"
-                                                   max="100"
-                                                   value="{{ question.points.data if question.points.data else 1 }}"
-                                                   required>
-                                            {% if question.points.errors %}
-                                                <div class="invalid-feedback d-block">
-                                                    {% for error in question.points.errors %}
-                                                        <span class="text-danger">{{ error }}</span><br>
-                                                    {% endfor %}
-                                                </div>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                    <div class="col-md-4 mb-3">
-                                        <div class="form-group">
-                                            <label class="font-weight-bold">Time Limit (seconds)</label>
-                                            <div class="input-group">
-                                                <input type="number" 
-                                                       name="questions-{{ loop.index0 }}-time_limit" 
-                                                       class="form-control {{ 'is-invalid' if question.time_limit.errors }}" 
-                                                       min="10"
-                                                       max="3600"
-                                                       value="{{ question.time_limit.data if question.time_limit.data else 60 }}"
-                                                       required>
-                                                <div class="input-group-append">
-                                                    <span class="input-group-text">sec</span>
-                                                </div>
-                                            </div>
-                                            {% if question.time_limit.errors %}
-                                                <div class="invalid-feedback d-block">
-                                                    {% for error in question.time_limit.errors %}
-                                                        <span class="text-danger">{{ error }}</span><br>
-                                                    {% endfor %}
-                                                </div>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                </div>
+                    
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            <div class="input-group">
+                                {{ form.time_limit(class="form-control", id="quiz-time-limit", placeholder="Enter time limit") }}
+                                <span class="input-group-text">minutes</span>
+                                {{ form.time_limit.label(class="form-label") }}
                             </div>
+                            {% for error in form.time_limit.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
                         </div>
-                        {% endfor %}
-                    </div>
-                </section>
-
-                <div class="d-flex justify-content-between mt-4 pt-3 border-top">
-                    <div>
-                        <button type="button" class="btn btn-outline-info me-2" id="preview-quiz">
-                            <i class="fas fa-eye me-2"></i>Preview
-                        </button>
-                        <button type="button" class="btn btn-outline-success" id="validate-quiz">
-                            <i class="fas fa-check-circle me-2"></i>Validate
-                        </button>
-                    </div>
-                    <div>
-                        <button type="reset" class="btn btn-outline-secondary me-3">
-                            <i class="fas fa-undo me-2"></i>Reset
-                        </button>
-                        <button type="submit" class="btn btn-primary px-4">
-                            <i class="fas fa-save me-2"></i>Create Quiz
-                        </button>
                     </div>
                 </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Preview Modal -->
-<div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="previewModalLabel">Quiz Preview</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body" id="preview-content">
-                <!-- Preview content will be inserted here -->
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
-    </div>
-</div>
-
-<!-- Validation Modal -->
-<div class="modal fade" id="validationModal" tabindex="-1" aria-labelledby="validationModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="validationModalLabel">Quiz Validation</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        
+        <!-- Questions Card -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-question-circle me-2"></i>Questions</span>
+                <button type="button" class="btn btn-sm btn-light" id="add-question">
+                    <i class="fas fa-plus me-1"></i>Add Question
+                </button>
             </div>
-            <div class="modal-body" id="validation-content">
-                <!-- Validation content will be inserted here -->
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            
+            <div class="card-body" id="questions-container">
+                <!-- Question Template -->
+                <div class="question-item mb-4 p-3 border rounded bg-light">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0 question-number">Question 1</h5>
+                        <button type="button" class="btn btn-sm btn-danger remove-question">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Question Text</label>
+                        <textarea name="questions" class="form-control question-text" rows="3" required></textarea>
+                        <div class="invalid-feedback">Please provide question text</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Options</label>
+                        <input type="text" name="options" class="form-control options-input" 
+                               placeholder="Option 1, Option 2, Option 3" required>
+                        <small class="text-muted">Separate options with commas</small>
+                        <div class="invalid-feedback">Please provide at least 2 options</div>
+                    </div>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Correct Answer</label>
+                            <select name="correct_option" class="form-select correct-answer" required>
+                                <option value="">Select correct answer</option>
+                            </select>
+                            <div class="invalid-feedback">Please select correct answer</div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Points</label>
+                            <input type="number" name="points" class="form-control question-points" 
+                                   min="1" value="10" required>
+                            <div class="invalid-feedback">Points must be at least 1</div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
+        
+        <!-- Form Actions -->
+        <div class="d-flex justify-content-between">
+            <button type="button" class="btn btn-outline-secondary" id="save-draft">
+                <i class="fas fa-save me-1"></i>Save Draft
+            </button>
+            <button type="submit" class="btn btn-success">
+                <i class="fas fa-check me-1"></i>Publish Quiz
+            </button>
+        </div>
+    </form>
 </div>
-{% endblock %}
 
-{% block scripts %}
-{{ super() }}
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const questionsContainer = document.getElementById('questions-container');
-    const addQuestionBtn = document.getElementById('add-question');
-    const questionCountBadge = document.getElementById('question-count');
-    const dueDateField = document.getElementById('due_date');
-    const previewBtn = document.getElementById('preview-quiz');
-    const validateBtn = document.getElementById('validate-quiz');
+    // DOM Elements
+    const container = document.getElementById('questions-container');
+    const addBtn = document.getElementById('add-question');
+    const quizForm = document.getElementById('quiz-form');
     const saveDraftBtn = document.getElementById('save-draft');
-    const previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
-    const validationModal = new bootstrap.Modal(document.getElementById('validationModal'));
-
-    // Initialize due date field with current datetime if empty
-    if (dueDateField && !dueDateField.value) {
-        const now = new Date();
-        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-        dueDateField.value = now.toISOString().slice(0, 16);
-    }
-
-    // Update question counter
-    function updateQuestionCount() {
-        const count = document.querySelectorAll('.question-item').length;
-        questionCountBadge.textContent = count;
-        return count;
-    }
-
-    // Initialize question elements
-    function initializeQuestion(questionElement, index) {
-        const optionsInput = questionElement.querySelector('.options-input');
-        const correctAnswerSelect = questionElement.querySelector('.correct-answer-select');
-        const timeLimitInput = questionElement.querySelector('input[name$="-time_limit"]');
-
-        // Set default time limit if empty
-        if (timeLimitInput && !timeLimitInput.value) {
-            timeLimitInput.value = '60';
-        }
-
-        // Update correct answer options when options change
+    const subjectSelect = document.getElementById('quiz-subject');
+    const classroomSelect = document.getElementById('quiz-classroom');
+    const subjectInfo = document.getElementById('subject-info');
+    const classCode = document.getElementById('class-code');
+    const classStudents = document.getElementById('class-students');
+    const classSchedule = document.getElementById('class-schedule');
+    const STORAGE_KEY = 'quiz_draft_{{ current_user.id }}';
+    
+    // Classroom data cache
+    let classroomData = {};
+    
+    // Initialize form with first question
+    function initFirstQuestion() {
+        const firstQuestion = container.querySelector('.question-item');
+        const optionsInput = firstQuestion.querySelector('.options-input');
+        const correctSelect = firstQuestion.querySelector('.correct-answer');
+        
         optionsInput.addEventListener('input', function() {
-            const options = this.value.split(',').map(opt => opt.trim());
-            correctAnswerSelect.innerHTML = '';
-            
-            if (options.length > 0 && options[0] !== '') {
-                options.forEach((option, idx) => {
-                    const letter = ['A', 'B', 'C', 'D', 'E', 'F'][idx] || String.fromCharCode(65 + idx);
-                    const optionElement = document.createElement('option');
-                    optionElement.value = letter;
-                    optionElement.textContent = `${letter}: ${option}`;
-                    correctAnswerSelect.appendChild(optionElement);
-                });
-                
-                // Set first option as selected if none selected
-                if (!correctAnswerSelect.value && correctAnswerSelect.options.length > 0) {
-                    correctAnswerSelect.options[0].selected = true;
-                }
-            } else {
-                const optionElement = document.createElement('option');
-                optionElement.value = '';
-                optionElement.textContent = 'Add options first';
-                correctAnswerSelect.appendChild(optionElement);
-            }
+            updateCorrectAnswerSelect(optionsInput, correctSelect);
         });
-
-        // Initialize options if they exist
-        if (optionsInput.value) {
+        
+        // Trigger initial update
+        optionsInput.dispatchEvent(new Event('input'));
+    }
+    
+    // Add new question
+    function addQuestion(data = {}) {
+        const count = container.querySelectorAll('.question-item').length + 1;
+        const newQuestion = container.querySelector('.question-item').cloneNode(true);
+        
+        // Update question number
+        newQuestion.querySelector('.question-number').textContent = `Question ${count}`;
+        
+        // Clear existing values
+        newQuestion.querySelector('.question-text').value = data.text || '';
+        newQuestion.querySelector('.options-input').value = data.options ? data.options.join(', ') : '';
+        newQuestion.querySelector('.question-points').value = data.points || 10;
+        
+        // Set up event listeners
+        const optionsInput = newQuestion.querySelector('.options-input');
+        const correctSelect = newQuestion.querySelector('.correct-answer');
+        
+        optionsInput.addEventListener('input', function() {
+            updateCorrectAnswerSelect(optionsInput, correctSelect);
+        });
+        
+        // Initialize correct answer dropdown if options provided
+        if (data.options && data.options.length >= 2) {
+            updateCorrectAnswerSelect(optionsInput, correctSelect, data.correct_option);
+        } else {
             optionsInput.dispatchEvent(new Event('input'));
         }
+        
+        container.appendChild(newQuestion);
     }
-
-    // Generate HTML for new question
-    function getQuestionTemplate(index) {
-        return `
-        <div class="card mb-3 question-item border-start border-primary border-3">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h5 class="question-number text-muted mb-0">Question #${index + 1}</h5>
-                    <button type="button" class="btn btn-sm btn-outline-danger remove-question">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
-                </div>
-                <div class="form-group mb-3">
-                    <label class="font-weight-bold">Question Text</label>
-                    <textarea name="questions-${index}-text" class="form-control" rows="2" required></textarea>
-                </div>
-                <div class="form-group mb-3">
-                    <label class="font-weight-bold">Options (comma separated)</label>
-                    <input type="text" name="questions-${index}-options" class="form-control options-input"
-                           placeholder="Option A, Option B, Option C, Option D" required>
-                    <small class="form-text text-muted">Separate options with commas (minimum 2)</small>
-                </div>
-                <div class="row">
-                    <div class="col-md-4 mb-3">
-                        <div class="form-group">
-                            <label class="font-weight-bold">Correct Answer</label>
-                            <select name="questions-${index}-correct_option" class="form-control correct-answer-select" required>
-                                <option value="">Add options first</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <div class="form-group">
-                            <label class="font-weight-bold">Points</label>
-                            <input type="number" name="questions-${index}-points" class="form-control" min="1" max="100" value="1" required>
-                        </div>
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <div class="form-group">
-                            <label class="font-weight-bold">Time Limit (seconds)</label>
-                            <div class="input-group">
-                                <input type="number" name="questions-${index}-time_limit" class="form-control" min="10" max="3600" value="60" required>
-                                <div class="input-group-append">
-                                    <span class="input-group-text">sec</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>`;
-    }
-
-    // Add new question
-    addQuestionBtn.addEventListener('click', function() {
-        const questionCount = updateQuestionCount();
-        const newQuestionIndex = questionCount;
-        
-        const template = document.createElement('template');
-        template.innerHTML = getQuestionTemplate(newQuestionIndex).trim();
-        const newQuestion = template.content.firstChild;
-        
-        questionsContainer.appendChild(newQuestion);
-        initializeQuestion(newQuestion, newQuestionIndex);
-        updateQuestionCount();
-        
-        newQuestion.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    });
-
+    
     // Remove question
-    questionsContainer.addEventListener('click', function(e) {
-        if (e.target.closest('.remove-question')) {
-            const questionItem = e.target.closest('.question-item');
-            if (document.querySelectorAll('.question-item').length > 1) {
-                questionItem.remove();
+    function removeQuestion(questionElement) {
+        if (container.querySelectorAll('.question-item').length > 1) {
+            questionElement.remove();
+            updateQuestionNumbers();
+        } else {
+            alert('A quiz must have at least one question');
+        }
+    }
+    
+    // Update question numbers
+    function updateQuestionNumbers() {
+        container.querySelectorAll('.question-item').forEach((item, index) => {
+            item.querySelector('.question-number').textContent = `Question ${index + 1}`;
+        });
+    }
+    
+    // Update correct answer dropdown
+    function updateCorrectAnswerSelect(inputElement, selectElement, defaultValue = null) {
+        const options = inputElement.value.split(',').map(opt => opt.trim()).filter(opt => opt !== '');
+        selectElement.innerHTML = '';
+        
+        if (options.length >= 2) {
+            options.forEach((option, index) => {
+                const optElement = document.createElement('option');
+                optElement.value = index;
+                optElement.textContent = option.length > 30 ? option.substring(0, 30) + '...' : option;
+                selectElement.appendChild(optElement);
+            });
+            
+            if (defaultValue !== null && defaultValue >= 0 && defaultValue < options.length) {
+                selectElement.value = defaultValue;
+            }
+            selectElement.disabled = false;
+        } else {
+            selectElement.innerHTML = '<option value="">Add at least 2 options</option>';
+            selectElement.disabled = true;
+        }
+    }
+    
+    // Fetch classroom details with error handling
+    async function fetchClassroomDetails(classroomId) {
+        if (!classroomId) return null;
+        
+        if (classroomData[classroomId]) {
+            return classroomData[classroomId];
+        }
+        
+        try {
+            const response = await fetch(`/api/classrooms/${classroomId}`);
+            if (!response.ok) throw new Error('Failed to fetch classroom');
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Unknown error');
+            }
+            
+            classroomData[classroomId] = data.classroom;
+            return data.classroom;
+        } catch (error) {
+            console.error('Error fetching classroom:', error);
+            showToast('Error loading classroom details', 'danger');
+            return null;
+        }
+    }
+    
+    // Update classroom info display with error handling
+    async function updateClassroomInfo(classroomId) {
+        if (!classroomId) {
+            resetClassroomInfo();
+            return;
+        }
+        
+        try {
+            const classroom = await fetchClassroomDetails(classroomId);
+            if (!classroom) throw new Error('Classroom not found');
+            
+            classCode.textContent = classroom.code || 'N/A';
+            classStudents.textContent = `${classroom.current_student_count || 0}/${classroom.max_students || 30}`;
+            
+            if (classroom.schedule_days && classroom.schedule_time) {
+                classSchedule.textContent = `${classroom.schedule_days} at ${classroom.schedule_time}`;
+            } else {
+                classSchedule.textContent = 'Not scheduled';
+            }
+            
+            if (classroom.location) {
+                classSchedule.textContent += ` (${classroom.location})`;
+            }
+        } catch (error) {
+            console.error('Error updating classroom info:', error);
+            resetClassroomInfo();
+            classCode.textContent = 'Error loading details';
+            showToast('Error loading classroom information', 'danger');
+        }
+    }
+    
+    // Reset classroom info display
+    function resetClassroomInfo() {
+        classCode.textContent = '';
+        classStudents.textContent = '';
+        classSchedule.textContent = '';
+    }
+    
+    // Update subject info display with error handling
+    async function updateSubjectInfo(subjectId) {
+        if (!subjectId) {
+            subjectInfo.textContent = '';
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/subjects/${subjectId}`);
+            if (!response.ok) throw new Error('Failed to fetch subject');
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Unknown error');
+            }
+            
+            subjectInfo.textContent = data.subject.description || 'No additional information';
+        } catch (error) {
+            console.error('Error updating subject info:', error);
+            subjectInfo.textContent = 'Error loading subject information';
+            showToast('Error loading subject information', 'danger');
+        }
+    }
+    
+    // Update classroom options based on selected subject with error handling
+    async function updateClassrooms(subjectId) {
+        if (!subjectId) {
+            classroomSelect.innerHTML = '<option value="">Select a subject first</option>';
+            resetClassroomInfo();
+            return;
+        }
+        
+        try {
+            const teacherId = "{{ current_user.teacher_profile.id }}";
+            const response = await fetch(`/api/classrooms?subject_id=${subjectId}&teacher_id=${teacherId}`);
+            if (!response.ok) throw new Error('Failed to fetch classrooms');
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Unknown error');
+            }
+            
+            classroomSelect.innerHTML = '';
+            classroomData = {};
+            
+            if (data.classrooms.length === 0) {
+                classroomSelect.innerHTML = '<option value="">No classrooms available for this subject</option>';
+                resetClassroomInfo();
+                showToast('No classrooms found for this subject', 'warning');
+            } else {
+                // Add default option
+                const defaultOption = new Option('Select a classroom', '');
+                classroomSelect.add(defaultOption);
                 
-                // Reindex remaining questions
-                document.querySelectorAll('.question-item').forEach((item, index) => {
-                    item.querySelector('.question-number').textContent = `Question #${index + 1}`;
-                    item.querySelectorAll('[name]').forEach(element => {
-                        const name = element.getAttribute('name');
-                        const newName = name.replace(/questions-\d+-/, `questions-${index}-`);
-                        element.setAttribute('name', newName);
-                    });
+                // Add classroom options
+                data.classrooms.forEach(classroom => {
+                    const option = new Option(
+                        `${classroom.class_name} (${classroom.code || 'No code'})`, 
+                        classroom.id
+                    );
+                    classroomSelect.add(option);
+                    classroomData[classroom.id] = classroom;
                 });
                 
-                updateQuestionCount();
-            } else {
-                alert('A quiz must have at least one question');
+                // Update info for the first classroom if available
+                if (data.classrooms[0]?.id) {
+                    classroomSelect.value = data.classrooms[0].id;
+                    updateClassroomInfo(data.classrooms[0].id);
+                }
             }
+        } catch (error) {
+            console.error('Error updating classrooms:', error);
+            classroomSelect.innerHTML = '<option value="">Error loading classrooms</option>';
+            resetClassroomInfo();
+            showToast('Error loading classrooms', 'danger');
         }
-    });
-
-    // Preview quiz
-    previewBtn.addEventListener('click', function() {
-        const formData = new FormData(document.getElementById('quiz-form'));
-        const previewContent = document.getElementById('preview-content');
-        
-        // Simple preview generation
-        let previewHTML = `
-            <h4>${formData.get('title') || 'Untitled Quiz'}</h4>
-            <p class="text-muted">${formData.get('description') || 'No description provided'}</p>
-            <hr>
-            <div class="mb-3">
-                <strong>Due:</strong> ${formData.get('due_date') || 'Not specified'}
-            </div>
-            <div class="mb-3">
-                <strong>Duration:</strong> ${formData.get('duration') || '30'} minutes
-            </div>`;
-        
-        // Add questions to preview
-        let questionIndex = 0;
-        while (formData.get(`questions-${questionIndex}-text`)) {
-            const questionText = formData.get(`questions-${questionIndex}-text`);
-            const options = formData.get(`questions-${questionIndex}-options`).split(',');
-            const correctAnswer = formData.get(`questions-${questionIndex}-correct_option`);
-            
-            previewHTML += `
-                <div class="card mb-3">
-                    <div class="card-body">
-                        <h5 class="card-title">Question ${questionIndex + 1}</h5>
-                        <p>${questionText}</p>
-                        <ul class="list-group list-group-flush">`;
-            
-            options.forEach((option, idx) => {
-                const letter = ['A', 'B', 'C', 'D', 'E', 'F'][idx];
-                const isCorrect = (letter === correctAnswer);
-                previewHTML += `
-                            <li class="list-group-item ${isCorrect ? 'list-group-item-success' : ''}">
-                                ${letter}: ${option} ${isCorrect ? '✓' : ''}
-                            </li>`;
-            });
-            
-            previewHTML += `
-                        </ul>
-                        <div class="mt-2">
-                            <span class="badge bg-info">Points: ${formData.get(`questions-${questionIndex}-points`)}</span>
-                            <span class="badge bg-secondary ms-2">Time: ${formData.get(`questions-${questionIndex}-time_limit`)} sec</span>
-                        </div>
-                    </div>
-                </div>`;
-            
-            questionIndex++;
-        }
-        
-        previewContent.innerHTML = previewHTML;
-        previewModal.show();
-    });
-
-    // Validate quiz
-    validateBtn.addEventListener('click', function() {
-        const form = document.getElementById('quiz-form');
-        const validationContent = document.getElementById('validation-content');
-        let isValid = true;
-        let validationHTML = '<h5 class="mb-3">Quiz Validation Results</h5><ul class="list-group">';
-        
-        // Check quiz title
-        if (!form.title.value.trim()) {
-            isValid = false;
-            validationHTML += '<li class="list-group-item list-group-item-danger">Quiz title is required</li>';
-        }
-        
-        // Check subject and classroom
-        if (!form.subject_id.value) {
-            isValid = false;
-            validationHTML += '<li class="list-group-item list-group-item-danger">Subject is required</li>';
-        }
-        if (!form.classroom_id.value) {
-            isValid = false;
-            validationHTML += '<li class="list-group-item list-group-item-danger">Classroom is required</li>';
-        }
-        
-        // Check due date
-        if (!form.due_date.value) {
-            isValid = false;
-            validationHTML += '<li class="list-group-item list-group-item-danger">Due date is required</li>';
-        }
-        
-        // Check questions
-        const questionItems = document.querySelectorAll('.question-item');
-        if (questionItems.length === 0) {
-            isValid = false;
-            validationHTML += '<li class="list-group-item list-group-item-danger">At least one question is required</li>';
-        }
-        
-        // Check each question
-        questionItems.forEach((item, index) => {
-            const questionText = item.querySelector('textarea').value.trim();
-            const options = item.querySelector('.options-input').value.trim();
-            const correctAnswer = item.querySelector('.correct-answer-select').value;
-            
-            if (!questionText) {
-                isValid = false;
-                validationHTML += `<li class="list-group-item list-group-item-danger">Question #${index + 1}: Text is required</li>`;
-            }
-            
-            if (!options) {
-                isValid = false;
-                validationHTML += `<li class="list-group-item list-group-item-danger">Question #${index + 1}: Options are required</li>`;
-            } else if (options.split(',').filter(opt => opt.trim()).length < 2) {
-                isValid = false;
-                validationHTML += `<li class="list-group-item list-group-item-danger">Question #${index + 1}: At least 2 options are required</li>`;
-            }
-            
-            if (!correctAnswer) {
-                isValid = false;
-                validationHTML += `<li class="list-group-item list-group-item-danger">Question #${index + 1}: Correct answer is required</li>`;
-            }
-        });
-        
-        if (isValid) {
-            validationHTML += '<li class="list-group-item list-group-item-success">All validation checks passed! Your quiz is ready to be created.</li>';
-        } else {
-            validationHTML += '<li class="list-group-item list-group-item-warning">Please fix the issues above before creating the quiz.</li>';
-        }
-        
-        validationHTML += '</ul>';
-        validationContent.innerHTML = validationHTML;
-        validationModal.show();
-    });
-
-    // Save draft functionality
-    saveDraftBtn.addEventListener('click', function() {
-        const form = document.getElementById('quiz-form');
-        const formData = new FormData(form);
-        const quizData = {
-            title: formData.get('title'),
-            description: formData.get('description'),
-            subject_id: formData.get('subject_id'),
-            classroom_id: formData.get('classroom_id'),
-            due_date: formData.get('due_date'),
-            duration: formData.get('duration'),
+    }
+    
+    // Save draft to localStorage
+    function saveDraft() {
+        const formData = {
+            title: document.getElementById('quiz-title').value,
+            description: document.getElementById('quiz-description').value,
+            subject_id: subjectSelect.value,
+            classroom_id: classroomSelect.value,
+            due_date: document.getElementById('quiz-due-date').value,
+            time_limit: document.getElementById('quiz-time-limit').value,
             questions: []
         };
-
-        // Collect questions data
-        let questionIndex = 0;
-        while (formData.get(`questions-${questionIndex}-text`)) {
-            quizData.questions.push({
-                text: formData.get(`questions-${questionIndex}-text`),
-                options: formData.get(`questions-${questionIndex}-options`),
-                correct_option: formData.get(`questions-${questionIndex}-correct_option`),
-                points: formData.get(`questions-${questionIndex}-points`),
-                time_limit: formData.get(`questions-${questionIndex}-time_limit`)
+        
+        container.querySelectorAll('.question-item').forEach(question => {
+            const options = question.querySelector('.options-input').value
+                .split(',')
+                .map(opt => opt.trim())
+                .filter(opt => opt !== '');
+            
+            formData.questions.push({
+                text: question.querySelector('.question-text').value,
+                options: options,
+                correct_option: question.querySelector('.correct-answer').value ? 
+                    parseInt(question.querySelector('.correct-answer').value) : null,
+                points: parseInt(question.querySelector('.question-points').value)
             });
-            questionIndex++;
-        }
-
-        // Send to server
-        fetch('/api/save_draft', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': document.querySelector('[name="csrf_token"]').value
-            },
-            body: JSON.stringify(quizData)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                const validationContent = document.getElementById('validation-content');
-                validationContent.innerHTML = `
-                    <div class="alert alert-success">
-                        <i class="fas fa-check-circle me-2"></i>
-                        Quiz draft saved successfully! You can continue editing later.
-                    </div>`;
-                validationModal.show();
-            } else {
-                throw new Error(data.error || 'Failed to save draft');
-            }
-        })
-        .catch(error => {
-            const validationContent = document.getElementById('validation-content');
-            validationContent.innerHTML = `
-                <div class="alert alert-danger">
-                    <i class="fas fa-exclamation-circle me-2"></i>
-                    Error saving draft: ${error.message}
-                </div>`;
-            validationModal.show();
         });
-    });
+        
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
+        showToast('Draft saved successfully!', 'success');
+    }
+    
+    // Load draft from localStorage
+    function loadDraft() {
+        const savedData = localStorage.getItem(STORAGE_KEY);
+        if (savedData) {
+            try {
+                const data = JSON.parse(savedData);
+                
+                // Fill basic info
+                document.getElementById('quiz-title').value = data.title || '';
+                document.getElementById('quiz-description').value = data.description || '';
+                
+                // Set subject and trigger change
+                if (data.subject_id) {
+                    subjectSelect.value = data.subject_id;
+                    subjectSelect.dispatchEvent(new Event('change'));
+                    
+                    // Set classroom after a delay to allow classrooms to load
+                    setTimeout(() => {
+                        if (data.classroom_id) {
+                            classroomSelect.value = data.classroom_id;
+                            updateClassroomInfo(data.classroom_id);
+                        }
+                    }, 500);
+                }
+                
+                document.getElementById('quiz-due-date').value = data.due_date || '';
+                document.getElementById('quiz-time-limit').value = data.time_limit || '';
+                
+                // Clear existing questions (except the first one)
+                const questions = container.querySelectorAll('.question-item');
+                for (let i = 1; i < questions.length; i++) {
+                    questions[i].remove();
+                }
+                
+                // Update first question
+                const firstQuestion = questions[0];
+                if (data.questions && data.questions[0]) {
+                    const qData = data.questions[0];
+                    firstQuestion.querySelector('.question-text').value = qData.text || '';
+                    firstQuestion.querySelector('.options-input').value = qData.options ? qData.options.join(', ') : '';
+                    firstQuestion.querySelector('.question-points').value = qData.points || 10;
+                    
+                    const optionsInput = firstQuestion.querySelector('.options-input');
+                    const correctSelect = firstQuestion.querySelector('.correct-answer');
+                    updateCorrectAnswerSelect(optionsInput, correctSelect, qData.correct_option);
+                }
+                
+                // Add additional questions
+                if (data.questions && data.questions.length > 1) {
+                    for (let i = 1; i < data.questions.length; i++) {
+                        addQuestion(data.questions[i]);
+                    }
+                }
+                
+                showToast('Draft loaded successfully!', 'success');
+            } catch (e) {
+                console.error('Error loading draft:', e);
+                localStorage.removeItem(STORAGE_KEY);
+                showToast('Error loading draft', 'danger');
+            }
+        }
+    }
+    
+    // Validate form
+    function validateForm() {
+        let isValid = true;
+        
+        // Validate basic fields
+        const requiredFields = [
+            'quiz-title', 'quiz-subject', 'quiz-classroom',
+            'quiz-due-date', 'quiz-time-limit'
+        ];
+        
+        requiredFields.forEach(id => {
+            const field = document.getElementById(id);
+            if (!field.value.trim()) {
+                showError(field, 'This field is required');
+                isValid = false;
+            } else {
+                clearError(field);
+            }
+        });
+        
+        // Validate due date
+        const dueDateField = document.getElementById('quiz-due-date');
+        if (dueDateField.value) {
+            const selectedDate = new Date(dueDateField.value);
+            const minDate = new Date(dueDateField.min);
+            
+            if (selectedDate < minDate) {
+                showError(dueDateField, 'Due date must be at least 30 minutes from now');
+                isValid = false;
+            }
+        }
+        
+        // Validate questions
+        container.querySelectorAll('.question-item').forEach(question => {
+            const textarea = question.querySelector('.question-text');
+            const optionsInput = question.querySelector('.options-input');
+            const correctSelect = question.querySelector('.correct-answer');
+            const pointsInput = question.querySelector('.question-points');
+            
+            // Validate question text
+            if (!textarea.value.trim()) {
+                showError(textarea, 'Question text is required');
+                isValid = false;
+            } else if (textarea.value.trim().length < 10) {
+                showError(textarea, 'Question should be at least 10 characters');
+                isValid = false;
+            } else {
+                clearError(textarea);
+            }
+            
+            // Validate options
+            const options = optionsInput.value.split(',').map(opt => opt.trim()).filter(opt => opt !== '');
+            if (options.length < 2) {
+                showError(optionsInput, 'At least two options required');
+                isValid = false;
+            } else if (options.length !== new Set(options).size) {
+                showError(optionsInput, 'Options must be unique');
+                isValid = false;
+            } else {
+                clearError(optionsInput);
+            }
+            
+            // Validate correct answer
+            if (!correctSelect.value) {
+                showError(correctSelect, 'Please select correct answer');
+                isValid = false;
+            } else {
+                clearError(correctSelect);
+            }
+            
+            // Validate points
+            if (!pointsInput.value || parseInt(pointsInput.value) < 1) {
+                showError(pointsInput, 'Points must be at least 1');
+                isValid = false;
+            } else {
+                clearError(pointsInput);
+            }
+        });
+        
+        return isValid;
+    }
+    
+    // Show error message
+    function showError(element, message) {
+        element.classList.add('is-invalid');
+        let feedback = element.nextElementSibling;
+        
+        while (feedback && !feedback.classList.contains('invalid-feedback')) {
+            feedback = feedback.nextElementSibling;
+        }
+        
+        if (feedback && feedback.classList.contains('invalid-feedback')) {
+            feedback.textContent = message;
+        } else {
+            const div = document.createElement('div');
+            div.className = 'invalid-feedback d-block';
+            div.textContent = message;
+            element.parentNode.appendChild(div);
+        }
+    }
+    
+    // Clear error message
+    function clearError(element) {
+        element.classList.remove('is-invalid');
+        let feedback = element.nextElementSibling;
+        
+        while (feedback && !feedback.classList.contains('invalid-feedback')) {
+            feedback = feedback.nextElementSibling;
+        }
+        
+        if (feedback && feedback.classList.contains('invalid-feedback')) {
+            feedback.textContent = '';
+        }
+    }
+    
+    // Scroll to first error
+    function scrollToFirstError() {
+        const firstError = document.querySelector('.is-invalid');
+        if (firstError) {
+            firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+    
+    // Show toast notification
+    function showToast(message, type = 'success') {
+        // Remove existing toasts
+        document.querySelectorAll('.toast').forEach(toast => toast.remove());
+        
+        const toast = document.createElement('div');
+        toast.className = `toast show align-items-center text-white bg-${type} border-0 position-fixed bottom-0 end-0 m-3`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        toast.style.zIndex = '1100';
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        `;
+        document.body.appendChild(toast);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
 
-    // Initialize existing questions
-    document.querySelectorAll('.question-item').forEach((question, index) => {
-        initializeQuestion(question, index);
-    });
+    // Initialize character counters
+    function setupCharacterCounters() {
+        const setupCounter = (element, maxLength) => {
+            const counter = document.createElement('small');
+            counter.className = 'text-muted float-end character-counter';
+            element.parentNode.appendChild(counter);
+            
+            element.addEventListener('input', function() {
+                const remaining = maxLength - this.value.length;
+                counter.textContent = `${remaining} characters remaining`;
+                counter.classList.toggle('text-danger', remaining < 0);
+            });
+            
+            // Trigger initial count
+            element.dispatchEvent(new Event('input'));
+        };
+        
+        // Quiz title counter
+        setupCounter(document.getElementById('quiz-title'), 150);
+        
+        // Quiz description counter
+        setupCounter(document.getElementById('quiz-description'), 2000);
+        
+        // Question text counters
+        container.querySelectorAll('.question-text').forEach(textarea => {
+            setupCounter(textarea, 500);
+        });
+    }
 
-    // Initialize Select2
-    $('.select2').select2({
-        theme: 'bootstrap4',
-        placeholder: "Select an option",
-        width: '100%'
-    });
+    // Initialize all event listeners
+    function initEventListeners() {
+        // Subject change handler
+        subjectSelect.addEventListener('change', async function() {
+            const subjectId = this.value;
+            await updateSubjectInfo(subjectId);
+            await updateClassrooms(subjectId);
+        });
+        
+        // Classroom change handler
+        classroomSelect.addEventListener('change', function() {
+            updateClassroomInfo(this.value);
+        });
+        
+        // Add Question Button
+        addBtn.addEventListener('click', addQuestion);
+        
+        // Remove Question Button
+        container.addEventListener('click', function(e) {
+            if (e.target.closest('.remove-question')) {
+                removeQuestion(e.target.closest('.question-item'));
+            }
+        });
+        
+        // Save Draft Button
+        saveDraftBtn.addEventListener('click', saveDraft);
+        
+        // Form Submission
+        quizForm.addEventListener('submit', function(e) {
+            if (!validateForm()) {
+                e.preventDefault();
+                scrollToFirstError();
+            } else {
+                localStorage.removeItem(STORAGE_KEY);
+            }
+        });
+        
+        // Auto-save every 30 seconds
+        setInterval(saveDraft, 30000);
+        
+        // Warn before leaving with unsaved changes
+        window.addEventListener('beforeunload', function(e) {
+            if (localStorage.getItem(STORAGE_KEY)) {
+                e.preventDefault();
+                e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+                return e.returnValue;
+            }
+        });
+    }
+
+    // Initialize the form
+    initFirstQuestion();
+    setupCharacterCounters();
+    loadDraft();
+    initEventListeners();
+    
+    // Initialize with current values if they exist
+    if (subjectSelect.value) {
+        subjectSelect.dispatchEvent(new Event('change'));
+    }
 });
 </script>
-{% endblock %}
-
-{% block styles %}
-{{ super() }}
-<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap4-theme@1.0.0/dist/select2-bootstrap4.min.css" rel="stylesheet" />
 
 <style>
-    .question-item {
-        transition: all 0.3s ease;
-        background-color: #f8f9fa;
+    .character-counter {
+        font-size: 0.8rem;
     }
-    .question-item:hover {
-        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
-        transform: translateY(-2px);
-        background-color: #fff;
+    .question-image-preview {
+        display: none;
     }
-    .select2-container--bootstrap4 .select2-selection {
-        height: calc(2.25rem + 2px);
-        padding: 0.375rem 0.75rem;
+    .question-image-preview img {
+        max-width: 100%;
+    }
+    .rich-text-toolbar {
+        background: #f8f9fa;
+        padding: 5px;
+        border-radius: 4px 4px 0 0;
         border: 1px solid #ced4da;
-    }
-    .select2-container--bootstrap4 .select2-selection--single .select2-selection__rendered {
-        line-height: 1.5;
-    }
-    .invalid-feedback {
-        font-size: 0.85rem;
-    }
-    #question-count {
-        font-size: 0.8em;
-        vertical-align: middle;
-    }
-    .alert {
-        margin-bottom: 1.5rem;
-    }
-    .card {
-        border-radius: 0.5rem;
-    }
-    .form-control-lg {
-        font-size: 1.1rem;
-    }
-    .btn-outline-primary {
-        transition: all 0.2s;
-    }
-    .btn-outline-primary:hover {
-        transform: translateY(-1px);
-    }
-    .border-bottom {
-        border-bottom: 2px solid #dee2e6 !important;
-    }
-    .text-primary {
-        color: #3f6ad8 !important;
-    }
-    .btn-primary {
-        background-color: #3f6ad8;
-        border-color: #3f6ad8;
-    }
-    .list-group-item-success {
-        background-color: rgba(40, 167, 69, 0.1);
-    }
-    #preview-content {
-        max-height: 70vh;
-        overflow-y: auto;
-    }
-    .list-group-item-danger {
-        background-color: rgba(220, 53, 69, 0.1);
-    }
-    .list-group-item-warning {
-        background-color: rgba(255, 193, 7, 0.1);
+        border-bottom: none;
     }
 </style>
 {% endblock %}

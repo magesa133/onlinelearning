@@ -1,0 +1,87 @@
+{% extends "teacher_dashboard.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 font-weight-bold text-primary">
+            <i class="fas fa-tasks me-2"></i>Assignments
+        </h1>
+        {% if current_user.role == 'teacher' %}
+        <a href="{{ url_for('create_assignment') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>Create Assignment
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            {% if assignments %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Subject</th>
+                            <th>Class</th>
+                            <th>Due Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for assignment in assignments %}
+                        <tr>
+                            <td>{{ assignment.title }}</td>
+                            <td>{{ assignment.subject.name if assignment.subject else 'N/A' }}</td>
+                            <td>{{ assignment.classroom.class_name if assignment.classroom else 'N/A' }}</td>
+                            <td>
+                                {% if assignment.due_date %}
+                                    {{ assignment.due_date.strftime('%Y-%m-%d %H:%M') }}
+                                {% else %}
+                                    No due date
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if current_user.role == 'student' %}
+                                    {% set submission = student_submissions.get(assignment.id) if student_submissions else None %}
+                                    {% if submission %}
+                                        <span class="badge bg-success">Submitted</span>
+                                    {% elif assignment.due_date and assignment.due_date < now %}
+                                        <span class="badge bg-danger">Overdue</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">Pending</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge bg-info">
+                                        {{ assignment.submissions|length if assignment.submissions else 0 }} submissions
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ url_for('view_assignment', assignment_id=assignment.id) }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye"></i> View
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5">
+                <i class="fas fa-tasks fa-3x text-muted mb-3"></i>
+                <h5>No assignments found</h5>
+                {% if current_user.role == 'teacher' %}
+                <p>Create your first assignment to get started</p>
+                <a href="{{ url_for('create_assignment') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-2"></i>Create Assignment
+                </a>
+                {% else %}
+                <p>You don't have any assignments yet</p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

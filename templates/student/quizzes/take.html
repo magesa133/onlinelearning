@@ -1,0 +1,76 @@
+{% extends "student_dashboard.html" %}
+
+{% block content %}
+<div class="take-quiz">
+    <div class="quiz-header">
+        <h2>{{ quiz.title }}</h2>
+        <div class="quiz-progress">
+            <div class="progress-info">
+                Question {{ question_num }}/{{ quiz.questions|length }}
+                {% if time_remaining %}
+                <span class="time-remaining">
+                    <i class="fas fa-clock"></i>
+                    Time remaining: {{ (time_remaining / 60)|round(1) }} minutes
+                </span>
+                {% endif %}
+            </div>
+            <div class="progress-bar">
+                <div class="progress" style="width: {{ (question_num / quiz.questions|length) * 100 }}%"></div>
+            </div>
+        </div>
+    </div>
+
+    <form method="POST" class="quiz-question-form">
+        <div class="question-card">
+            <h3 class="question-text">{{ question.text }}</h3>
+            
+            <div class="question-options">
+                {% for option_key, option_value in question.options.items() %}
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" 
+                           name="question_{{ question.id }}" 
+                           id="option_{{ question.id }}_{{ option_key }}" 
+                           value="{{ option_key }}">
+                    <label class="form-check-label" for="option_{{ question.id }}_{{ option_key }}">
+                        {{ option_value }}
+                    </label>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="quiz-navigation">
+            <button type="submit" class="btn btn-primary">
+                {% if question_num == quiz.questions|length %}
+                Submit Quiz
+                {% else %}
+                Next Question
+                {% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+
+{% if time_remaining %}
+<script>
+// Timer countdown
+let timeLeft = {{ time_remaining }};
+const timerElement = document.querySelector('.time-remaining');
+
+function updateTimer() {
+    const minutes = Math.floor(timeLeft / 60);
+    const seconds = Math.floor(timeLeft % 60);
+    timerElement.textContent = `Time remaining: ${minutes}m ${seconds}s`;
+    
+    if (timeLeft <= 0) {
+        document.querySelector('form').submit();
+    } else {
+        timeLeft--;
+        setTimeout(updateTimer, 1000);
+    }
+}
+
+updateTimer();
+</script>
+{% endif %}
+{% endblock %}

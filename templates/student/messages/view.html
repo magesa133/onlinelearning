@@ -1,0 +1,105 @@
+{% extends "student_dashboard.html" %}
+
+{% block content %}
+<div class="message-detail">
+    <div class="message-header">
+        <h2>{{ message.title }}</h2>
+        <div class="message-meta">
+            {% if message.is_announcement %}
+            <span class="badge badge-info">
+                <i class="fas fa-bullhorn"></i> Announcement
+            </span>
+            {% endif %}
+            
+            {% if message.is_urgent %}
+            <span class="badge badge-danger">
+                <i class="fas fa-exclamation-triangle"></i> Urgent
+            </span>
+            {% endif %}
+            
+            <span class="sender">
+                From: 
+                {% if message.sender_user %}
+                {{ message.sender_user.username }}
+                {% else %}
+                System
+                {% endif %}
+            </span>
+            
+            {% if message.classroom %}
+            <span class="course">
+                <i class="fas fa-book"></i>
+                {{ message.classroom.class_name }}
+            </span>
+            {% endif %}
+            
+            <span class="date">
+                <i class="far fa-clock"></i>
+                {{ message.timestamp|datetimeformat('%b %d, %Y at %I:%M %p') }}
+            </span>
+        </div>
+    </div>
+    
+    <div class="message-content">
+        {{ message.content|markdown }}
+    </div>
+    
+    {% if message.attachment_path %}
+    <div class="message-attachment">
+        <h4>Attachment:</h4>
+        <a href="{{ url_for('download_message_attachment', message_id=message.id) }}" 
+           class="btn btn-outline-primary">
+            <i class="fas fa-paperclip"></i> Download Attachment
+        </a>
+    </div>
+    {% endif %}
+    
+    <!-- Thread view -->
+    <div class="message-thread">
+        <h3>Conversation</h3>
+        
+        {% for msg in thread %}
+        <div class="thread-message {% if msg.id == message.id %}current{% endif %} 
+            {% if msg.sender_id == current_user.id %}sent{% else %}received{% endif %}">
+            <div class="message-meta">
+                <span class="sender">
+                    {% if msg.sender_user %}
+                    {{ msg.sender_user.username }}
+                    {% else %}
+                    System
+                    {% endif %}
+                </span>
+                <span class="date">
+                    {{ msg.timestamp|datetimeformat('%b %d, %I:%M %p') }}
+                </span>
+            </div>
+            <div class="message-text">
+                {{ msg.content }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Reply form -->
+    {% if not message.is_announcement %}
+    <div class="reply-form">
+        <h3>Reply to Message</h3>
+        <form method="POST" action="{{ url_for('student_reply_message', message_id=message.id) }}">
+            <div class="form-group">
+                <textarea name="content" class="form-control" rows="5" 
+                          placeholder="Type your reply here..." required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-reply"></i> Send Reply
+            </button>
+        </form>
+    </div>
+    {% endif %}
+    
+    <div class="message-actions">
+        <a href="{{ url_for('student_messages') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Inbox
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -15,4 +15,6 @@ class Config:
     SESSION_PROTECTION = 'strong'  # Prevents session hijacking
     
     # Debug Mode (set to False in production!)
-    DEBUG = True  
+    DEBUG = True
+
+    

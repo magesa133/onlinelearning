@@ -1,0 +1,97 @@
+{% extends "student_dashboard.html" %}
+
+{% block content %}
+<div class="assignment-detail">
+    <div class="assignment-header">
+        <h2>{{ assignment.title }}</h2>
+        <div class="assignment-meta">
+            <span class="course-name">{{ assignment.subject.name }} - {{ assignment.classroom.class_name }}</span>
+            <span class="due-date">
+                <i class="far fa-clock"></i> 
+                Due: {{ assignment.due_date|datetimeformat('%b %d, %Y at %I:%M %p') }}
+                ({{ assignment.due_date|humanize }})
+            </span>
+        </div>
+    </div>
+
+    <div class="assignment-content">
+        <div class="assignment-description">
+            <h3>Assignment Description</h3>
+            <div class="description-content">
+                {{ assignment.description|markdown }}
+            </div>
+        </div>
+
+        {% if assignment.questions %}
+        <div class="assignment-questions">
+            <h3>Questions</h3>
+            <div class="questions-content">
+                {{ assignment.questions|markdown }}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="submission-section">
+        <h3>Your Submission</h3>
+        
+        {% if submission %}
+        <div class="submission-details">
+            <div class="submission-meta">
+                <span class="submitted-at">
+                    <i class="far fa-calendar-check"></i>
+                    Submitted on: {{ submission.submitted_at|datetimeformat('%b %d, %Y at %I:%M %p') }}
+                </span>
+                
+                {% if submission.score is not none %}
+                <span class="submission-grade">
+                    <i class="fas fa-check-circle"></i>
+                    Grade: {{ submission.score }}/{{ assignment.max_score }}
+                </span>
+                {% endif %}
+            </div>
+            
+            {% if submission.content %}
+            <div class="submission-content">
+                <h4>Written Response:</h4>
+                <p>{{ submission.content }}</p>
+            </div>
+            {% endif %}
+            
+            {% if submission.file_path %}
+            <div class="submission-file">
+                <h4>Attached File:</h4>
+                <a href="{{ url_for('download_submission', submission_id=submission.id) }}" 
+                   class="btn btn-outline-primary">
+                    <i class="fas fa-download"></i> Download File
+                </a>
+            </div>
+            {% endif %}
+            
+            {% if submission.feedback %}
+            <div class="feedback-section">
+                <h4>Teacher Feedback:</h4>
+                <div class="feedback-content">
+                    {{ submission.feedback }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="no-submission">
+            <p>You haven't submitted this assignment yet.</p>
+            {% if assignment.due_date > now %}
+            <a href="{{ url_for('student_submit_assignment', assignment_id=assignment.id) }}" 
+               class="btn btn-primary">
+                Submit Assignment
+            </a>
+            {% else %}
+            <button class="btn btn-secondary" disabled>
+                Submission Closed
+            </button>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

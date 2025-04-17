@@ -149,8 +149,9 @@
 <div class="unique-container">
     <div class="unique-login-container">
         <h2 class="unique-login-title">Login</h2>
-        <form id="unique-login-form" method="POST" action="{{ url_for('login') }}">
-
+        <form id="unique-login-form" method="POST" action="{{ url_for('login') }}" enctype="application/x-www-form-urlencoded">
+            <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
+            
             <div class="mb-3 unique-input-step" id="unique-step-1">
                 <label for="unique-identifier" class="unique-form-label">Enter your username or email:</label>
                 <div class="unique-text">

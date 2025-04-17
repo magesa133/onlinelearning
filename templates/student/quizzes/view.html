@@ -1,0 +1,64 @@
+{% extends "student_dashboard.html" %}
+
+{% block content %}
+<div class="quiz-detail">
+    <div class="quiz-header">
+        <h2>{{ quiz.title }}</h2>
+        <div class="quiz-meta">
+            <span class="course-name">{{ quiz.subject.name }} - {{ quiz.classroom.class_name }}</span>
+            <span class="due-date">
+                <i class="far fa-clock"></i> 
+                Due: {{ quiz.due_date|datetimeformat('%b %d, %Y at %I:%M %p') }}
+                ({{ quiz.due_date|humanize }})
+            </span>
+        </div>
+    </div>
+
+    <div class="quiz-content">
+        <div class="quiz-description">
+            <h3>Quiz Description</h3>
+            <div class="description-content">
+                {{ quiz.description|markdown }}
+            </div>
+        </div>
+
+        <div class="quiz-details">
+            <div class="detail-card">
+                <h4><i class="fas fa-question-circle"></i> Questions</h4>
+                <p>{{ quiz.questions|length }} questions</p>
+            </div>
+            
+            {% if quiz.time_limit %}
+            <div class="detail-card">
+                <h4><i class="fas fa-stopwatch"></i> Time Limit</h4>
+                <p>{{ quiz.time_limit }} minutes</p>
+            </div>
+            {% endif %}
+            
+            <div class="detail-card">
+                <h4><i class="fas fa-star"></i> Total Points</h4>
+                <p>{{ quiz.total_points }} points</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="quiz-actions">
+        {% if attempt %}
+        <a href="{{ url_for('student_quiz_results', attempt_id=attempt.id) }}" 
+           class="btn btn-primary">
+            View Your Results
+        </a>
+        {% elif quiz.due_date > now %}
+        <form method="POST" action="{{ url_for('student_start_quiz', quiz_id=quiz.id) }}">
+            <button type="submit" class="btn btn-success btn-lg">
+                <i class="fas fa-play"></i> Start Quiz
+            </button>
+        </form>
+        {% else %}
+        <div class="alert alert-warning">
+            This quiz is no longer available for submission.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

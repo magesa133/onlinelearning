@@ -1,0 +1,41 @@
+<div class="question-group mb-4 p-3 border rounded" data-question-id="None">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h6 class="mb-0">Question #{{ index }}</h6>
+        <button type="button" class="btn btn-sm btn-outline-danger remove-question">
+            <i class="fas fa-trash"></i> Remove
+        </button>
+    </div>
+    
+    <input type="hidden" name="questions-{{ index }}-id" value="">
+    
+    <div class="mb-3">
+        {{ question.text.label(class="form-label") }}
+        {{ question.text(class="form-control", rows=3, name=f"questions-{index}-text") }}
+    </div>
+    
+    <div class="mb-3">
+        {{ question.options.label(class="form-label") }}
+        {{ question.options(class="form-control options-input", name=f"questions-{index}-options") }}
+        <small class="text-muted">Separate options with commas</small>
+    </div>
+    
+    <div class="row g-3">
+        <div class="col-md-6">
+            {{ question.correct_option.label(class="form-label") }}
+            <select class="form-select correct-answer" name="{{ f'questions-{index}-correct_option' }}" disabled>
+                <option value="" selected>Enter options first</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            {{ question.points.label(class="form-label") }}
+            {{ question.points(class="form-control", name=f"questions-{index}-points") }}
+        </div>
+        <div class="col-md-3">
+            {{ question.time_limit.label(class="form-label") }}
+            <div class="input-group">
+                {{ question.time_limit(class="form-control", name=f"questions-{index}-time_limit") }}
+                <span class="input-group-text">sec</span>
+            </div>
+        </div>
+    </div>
+</div>

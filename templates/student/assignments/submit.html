@@ -1,0 +1,45 @@
+{% extends "student_dashboard.html" %}
+
+{% block content %}
+<div class="submit-assignment">
+    <h2>Submit Assignment: {{ assignment.title }}</h2>
+    <p class="assignment-course">{{ assignment.subject.name }} - {{ assignment.classroom.class_name }}</p>
+    <p class="due-date">
+        <i class="far fa-clock"></i>
+        Due: {{ assignment.due_date|datetimeformat('%b %d, %Y at %I:%M %p') }}
+    </p>
+
+    <form method="POST" enctype="multipart/form-data" class="submission-form">
+        {{ form.hidden_tag() }}
+        
+        <div class="form-group">
+            {{ form.content.label }}
+            {{ form.content(class="form-control", rows=8) }}
+            {% for error in form.content.errors %}
+            <span class="text-danger">{{ error }}</span>
+            {% endfor %}
+        </div>
+        
+        <div class="form-group">
+            {{ form.file.label }}
+            {{ form.file(class="form-control-file") }}
+            <small class="form-text text-muted">
+                Upload your assignment file (PDF, DOCX, or ZIP, max 10MB)
+            </small>
+            {% for error in form.file.errors %}
+            <span class="text-danger">{{ error }}</span>
+            {% endfor %}
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-paper-plane"></i> Submit Assignment
+            </button>
+            <a href="{{ url_for('student_view_assignment', assignment_id=assignment.id) }}" 
+               class="btn btn-outline-secondary">
+                Cancel
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

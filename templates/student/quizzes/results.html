@@ -1,0 +1,79 @@
+{% extends "student_dashboard.html" %}
+
+{% block content %}
+<div class="quiz-results">
+    <div class="results-header">
+        <h2>Quiz Results: {{ attempt.quiz.title }}</h2>
+        <div class="results-meta">
+            <span class="score">
+                Score: {{ score_breakdown.correct }}/{{ score_breakdown.total }} 
+                ({{ score_breakdown.percentage }}%)
+            </span>
+            <span class="completion-date">
+                Completed on: {{ attempt.completed_at|datetimeformat('%b %d, %Y at %I:%M %p') }}
+            </span>
+        </div>
+    </div>
+
+    <div class="results-summary">
+        <div class="summary-card correct">
+            <h3>Correct Answers</h3>
+            <p>{{ score_breakdown.correct }}</p>
+        </div>
+        <div class="summary-card incorrect">
+            <h3>Incorrect Answers</h3>
+            <p>{{ score_breakdown.total - score_breakdown.correct }}</p>
+        </div>
+        <div class="summary-card percentage">
+            <h3>Percentage</h3>
+            <p>{{ score_breakdown.percentage }}%</p>
+        </div>
+    </div>
+
+    <div class="questions-review">
+        <h3>Question Review</h3>
+        
+        {% for question in attempt.quiz.questions %}
+        <div class="question-review {% if attempt.answers|selectattr('question_id', 'equalto', question.id)|first.is_correct %}correct{% else %}incorrect{% endif %}">
+            <div class="question-header">
+                <h4>Question {{ loop.index }}</h4>
+                <span class="question-points">{{ question.points }} point{{ 's' if question.points != 1 }}</span>
+            </div>
+            
+            <p class="question-text">{{ question.text }}</p>
+            
+            <div class="question-options">
+                {% for option_key, option_value in question.options.items() %}
+                <div class="option {% if option_key == question.correct_option %}correct-answer{% endif %}
+                    {% if option_key == (attempt.answers|selectattr('question_id', 'equalto', question.id)|first.selected_answer %}selected-answer{% endif %}">
+                    <span class="option-letter">{{ option_key }}.</span>
+                    <span class="option-text">{{ option_value }}</span>
+                    {% if option_key == question.correct_option %}
+                    <span class="correct-marker"><i class="fas fa-check"></i></span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="question-feedback">
+                {% if not (attempt.answers|selectattr('question_id', 'equalto', question.id)|first.is_correct) %}
+                <p class="incorrect-feedback">
+                    <i class="fas fa-times"></i> Your answer was incorrect
+                </p>
+                {% else %}
+                <p class="correct-feedback">
+                    <i class="fas fa-check"></i> Your answer was correct
+                </p>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="results-actions">
+        <a href="{{ url_for('student_quizzes') }}" class="btn btn-primary">
+            Back to Quizzes
+        </a>
+    </div>
+</div>
+{% endblock %}

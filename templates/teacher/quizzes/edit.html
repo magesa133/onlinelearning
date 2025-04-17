@@ -1,0 +1,344 @@
+{% extends "teacher_dashboard.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h2 font-weight-bold text-primary">
+            <i class="fas fa-edit me-2"></i>Edit Quiz: {{ quiz.title }}
+        </h1>
+        <div>
+            <a href="{{ url_for('preview_quiz', quiz_id=quiz.id) }}" class="btn btn-outline-info">
+                <i class="fas fa-eye me-2"></i>Preview
+            </a>
+            <a href="{{ url_for('list_quiz') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to List
+            </a>
+        </div>
+    </div>
+
+    <form method="POST" id="quizEditForm" enctype="multipart/form-data">
+        {{ form.hidden_tag() }}
+        
+        <!-- Basic Quiz Info Card -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Basic Information</h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        {{ form.title.label(class="form-label") }}
+                        {{ form.title(class="form-control") }}
+                        {% for error in form.title.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                        
+                        {{ form.description.label(class="form-label mt-3") }}
+                        {{ form.description(class="form-control", rows=3) }}
+                        {% for error in form.description.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            {{ form.subject_id.label(class="form-label") }}
+                            {{ form.subject_id(class="form-select") }}
+                            {% for error in form.subject_id.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.classroom_id.label(class="form-label") }}
+                            {{ form.classroom_id(class="form-select") }}
+                            {% for error in form.classroom_id.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row g-3 mt-2">
+                    <div class="col-md-6">
+                        {{ form.due_date.label(class="form-label") }}
+                        {{ form.due_date(class="form-control") }}
+                        {% for error in form.due_date.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="col-md-6">
+                        {{ form.time_limit.label(class="form-label") }}
+                        <div class="input-group">
+                            {{ form.time_limit(class="form-control") }}
+                            <span class="input-group-text">minutes</span>
+                        </div>
+                        {% for error in form.time_limit.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                {% if quiz.is_published %}
+                <div class="row mt-3">
+                    <div class="col">
+                        <div class="form-check form-switch">
+                            {{ form.notify_students(class="form-check-input") }}
+                            {{ form.notify_students.label(class="form-check-label") }}
+                            <small class="text-muted d-block">Email students about these changes</small>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Questions Card -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>Questions</h5>
+                <span class="badge bg-primary">
+                    {{ quiz.questions|length }} Question{{ 's' if quiz.questions|length != 1 }}
+                </span>
+            </div>
+            <div class="card-body">
+                <div id="questions-container">
+                    {% for question in form.questions %}
+                    <div class="question-group mb-4 p-3 border rounded" data-question-id="{{ question.id.data }}">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="mb-0">Question #{{ loop.index }}</h6>
+                            <button type="button" class="btn btn-sm btn-outline-danger remove-question">
+                                <i class="fas fa-trash"></i> Remove
+                            </button>
+                        </div>
+                        
+                        {{ question.hidden_tag() }}
+                        {{ question.id }}
+                        
+                        <div class="mb-3">
+                            {{ question.text.label(class="form-label") }}
+                            {{ question.text(class="form-control", rows=3) }}
+                            {% for error in question.text.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ question.options.label(class="form-label") }}
+                            {{ question.options(class="form-control") }}
+                            <small class="text-muted">Separate options with commas</small>
+                            {% for error in question.options.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                {{ question.correct_option.label(class="form-label") }}
+                                {{ question.correct_option(class="form-select") }}
+                                {% for error in question.correct_option.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <div class="col-md-3">
+                                {{ question.points.label(class="form-label") }}
+                                {{ question.points(class="form-control") }}
+                                {% for error in question.points.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <div class="col-md-3">
+                                {{ question.time_limit.label(class="form-label") }}
+                                <div class="input-group">
+                                    {{ question.time_limit(class="form-control") }}
+                                    <span class="input-group-text">sec</span>
+                                </div>
+                                {% for error in question.time_limit.errors %}
+                                    <div class="invalid-feedback d-block">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <button type="button" id="add-question" class="btn btn-outline-primary mt-3">
+                    <i class="fas fa-plus me-2"></i>Add New Question
+                </button>
+            </div>
+        </div>
+
+        <!-- Publish & Save Controls -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fas fa-save me-2"></i>Save Changes</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="form-check form-switch">
+                        {{ form.is_published(class="form-check-input") }}
+                        {{ form.is_published.label(class="form-check-label") }}
+                        <small class="text-muted d-block">
+                            {% if quiz.is_published %}
+                                Uncheck to unpublish this quiz
+                            {% else %}
+                                Check to publish immediately
+                            {% endif %}
+                        </small>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" name="action" value="save_draft" class="btn btn-primary">
+                            <i class="fas fa-save me-2"></i>Save Draft
+                        </button>
+                        <button type="submit" name="action" value="save_publish" class="btn btn-success">
+                            <i class="fas fa-check-circle me-2"></i>Save & Publish
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    .question-group {
+        background-color: #f8f9fa;
+        transition: all 0.3s ease;
+    }
+    .question-group:hover {
+        background-color: #e9ecef;
+    }
+    .remove-question {
+        transition: all 0.2s ease;
+    }
+    .remove-question:hover {
+        transform: scale(1.05);
+    }
+    .form-check-input:checked {
+        background-color: #198754;
+        border-color: #198754;
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize options for existing questions
+    document.querySelectorAll('.question-group').forEach(group => {
+        const optionsInput = group.querySelector('.options-input');
+        const correctSelect = group.querySelector('.correct-answer');
+        updateOptionsSelect(optionsInput, correctSelect);
+        
+        // Add event listener for options changes
+        optionsInput.addEventListener('input', function() {
+            updateOptionsSelect(optionsInput, correctSelect);
+        });
+    });
+    
+    // Add new question button
+    document.getElementById('add-question').addEventListener('click', function() {
+        const container = document.getElementById('questions-container');
+        const questionCount = container.querySelectorAll('.question-group').length;
+        const newIndex = questionCount + 1;
+        
+        fetch("{{ url_for('get_new_question_form') }}?index=" + newIndex)
+            .then(response => response.text())
+            .then(html => {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = html;
+                const newQuestion = tempDiv.firstChild;
+                container.appendChild(newQuestion);
+                
+                // Initialize the new question's select options
+                const optionsInput = newQuestion.querySelector('.options-input');
+                const correctSelect = newQuestion.querySelector('.correct-answer');
+                optionsInput.addEventListener('input', function() {
+                    updateOptionsSelect(optionsInput, correctSelect);
+                });
+            });
+    });
+    
+    // Remove question button
+    document.addEventListener('click', function(e) {
+        if (e.target.classList.contains('remove-question') || 
+            e.target.closest('.remove-question')) {
+            const btn = e.target.classList.contains('remove-question') ? 
+                e.target : e.target.closest('.remove-question');
+            const group = btn.closest('.question-group');
+            
+            if (confirm('Are you sure you want to remove this question?')) {
+                // If this is an existing question (has ID), mark for deletion
+                const questionId = group.dataset.questionId;
+                if (questionId && questionId !== 'None') {
+                    const hiddenInput = document.createElement('input');
+                    hiddenInput.type = 'hidden';
+                    hiddenInput.name = 'deleted_questions';
+                    hiddenInput.value = questionId;
+                    document.getElementById('quizEditForm').appendChild(hiddenInput);
+                }
+                
+                group.remove();
+                renumberQuestions();
+            }
+        }
+    });
+    
+    // Form submission confirmation for published quizzes
+    const publishToggle = document.querySelector('#is_published');
+    if (publishToggle) {
+        publishToggle.addEventListener('change', function() {
+            if (this.checked && !confirm('Publishing will make this quiz available to students. Continue?')) {
+                this.checked = false;
+            }
+        });
+    }
+    
+    // Helper function to update correct answer select options
+    function updateOptionsSelect(optionsInput, correctSelect) {
+        const options = optionsInput.value.split(',').map(opt => opt.trim()).filter(opt => opt);
+        
+        // Clear existing options
+        correctSelect.innerHTML = '';
+        
+        if (options.length > 0) {
+            // Add new options
+            options.forEach((opt, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = `${String.fromCharCode(65 + index)}: ${opt}`;
+                correctSelect.appendChild(option);
+            });
+            
+            // Enable the select
+            correctSelect.disabled = false;
+        } else {
+            // Add disabled placeholder
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'Enter options first';
+            option.disabled = true;
+            option.selected = true;
+            correctSelect.appendChild(option);
+            correctSelect.disabled = true;
+        }
+    }
+    
+    // Helper function to renumber questions after deletion
+    function renumberQuestions() {
+        document.querySelectorAll('.question-group').forEach((group, index) => {
+            const title = group.querySelector('h6');
+            if (title) {
+                title.textContent = `Question #${index + 1}`;
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
