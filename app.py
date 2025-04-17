@@ -96,8 +96,16 @@ if __name__ == "__main__":
 
     # Start the Flask app
     app.run(
+<<<<<<< HEAD
         host=os.getenv("FLASK_RUN_HOST", "0.0.0.0"),  # Local IP address
         port=int(os.getenv("FLASK_RUN_PORT", 5000)),   # Port number
         debug=os.getenv("FLASK_DEBUG", "True") == "True",  # Debug mode
         ssl_context=(cert_file, key_file)              # SSL certificates
     )
+=======
+        host=os.getenv("FLASK_RUN_HOST", "0.0.0.0"),  # Listen on all interfaces
+        port=int(os.getenv("FLASK_RUN_PORT", 5000)),  # Default port
+        debug=False,  # Disable debug mode in production
+        ssl_context=(cert_file, key_file)  # Load SSL certificates
+    )
+>>>>>>> 113b2ea9933648dcea5c3afc82fbe9ac2f0d135a
