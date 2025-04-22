@@ -1,64 +1,253 @@
 {% extends "student_dashboard.html" %}
 
 {% block content %}
-<div class="quiz-detail">
-    <div class="quiz-header">
-        <h2>{{ quiz.title }}</h2>
-        <div class="quiz-meta">
-            <span class="course-name">{{ quiz.subject.name }} - {{ quiz.classroom.class_name }}</span>
-            <span class="due-date">
-                <i class="far fa-clock"></i> 
-                Due: {{ quiz.due_date|datetimeformat('%b %d, %Y at %I:%M %p') }}
-                ({{ quiz.due_date|humanize }})
-            </span>
-        </div>
-    </div>
+{# Initialize current_index from request args if not passed from view #}
+{% set current_index = current_index if current_index is defined else request.args.get('q', 0)|int %}
+{% set current_question = questions[current_index] %}
+{% set current_answer = attempt.answers|selectattr('question_id', 'equalto', current_question.id)|first %}
+{% set question_options = current_question.get_options() %}
 
-    <div class="quiz-content">
-        <div class="quiz-description">
-            <h3>Quiz Description</h3>
-            <div class="description-content">
-                {{ quiz.description|markdown }}
+<div class="container py-4 quiz-container">
+    <div class="card">
+        <!-- Quiz Header Section -->
+        <div class="card-header bg-primary text-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-0">{{ quiz.title }}</h4>
+                    <small class="d-block">{{ quiz.classroom.subject.name }}</small>
+                </div>
+                <div class="text-end">
+                    <div class="d-flex align-items-center gap-3">
+                        {% if quiz.time_limit %}
+                        <div class="timer">
+                            <i class="fas fa-clock"></i>
+                            <span id="quiz-timer">{{ quiz.time_limit * 60 }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="progress-container" style="width: 120px;">
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar" role="progressbar" 
+                                     style="width: {{ ((current_index + 1) / questions|length * 100)|round(1) }}%" 
+                                     aria-valuenow="{{ current_index + 1 }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="{{ questions|length }}"></div>
+                            </div>
+                            <small>Question {{ current_index + 1 }} of {{ questions|length }}</small>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div class="quiz-details">
-            <div class="detail-card">
-                <h4><i class="fas fa-question-circle"></i> Questions</h4>
-                <p>{{ quiz.questions|length }} questions</p>
-            </div>
-            
-            {% if quiz.time_limit %}
-            <div class="detail-card">
-                <h4><i class="fas fa-stopwatch"></i> Time Limit</h4>
-                <p>{{ quiz.time_limit }} minutes</p>
-            </div>
-            {% endif %}
-            
-            <div class="detail-card">
-                <h4><i class="fas fa-star"></i> Total Points</h4>
-                <p>{{ quiz.total_points }} points</p>
-            </div>
-        </div>
-    </div>
+        <!-- Quiz Content Section -->
+        <div class="card-body">
+            <form id="quiz-form" method="POST" action="{{ url_for('student_take_quiz', attempt_id=attempt.id) }}">
+                <input type="hidden" name="question_id" value="{{ current_question.id }}">
 
-    <div class="quiz-actions">
-        {% if attempt %}
-        <a href="{{ url_for('student_quiz_results', attempt_id=attempt.id) }}" 
-           class="btn btn-primary">
-            View Your Results
-        </a>
-        {% elif quiz.due_date > now %}
-        <form method="POST" action="{{ url_for('student_start_quiz', quiz_id=quiz.id) }}">
-            <button type="submit" class="btn btn-success btn-lg">
-                <i class="fas fa-play"></i> Start Quiz
-            </button>
-        </form>
-        {% else %}
-        <div class="alert alert-warning">
-            This quiz is no longer available for submission.
+                <!-- Question Display -->
+                <div class="question mb-4">
+                    <h5 class="mb-3">{{ current_question.text }}</h5>
+                    
+                    {% if current_question.image_url %}
+                    <div class="question-image mb-3">
+                        <img src="{{ current_question.image_url }}" 
+                             alt="Question image" 
+                             class="img-fluid rounded"
+                             onerror="this.style.display='none'">
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Answer Options Section -->
+                <div class="answers mb-4">
+                    <div class="list-group">
+                        {% if question_options is mapping %}
+                            {# Dictionary-style options (A, B, C) #}
+                            {% for option_key, option_text in question_options.items() %}
+                            <label class="list-group-item d-flex align-items-center answer-option">
+                                <input class="form-check-input me-3" 
+                                       type="radio" 
+                                       name="answer" 
+                                       value="{{ option_key }}"
+                                       {% if current_answer and current_answer.selected_answer == option_key %}checked{% endif %}
+                                       required>
+                                <div class="answer-content">
+                                    <strong class="me-2">{{ option_key }}.</strong>
+                                    <span>{{ option_text }}</span>
+                                </div>
+                            </label>
+                            {% endfor %}
+                        {% else %}
+                            {# List-style options (1, 2, 3) #}
+                            {% for option in question_options %}
+                            <label class="list-group-item d-flex align-items-center answer-option">
+                                <input class="form-check-input me-3" 
+                                       type="radio" 
+                                       name="answer" 
+                                       value="{{ loop.index0 }}"
+                                       {% if current_answer and current_answer.selected_answer == loop.index0|string %}checked{% endif %}
+                                       required>
+                                <div class="answer-content">
+                                    <strong class="me-2">{{ loop.index0 + 1 }}.</strong>
+                                    <span>{{ option }}</span>
+                                </div>
+                            </label>
+                            {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Navigation Controls -->
+                <div class="d-flex justify-content-between">
+                    {% if current_index > 0 %}
+                    <a href="{{ url_for('student_take_quiz', attempt_id=attempt.id, q=current_index-1) }}"
+                       class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-left"></i> Previous
+                    </a>
+                    {% else %}
+                    <div></div> {# Empty spacer for alignment #}
+                    {% endif %}
+
+                    {% if current_index < questions|length - 1 %}
+                    <button type="submit" 
+                            class="btn btn-outline-primary"
+                            formaction="{{ url_for('student_take_quiz', attempt_id=attempt.id, q=current_index+1) }}">
+                        Next <i class="fas fa-arrow-right"></i>
+                    </button>
+                    {% else %}
+                    <button type="button" 
+                            class="btn btn-success" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#submitModal">
+                        Submit Quiz <i class="fas fa-check-circle"></i>
+                    </button>
+                    {% endif %}
+                </div>
+            </form>
         </div>
-        {% endif %}
     </div>
 </div>
+
+<!-- Quiz Submission Modal -->
+<div class="modal fade" id="submitModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Submit Quiz</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to submit your quiz? You won't be able to make changes after submission.</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle"></i> 
+                    {% set unanswered = questions|length - attempt.answers|length %}
+                    {% if unanswered > 0 %}
+                    You haven't answered {{ unanswered }} question{% if unanswered > 1 %}s{% endif %}.
+                    {% else %}
+                    All questions have been answered.
+                    {% endif %}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="quiz-form" formaction="{{ url_for('submit_quiz', attempt_id=attempt.id) }}" 
+                        class="btn btn-primary">
+                    Confirm Submit
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if quiz.time_limit %}
+<script>
+    // Enhanced timer functionality
+    document.addEventListener('DOMContentLoaded', () => {
+        const timerElement = document.getElementById('quiz-timer');
+        if (!timerElement) return;
+        
+        let timeLeft = parseInt(timerElement.textContent);
+        const updateTimer = () => {
+            timeLeft--;
+            
+            const minutes = Math.floor(timeLeft / 60);
+            const seconds = timeLeft % 60;
+            timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            
+            if (timeLeft <= 300 && timeLeft > 0) { // Last 5 minutes
+                timerElement.classList.add('text-warning');
+            }
+            if (timeLeft <= 60) { // Last minute
+                timerElement.classList.remove('text-warning');
+                timerElement.classList.add('text-danger');
+            }
+            if (timeLeft <= 0) {
+                clearInterval(timer);
+                document.getElementById('quiz-form').submit();
+            }
+        };
+        
+        const timer = setInterval(updateTimer, 1000);
+        updateTimer(); // Initial call
+    });
+</script>
+{% endif %}
+
+<script>
+    // Enhanced auto-save functionality
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('quiz-form');
+        if (!form) return;
+        
+        const saveAnswer = (radio) => {
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: new URLSearchParams(new FormData(form))
+            }).then(response => {
+                if (!response.ok) throw new Error('Save failed');
+                radio.closest('.answer-option').classList.add('bg-success', 'bg-opacity-10');
+                setTimeout(() => {
+                    radio.closest('.answer-option').classList.remove('bg-success', 'bg-opacity-10');
+                }, 1000);
+            }).catch(err => {
+                console.error('Error saving answer:', err);
+                radio.closest('.answer-option').classList.add('bg-danger', 'bg-opacity-10');
+            });
+        };
+        
+        document.querySelectorAll('input[type="radio"]').forEach(radio => {
+            radio.addEventListener('change', () => saveAnswer(radio));
+        });
+    });
+</script>
+
+<style>
+    .answer-option {
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    .answer-option:hover {
+        background-color: rgba(13, 110, 253, 0.1);
+    }
+    .answer-option input:checked + .answer-content {
+        font-weight: 500;
+        color: var(--bs-primary);
+    }
+    .timer.text-warning {
+        color: var(--bs-warning) !important;
+    }
+    .timer.text-danger {
+        color: var(--bs-danger) !important;
+        animation: pulse 1s infinite;
+    }
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+</style>
 {% endblock %}

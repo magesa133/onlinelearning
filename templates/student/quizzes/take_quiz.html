@@ -1,0 +1,368 @@
+<!-- templates/student/quizzes/take_quiz.html -->
+{% extends "student_dashboard.html" %}
+
+{% block content %}
+<div class="container py-4 quiz-container">
+    {% if not quiz %}
+    <div class="alert alert-danger">
+        <i class="bi bi-exclamation-octagon-fill me-2"></i>
+        Quiz data could not be loaded. Please try again or contact support.
+    </div>
+    {% else %}
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h4 class="mb-0">{{ quiz.title }}</h4>
+                    {% if quiz.classroom and quiz.classroom.subject %}
+                    <small class="d-block">{{ quiz.classroom.subject.name }}</small>
+                    {% endif %}
+                </div>
+                <div class="text-end">
+                    <div class="d-flex align-items-center gap-3">
+                        {% if quiz.time_limit %}
+                        <div class="timer badge bg-white text-dark p-2">
+                            <i class="bi bi-clock-fill text-primary me-1"></i>
+                            <span id="quiz-timer">{{ time_remaining|default(0)|int }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="progress-container" style="width: 120px;">
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                     style="width: {{ progress|default(0) }}%" 
+                                     aria-valuenow="{{ progress|default(0) }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100"></div>
+                            </div>
+                            <small class="text-muted">
+                                Question {{ (current_index|default(0)) + 1 }} of {{ total_questions|default(0) }}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-body">
+            {% if not questions %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                No questions found in this quiz.
+            </div>
+            {% else %}
+            <form id="quiz-form" method="POST" action="{{ url_for('student_take_quiz', attempt_id=attempt.id) }}">
+                <input type="hidden" name="question_id" value="{{ current_question.id }}">
+
+                <!-- Question Navigation -->
+                <div class="question-navigation mb-4" id="question-nav">
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for q in questions %}
+                        <a href="{{ url_for('student_take_quiz', attempt_id=attempt.id, q=loop.index0) }}"
+                           class="btn btn-sm rounded-circle {% if loop.index0 == current_index %}btn-primary{% else %}{% if q.id in attempt.answers|map(attribute='question_id') %}btn-success{% else %}btn-outline-secondary{% endif %}{% endif %}"
+                           style="width: 40px; height: 40px; padding: 0; display: flex; align-items: center; justify-content: center;"
+                           title="Question {{ loop.index }}">
+                            {{ loop.index }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Current Question -->
+                <div class="question mb-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h5 class="mb-0">{{ current_question.text }}</h5>
+                        {% if current_question.points %}
+                        <span class="badge bg-info text-dark">
+                            {{ current_question.points }} point{% if current_question.points > 1 %}s{% endif %}
+                        </span>
+                        {% endif %}
+                    </div>
+                    
+                    {% if current_question.image_url %}
+                    <div class="question-image mb-3 text-center">
+                        <img src="{{ current_question.image_url }}" 
+                             alt="Question image" 
+                             class="img-fluid rounded border"
+                             style="max-height: 300px; cursor: pointer;"
+                             data-bs-toggle="modal" 
+                             data-bs-target="#imageModal"
+                             onclick="document.getElementById('enlargedImage').src=this.src">
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Answer Options -->
+                <div class="answers mb-4">
+                    <div class="list-group">
+                        {% if current_question.question_type == 'multiple_choice' %}
+                            {% if current_question.options is mapping %}
+                                <!-- Dictionary format options -->
+                                {% for option_key, option_text in current_question.options.items() %}
+                                <label class="list-group-item d-flex align-items-center answer-option hover-shadow">
+                                    <input class="form-check-input me-3" 
+                                           type="radio" 
+                                           name="answer" 
+                                           value="{{ option_key }}"
+                                           {% if current_answer and current_answer.selected_answer == option_key %}checked{% endif %}>
+                                    <div class="answer-content">
+                                        <strong class="me-2">{{ option_key }}.</strong>
+                                        <span>{{ option_text }}</span>
+                                    </div>
+                                </label>
+                                {% endfor %}
+                            {% else %}
+                                <!-- List format options -->
+                                {% for option in current_question.options %}
+                                <label class="list-group-item d-flex align-items-center answer-option hover-shadow">
+                                    <input class="form-check-input me-3" 
+                                           type="radio" 
+                                           name="answer" 
+                                           value="{{ option }}"
+                                           {% if current_answer and current_answer.selected_answer == option %}checked{% endif %}>
+                                    <div class="answer-content">
+                                        <strong class="me-2">{{ loop.index0|string }}.</strong>
+                                        <span>{{ option }}</span>
+                                    </div>
+                                </label>
+                                {% endfor %}
+                            {% endif %}
+                        {% elif current_question.question_type == 'true_false' %}
+                            <label class="list-group-item d-flex align-items-center answer-option hover-shadow">
+                                <input class="form-check-input me-3" 
+                                       type="radio" 
+                                       name="answer" 
+                                       value="True"
+                                       {% if current_answer and current_answer.selected_answer == 'True' %}checked{% endif %}>
+                                <div class="answer-content">True</div>
+                            </label>
+                            <label class="list-group-item d-flex align-items-center answer-option hover-shadow">
+                                <input class="form-check-input me-3" 
+                                       type="radio" 
+                                       name="answer" 
+                                       value="False"
+                                       {% if current_answer and current_answer.selected_answer == 'False' %}checked{% endif %}>
+                                <div class="answer-content">False</div>
+                            </label>
+                        {% elif current_question.question_type == 'short_answer' %}
+                            <div class="form-floating">
+                                <textarea class="form-control" 
+                                          name="answer" 
+                                          id="short-answer" 
+                                          style="height: 120px"
+                                          placeholder="Enter your answer">{% if current_answer %}{{ current_answer.selected_answer }}{% endif %}</textarea>
+                                <label for="short-answer">Your answer</label>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Navigation Buttons -->
+                <div class="d-flex justify-content-between align-items-center">
+                    {% if current_index > 0 %}
+                    <a href="{{ url_for('student_take_quiz', attempt_id=attempt.id, q=current_index-1) }}"
+                       class="btn btn-outline-primary">
+                        <i class="bi bi-arrow-left me-1"></i> Previous
+                    </a>
+                    {% else %}
+                    <div></div>
+                    {% endif %}
+
+                    {% if current_index < total_questions - 1 %}
+                    <button type="submit" name="next" class="btn btn-primary">
+                        Next <i class="bi bi-arrow-right ms-1"></i>
+                    </button>
+                    {% else %}
+                    <button type="button" 
+                            class="btn btn-success" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#submitModal">
+                        <i class="bi bi-send-check me-1"></i> Submit Quiz
+                    </button>
+                    {% endif %}
+                </div>
+
+                <!-- Unanswered Questions Warning -->
+                {% set local_unanswered_count = unanswered_count|default(0) %}
+                {% if local_unanswered_count > 0 %}
+                <div class="alert alert-warning mt-3 d-flex align-items-center">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <div>
+                        You have {{ local_unanswered_count }} unanswered question{% if local_unanswered_count > 1 %}s{% endif %}.
+                        <a href="#question-nav" class="alert-link ms-1" onclick="highlightUnanswered()">
+                            View question{% if local_unanswered_count > 1 %}s{% endif %}
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Submit Confirmation Modal -->
+<div class="modal fade" id="submitModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-question-circle me-2"></i>
+                    Submit Quiz Confirmation
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="lead">Are you sure you want to submit your quiz?</p>
+                
+                {% set local_unanswered_count = unanswered_count|default(0) %}
+                {% if local_unanswered_count > 0 %}
+                <div class="alert alert-warning d-flex align-items-start">
+                    <i class="bi bi-exclamation-triangle-fill fs-5 me-2"></i>
+                    <div>
+                        <h6 class="alert-heading mb-2">You have {{ local_unanswered_count }} unanswered question(s)</h6>
+                        <ul class="mb-0 ps-3">
+                            {% for question in unanswered_questions|default([]) %}
+                            <li>{{ question.text|truncate(50) }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% else %}
+                <div class="alert alert-success d-flex align-items-center">
+                    <i class="bi bi-check-circle-fill fs-5 me-2"></i>
+                    <div>All questions have been answered!</div>
+                </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-arrow-left me-1"></i> Continue Quiz
+                </button>
+                <button type="submit" form="quiz-form" name="confirm-submit" class="btn btn-primary">
+                    <i class="bi bi-send-check me-1"></i> Confirm Submission
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Image Enlargement Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="enlargedImage" src="" class="img-fluid" alt="Enlarged question image">
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    // Timer functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const timerElement = document.getElementById('quiz-timer');
+        if (!timerElement) return;
+        
+        let timeLeft = parseInt(timerElement.textContent) || 0;
+        
+        const formatTime = (seconds) => {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        };
+        
+        timerElement.textContent = formatTime(timeLeft);
+        
+        const timer = setInterval(function() {
+            timeLeft--;
+            timerElement.textContent = formatTime(timeLeft);
+            
+            if (timeLeft <= 60) {
+                timerElement.parentElement.classList.add('text-warning');
+                timerElement.parentElement.classList.remove('text-dark');
+            }
+            if (timeLeft <= 30) {
+                timerElement.parentElement.classList.remove('text-warning');
+                timerElement.parentElement.classList.add('text-danger');
+            }
+            
+            if (timeLeft <= 0) {
+                clearInterval(timer);
+                document.getElementById('quiz-form').submit();
+            }
+        }, 1000);
+
+        // Auto-save progress every 30 seconds
+        setInterval(function() {
+            const form = document.getElementById('quiz-form');
+            if (!form) return;
+            
+            const formData = new FormData(form);
+            
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            }).then(response => {
+                if (response.ok) {
+                    console.log('Auto-save successful');
+                }
+            }).catch(error => {
+                console.error('Auto-save failed:', error);
+            });
+        }, 30000);
+    });
+
+    function highlightUnanswered() {
+        const navButtons = document.querySelectorAll('.question-navigation .btn');
+        navButtons.forEach(btn => {
+            if (btn.classList.contains('btn-outline-secondary')) {
+                btn.classList.add('animate-pulse', 'border-warning');
+                setTimeout(() => {
+                    btn.classList.remove('animate-pulse', 'border-warning');
+                }, 3000);
+            }
+        });
+    }
+</script>
+
+<style>
+    .hover-shadow:hover {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+        transform: translateY(-1px);
+        transition: all 0.2s ease;
+    }
+    
+    .animate-pulse {
+        animation: pulse 1.5s infinite;
+    }
+    
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+    
+    .answer-option {
+        cursor: pointer;
+        border-left: 3px solid transparent;
+    }
+    
+    .answer-option:hover {
+        border-left-color: var(--bs-primary);
+    }
+    
+    input[type="radio"]:checked + .answer-content {
+        font-weight: 500;
+    }
+</style>
+{% endblock %}

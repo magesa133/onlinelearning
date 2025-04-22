@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card border-warning">
+        <div class="card-header bg-warning text-white">
+            <h4><i class="bi bi-exclamation-triangle-fill me-2"></i>Submit Quiz Confirmation</h4>
+        </div>
+        <div class="card-body">
+            <h5 class="card-title">Are you sure you want to submit your quiz?</h5>
+            
+            {% if unanswered %}
+            <div class="alert alert-warning mt-3">
+                <h6><i class="bi bi-question-circle-fill me-2"></i>Unanswered Questions</h6>
+                <p>You have {{ unanswered|length }} unanswered question(s):</p>
+                <ul class="list-group list-group-flush">
+                    {% for question in unanswered %}
+                    <li class="list-group-item">
+                        <strong>Question {{ loop.index }}:</strong> 
+                        {{ question.text|truncate(100) }}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            
+            <div class="d-flex justify-content-between mt-4">
+                <form method="POST" action="{{ url_for('student_take_quiz', attempt_id=attempt.id, q=current_index) }}" class="d-inline">
+                    <input type="hidden" name="confirm" value="true">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-check-circle-fill me-2"></i>Submit Anyway
+                    </button>
+                </form>
+                
+                <a href="{{ url_for('student_take_quiz', attempt_id=attempt.id, q=current_index) }}" 
+                   class="btn btn-primary">
+                    <i class="bi bi-arrow-left-circle-fill me-2"></i>Continue Quiz
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

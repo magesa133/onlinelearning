@@ -509,6 +509,10 @@
             background: var(--gradient-success);
         }
 
+        .card-icon.quizzes {
+            background: var(--gradient-warning);
+        }
+
         .card h3 {
             font-size: 1.3rem;
             font-weight: 600;
@@ -653,6 +657,59 @@
         .low {
             background-color: var(--success-light);
             color: var(--success);
+        }
+
+        /* Quiz List Styles */
+        .quiz-list {
+            list-style: none;
+        }
+
+        .quiz-item {
+            margin-bottom: 0.75rem;
+            transition: var(--transition);
+        }
+
+        .quiz-item:hover {
+            transform: translateX(5px);
+        }
+
+        .quiz-link {
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            border-radius: var(--radius);
+            background-color: var(--white);
+            text-decoration: none;
+            transition: var(--transition);
+            border: 1px solid rgba(0, 0, 0, 0.03);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .quiz-link:hover {
+            background-color: rgba(76, 201, 240, 0.1);
+            border-color: rgba(76, 201, 240, 0.1);
+        }
+
+        .quiz-title {
+            font-weight: 500;
+            color: var(--dark);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .quiz-title i {
+            color: var(--success);
+            font-size: 0.9rem;
+        }
+
+        .quiz-due, .quiz-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--medium-gray);
         }
 
         /* Grades Summary Styles */
@@ -1101,63 +1158,148 @@
         .delay-3 { animation-delay: 0.3s; }
         .delay-4 { animation-delay: 0.4s; }
 
-        /* Quiz List Styles */
-.quiz-list {
-    list-style: none;
-}
+        /* Ripple effect */
+        .ripple {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            transform: scale(0);
+            animation: ripple 0.6s linear;
+            pointer-events: none;
+        }
+        
+        @keyframes ripple {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
 
-.quiz-item {
-    margin-bottom: 0.75rem;
-    transition: var(--transition);
-}
+        /* Quiz Card Styles */
+        .quiz-card {
+            border: none;
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition);
+        }
 
-.quiz-item:hover {
-    transform: translateX(5px);
-}
+        .quiz-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-md);
+        }
 
-.quiz-link {
-    display: flex;
-    flex-direction: column;
-    padding: 1rem;
-    border-radius: var(--radius);
-    background-color: var(--white);
-    text-decoration: none;
-    transition: var(--transition);
-    border: 1px solid rgba(0, 0, 0, 0.03);
-    box-shadow: var(--shadow-sm);
-}
+        .quiz-card-header {
+            background: var(--gradient-warning);
+            color: white;
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
 
-.quiz-link:hover {
-    background-color: rgba(76, 201, 240, 0.1);
-    border-color: rgba(76, 201, 240, 0.1);
-}
+        .quiz-card-header h3 {
+            margin: 0;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
 
-.quiz-title {
-    font-weight: 500;
-    color: var(--dark);
-    margin-bottom: 0.5rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
+        .quiz-card-body {
+            padding: 1.5rem;
+            background: var(--white);
+        }
 
-.quiz-title i {
-    color: var(--success);
-    font-size: 0.9rem;
-}
+        .quiz-list-group {
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
 
-.quiz-due, .quiz-meta {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    font-size: 0.85rem;
-    color: var(--medium-gray);
-}
+        .quiz-list-item {
+            border-left: none;
+            border-right: none;
+            padding: 1rem;
+            transition: var(--transition);
+        }
 
-/* Card Icon for Quizzes */
-.card-icon.quizzes {
-    background: var(--gradient-warning);
-}
+        .quiz-list-item:hover {
+            background-color: rgba(248, 150, 30, 0.05);
+        }
+
+        .quiz-list-item:first-child {
+            border-top: none;
+        }
+
+        .quiz-list-item:last-child {
+            border-bottom: none;
+        }
+
+        .quiz-empty-state {
+            padding: 2rem;
+            text-align: center;
+            color: var(--medium-gray);
+        }
+
+        .quiz-empty-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: var(--warning-light);
+        }
+
+        /* Text utilities */
+        .text-muted {
+            color: var(--medium-gray) !important;
+        }
+
+        /* Button styles */
+        .btn {
+            transition: var(--transition);
+            font-weight: 500;
+        }
+
+        .btn-primary {
+            background: var(--gradient-primary);
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: var(--gradient-accent);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-light {
+            background: var(--white);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .btn-light:hover {
+            background: var(--light-gray);
+        }
+
+        .btn-sm {
+            padding: 0.35rem 0.75rem;
+            font-size: 0.85rem;
+        }
+
+        /* Alert styles */
+        .alert {
+            border-radius: var(--radius);
+            padding: 0.75rem 1.25rem;
+            font-size: 0.9rem;
+        }
+
+        .alert-info {
+            background-color: rgba(76, 201, 240, 0.1);
+            border-color: rgba(76, 201, 240, 0.2);
+            color: var(--dark-gray);
+        }
+
+        /* Small text utility */
+        .small {
+            font-size: 0.85rem;
+        }
     </style>
 </head>
 <body>
@@ -1272,6 +1414,7 @@
 
         <!-- Main Content -->
         <main class="dashboard-main">
+
             <div class="page-header">
                 <div class="page-title">
                     <h2>Welcome back, {{ username }}</h2>
@@ -1283,6 +1426,7 @@
                     </button>
                 </div>
             </div>
+            {% block content %}
 
             <div class="cards-grid">
                 <!-- Assignments Card -->
@@ -1359,69 +1503,104 @@
                     </a>
                 </div>
 
-                <div class="card" data-aos="fade-up" data-aos-delay="400">
-<!-- Quiz Card Section -->
-<div class="card mb-4 shadow-sm">
-    <div class="card-header bg-primary text-white">
-        <div class="d-flex justify-content-between align-items-center">
-            <h3 class="mb-0">
-                <i class="fas fa-question-circle me-2"></i>Upcoming Quizzes
-            </h3>
-            <a href="{{ url_for('student_quizzes') }}" class="btn btn-light btn-sm">
-                View All <i class="fas fa-arrow-right ms-1"></i>
-            </a>
-        </div>
-    </div>
+<!-- Quizzes Section -->
+<div class="dashboard-section">
+    <h3><i class="fas fa-tasks"></i> Upcoming Quizzes</h3>
     
-    <div class="card-body">
-        <!-- Debug Info (only shows if debug_info exists) -->
-        {% if debug_info %}
-        <div class="alert alert-info py-2 mb-3 small">
-            <i class="fas fa-info-circle me-2"></i>
-            System Status: 
-            Showing {{ upcoming_quizzes|length }} of {{ debug_info.available_quizzes }} available quizzes
-            (Your classes: {{ debug_info.class_ids|join(', ') }})
-        </div>
-        {% endif %}
-
-        {% if upcoming_quizzes %}
-        <div class="list-group">
-            {% for quiz in upcoming_quizzes %}
-            <div class="list-group-item">
-                <div class="d-flex w-100 justify-content-between">
-                    <h5 class="mb-1">{{ quiz.title }}</h5>
-                    <small class="text-muted">
-                        Due: {{ quiz.due_date.strftime('%b %d, %Y %I:%M %p') }}
-                    </small>
+    {% if quizzes %}
+        <div class="quiz-cards">
+            {% for item in quizzes %}
+                {% if item.quiz %}  <!-- Add this check -->
+                <div class="quiz-card">
+                    <div class="quiz-card-header">
+                        <h5>{{ item.quiz.title }}</h5>
+                        {% if item.due_date_local %}
+                        <span class="badge {{ 'badge-primary' if item.time_remaining.days > 1 else 'badge-warning' }}">
+                            Due {{ item.due_date_local|format_datetime('%b %d at %H:%M') }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="quiz-card-body">
+                        {% if item.quiz.classroom and item.quiz.classroom.subject %}
+                        <p><i class="fas fa-book"></i> {{ item.quiz.classroom.subject.name }}</p>
+                        {% endif %}
+                        {% if item.quiz.teacher and item.quiz.teacher.user %}
+                        <p><i class="fas fa-user-tie"></i> {{ item.quiz.teacher.user.full_name }}</p>
+                        {% endif %}
+                        
+                        {% if item.time_remaining %}
+                        <div class="time-remaining">
+                            <i class="fas fa-clock"></i> 
+                            {{ item.time_remaining|humanize_time }} remaining
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="quiz-card-footer">
+                        {% if item.quiz.status == QuizStatus.PUBLISHED.value %}
+                        <a href="{{ url_for('student_start_quiz', quiz_id=item.quiz.id) }}" 
+                           class="btn btn-primary btn-sm">
+                            <i class="fas fa-play"></i> Start Quiz
+                        </a>
+                        {% else %}
+                        <span class="badge bg-secondary">Not Available</span>
+                        {% endif %}
+                    </div>
                 </div>
-                <div class="d-flex justify-content-between align-items-center mt-2">
-                    <span class="badge bg-secondary me-2">
-                        {{ quiz.subject.name }}
-                    </span>
-                    <span class="text-muted small">
-                        <i class="fas fa-door-open me-1"></i>Class {{ quiz.classroom.class_name }}
-                    </span>
-                </div>
-            </div>
+                {% endif %}
             {% endfor %}
         </div>
-        {% else %}
-        <div class="text-center py-4">
-            <i class="fas fa-question-circle fa-3x text-muted mb-3"></i>
-            <h4>No Upcoming Quizzes</h4>
-            <p class="text-muted">
-                You don't have any quizzes scheduled in your enrolled classes.
-            </p>
-            <a href="{{ url_for('student_quizzes') }}" class="btn btn-primary">
-                Check All Quizzes
-            </a>
-        </div>
-        {% endif %}
-    </div>
+    {% else %}
+        <div class="alert alert-info">No upcoming quizzes</div>
+    {% endif %}
 </div>
 
+<style>
+    .quiz-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.quiz-card {
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    transition: transform 0.2s;
+}
+
+.quiz-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.quiz-card-header {
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.quiz-card-body {
+    padding: 1rem;
+}
+
+.quiz-card-footer {
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    text-align: right;
+}
+
+.time-remaining {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+</style>
                 <!-- Sessions Card -->
-                <div class="card" data-aos="fade-up" data-aos-delay="300">
+                <div class="card" data-aos="fade-up" data-aos-delay="400">
                     <div class="card-icon sessions">
                         <i class="fas fa-video"></i>
                     </div>
@@ -1429,67 +1608,67 @@
                     <div class="card-body">
                         {% if active_sessions %}
                             <div class="table-responsive">
-<table class="session-table">
-    <thead>
-        <tr>
-            <th>Class</th>
-            <th>Time</th>
-            <th>Status</th>
-            <th>Action</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for session in active_sessions %}
-        <tr>
-            <td>{{ session.class_name }}</td>
-            <td>
-                {% if session.start_time %}
-                    {{ session.start_time.astimezone().strftime('%b %d, %I:%M %p') }}
-                    {% if session.end_time %}
-                    - {{ session.end_time.astimezone().strftime('%I:%M %p') }}
-                    {% endif %}
-                {% else %}
-                    Time not set
-                {% endif %}
-            </td>
-            <td>
-                {% if now >= session.start_time and now <= session.end_time %}
-                    <span class="session-status live">Live Now</span>
-                {% elif now < session.start_time %}
-                    <span class="session-status upcoming">Upcoming</span>
-                {% else %}
-                    <span class="session-status ended">Ended</span>
-                {% endif %}
-            </td>
-            <td>
-                {% if now >= session.start_time and now <= session.end_time %}
-                    <a href="{{ url_for('join_session', room_id=session.room_id) }}" 
-                       class="join-btn"
-                       target="_blank">
-                        <i class="fas fa-video"></i> Join
-                    </a>
-                {% elif now < session.start_time %}
-                    <button class="btn btn-outline-secondary" disabled>
-                        <i class="fas fa-clock"></i> Upcoming
-                    </button>
-                {% else %}
-                    {% if session.recording_url %}
-                    <a href="{{ session.recording_url }}" 
-                       class="btn btn-outline-dark"
-                       target="_blank">
-                        <i class="fas fa-play-circle"></i> Recording
-                    </a>
-                    {% else %}
-                    <button class="btn btn-outline-dark" disabled>
-                        <i class="fas fa-check-circle"></i> Ended
-                    </button>
-                    {% endif %}
-                {% endif %}
-            </td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+                                <table class="session-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Class</th>
+                                            <th>Time</th>
+                                            <th>Status</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for session in active_sessions %}
+                                        <tr>
+                                            <td>{{ session.class_name }}</td>
+                                            <td>
+                                                {% if session.start_time %}
+                                                    {{ session.start_time.astimezone().strftime('%b %d, %I:%M %p') }}
+                                                    {% if session.end_time %}
+                                                    - {{ session.end_time.astimezone().strftime('%I:%M %p') }}
+                                                    {% endif %}
+                                                {% else %}
+                                                    Time not set
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if now >= session.start_time and now <= session.end_time %}
+                                                    <span class="session-status live">Live Now</span>
+                                                {% elif now < session.start_time %}
+                                                    <span class="session-status upcoming">Upcoming</span>
+                                                {% else %}
+                                                    <span class="session-status ended">Ended</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if now >= session.start_time and now <= session.end_time %}
+                                                    <a href="{{ url_for('join_session', room_id=session.room_id) }}" 
+                                                       class="join-btn"
+                                                       target="_blank">
+                                                        <i class="fas fa-video"></i> Join
+                                                    </a>
+                                                {% elif now < session.start_time %}
+                                                    <button class="btn btn-outline-secondary" disabled>
+                                                        <i class="fas fa-clock"></i> Upcoming
+                                                    </button>
+                                                {% else %}
+                                                    {% if session.recording_url %}
+                                                    <a href="{{ session.recording_url }}" 
+                                                       class="btn btn-outline-dark"
+                                                       target="_blank">
+                                                        <i class="fas fa-play-circle"></i> Recording
+                                                    </a>
+                                                    {% else %}
+                                                    <button class="btn btn-outline-dark" disabled>
+                                                        <i class="fas fa-check-circle"></i> Ended
+                                                    </button>
+                                                    {% endif %}
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
                             </div>
                         {% else %}
                             <p>No upcoming sessions</p>
@@ -1501,7 +1680,7 @@
                 </div>
 
                 <!-- Resources Card -->
-                <div class="card" data-aos="fade-up" data-aos-delay="400">
+                <div class="card" data-aos="fade-up" data-aos-delay="500">
                     <div class="card-icon resources">
                         <i class="fas fa-book"></i>
                     </div>
@@ -1552,28 +1731,38 @@
                     {% endfor %}
                     
                     <!-- Quiz Attempts -->
-                    {% for attempt in recent_quiz_attempts %}
-                    <li class="activity-item">
-                        <div class="activity-icon">
-                            <i class="fas fa-poll"></i>
-                        </div>
-                        <div class="activity-content">
-                            <div class="activity-title">
-                                Quiz completed: {{ attempt.quiz.title }}
-                                <span class="badge badge-primary" style="margin-left: auto;">
-                                    Score: {{ attempt.score }}/{{ attempt.quiz.total_points }}
-                                </span>
-                            </div>
-                            <div class="activity-meta">
-                                <i class="fas fa-clock"></i> 
-                                {{ humanize.naturaltime(now - attempt.completed_at) }} • 
-                                {{ attempt.quiz.subject.name }}
-                            </div>
-                        </div>
-                    </li>
-                    {% endfor %}
+<!-- In the Recent Activity section -->
+{% for attempt in recent_quiz_attempts %}
+{% if attempt.quiz and attempt.quiz.subject %}
+<li class="activity-item">
+    <div class="activity-icon">
+        <i class="fas fa-poll"></i>
+    </div>
+    <div class="activity-content">
+        <div class="activity-title">
+            Quiz {% if attempt.completed_at %}completed{% else %}attempted{% endif %}: 
+            {{ attempt.quiz.title if attempt.quiz.title else "Untitled Quiz" }}
+            <span class="badge badge-primary" style="margin-left: auto;">
+                Score: {{ attempt.score }}/{{ attempt.quiz.total_points if attempt.quiz.total_points else 0 }}
+            </span>
+        </div>
+        <div class="activity-meta">
+            <i class="fas fa-clock"></i> 
+            {% if attempt.completed_at %}
+                {{ humanize.naturaltime(now - attempt.completed_at_local) }} •
+            {% else %}
+                In progress •
+            {% endif %}
+            {{ attempt.quiz.subject.name if attempt.quiz.subject else "No Subject" }}
+        </div>
+    </div>
+</li>
+{% endif %}
+{% endfor %}
                 </ul>
             </div>
+
+            {% endblock %}
         </main>
     </div>
 
@@ -1677,7 +1866,7 @@
         document.querySelector('.header-actions').insertBefore(themeToggle, document.querySelector('.notification-btn'));
 
         // Add ripple effect to buttons
-        document.querySelectorAll('.btn, .action-btn, .card, .assignment-link').forEach(button => {
+        document.querySelectorAll('.btn, .action-btn, .card, .assignment-link, .quiz-link').forEach(button => {
             button.addEventListener('click', function(e) {
                 const x = e.clientX - e.target.getBoundingClientRect().left;
                 const y = e.clientY - e.target.getBoundingClientRect().top;
@@ -1695,59 +1884,37 @@
             });
         });
 
-        // Add style for ripple effect
-        const rippleStyle = document.createElement('style');
-        rippleStyle.innerHTML = `
-            .ripple {
-                position: absolute;
-                background: rgba(255, 255, 255, 0.4);
-                border-radius: 50%;
-                transform: scale(0);
-                animation: ripple 0.6s linear;
-                pointer-events: none;
-            }
-            
-            @keyframes ripple {
-                to {
-                    transform: scale(4);
-                    opacity: 0;
-                }
-            }
-        `;
-        document.head.appendChild(rippleStyle);
-
-
         // Real-time countdown for assignments and quizzes
-function updateDueDates() {
-    document.querySelectorAll('.due-date-countdown').forEach(element => {
-        const dueDate = new Date(element.dataset.dueDate);
-        const now = new Date();
-        const diffMs = dueDate - now;
-        
-        if (diffMs <= 0) {
-            element.textContent = 'Due now';
-            element.classList.add('text-danger');
-            return;
+        function updateDueDates() {
+            document.querySelectorAll('.due-date-countdown').forEach(element => {
+                const dueDate = new Date(element.dataset.dueDate);
+                const now = new Date();
+                const diffMs = dueDate - now;
+                
+                if (diffMs <= 0) {
+                    element.textContent = 'Due now';
+                    element.classList.add('text-danger');
+                    return;
+                }
+
+                const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                
+                if (days > 0) {
+                    element.textContent = `${days}d ${hours}h remaining`;
+                } else {
+                    element.textContent = `${hours}h remaining`;
+                }
+
+                if (days <= 1) {
+                    element.classList.add('text-warning');
+                }
+            });
         }
 
-        const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        
-        if (days > 0) {
-            element.textContent = `${days}d ${hours}h remaining`;
-        } else {
-            element.textContent = `${hours}h remaining`;
-        }
-
-        if (days <= 1) {
-            element.classList.add('text-warning');
-        }
-    });
-}
-
-// Initialize and update every minute
-updateDueDates();
-setInterval(updateDueDates, 60000);
+        // Initialize and update every minute
+        updateDueDates();
+        setInterval(updateDueDates, 60000);
     </script>
 </body>
 </html>

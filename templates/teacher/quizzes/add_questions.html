@@ -1,0 +1,446 @@
+{% extends "teacher_dashboard.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Add Questions to Quiz</h2>
+        <div>
+            <a href="{{ url_for('list_quizzes') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Back to Quizzes
+            </a>
+        </div>
+    </div>
+    
+    <!-- Questions Form -->
+    <form method="POST" id="questions-form" action="{{ url_for('save_quiz_questions') }}">
+        <!-- Questions Card -->
+        <div class="card mb-4 shadow-sm">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-question-circle me-2"></i>Questions</span>
+                <button type="button" class="btn btn-sm btn-light" id="add-question">
+                    <i class="fas fa-plus me-1"></i>Add Question
+                </button>
+            </div>
+            
+            <div class="card-body" id="questions-container">
+                <!-- Question Template -->
+                <div class="question-item mb-4 p-3 border rounded bg-light">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0 question-number">Question 1</h5>
+                        <button type="button" class="btn btn-sm btn-danger remove-question">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Question Text</label>
+                        <textarea name="questions[]" class="form-control question-text" rows="3" required></textarea>
+                        <div class="invalid-feedback">Please provide question text</div>
+                        <small class="text-muted float-end character-counter"></small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Options</label>
+                        <input type="text" name="options[]" class="form-control options-input" 
+                               placeholder="Option 1, Option 2, Option 3" required>
+                        <small class="text-muted">Separate options with commas</small>
+                        <div class="invalid-feedback">Please provide at least 2 options</div>
+                    </div>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Correct Answer</label>
+                            <select name="correct_options[]" class="form-select correct-answer" required>
+                                <option value="">Select correct answer</option>
+                            </select>
+                            <div class="invalid-feedback">Please select correct answer</div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Points</label>
+                            <input type="number" name="points[]" class="form-control question-points" 
+                                   min="1" value="10" required>
+                            <div class="invalid-feedback">Points must be at least 1</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Form Actions -->
+        <div class="d-flex justify-content-between">
+            <button type="button" class="btn btn-outline-secondary" id="save-draft">
+                <i class="fas fa-save me-1"></i>Save Draft
+            </button>
+            <button type="submit" class="btn btn-success" id="submit-questions">
+                <i class="fas fa-check me-1"></i>Save Questions
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // DOM Elements
+    const container = document.getElementById('questions-container');
+    const addBtn = document.getElementById('add-question');
+    const saveDraftBtn = document.getElementById('save-draft');
+    const questionsForm = document.getElementById('questions-form');
+    const STORAGE_KEY = 'quiz_questions_draft_{{ current_user.id }}';
+    
+    // Initialize form with first question
+    function initFirstQuestion() {
+        const firstQuestion = container.querySelector('.question-item');
+        const optionsInput = firstQuestion.querySelector('.options-input');
+        const correctSelect = firstQuestion.querySelector('.correct-answer');
+        
+        optionsInput.addEventListener('input', function() {
+            updateCorrectAnswerSelect(optionsInput, correctSelect);
+        });
+        
+        // Set up character counter for question text
+        setupCharacterCounter(firstQuestion.querySelector('.question-text'), 500);
+        
+        // Trigger initial update
+        optionsInput.dispatchEvent(new Event('input'));
+    }
+    
+    // Add new question
+    function addQuestion(data = {}) {
+        const count = container.querySelectorAll('.question-item').length + 1;
+        const newQuestion = container.querySelector('.question-item').cloneNode(true);
+        
+        // Update question number
+        newQuestion.querySelector('.question-number').textContent = `Question ${count}`;
+        
+        // Clear existing values
+        newQuestion.querySelector('.question-text').value = data.text || '';
+        newQuestion.querySelector('.options-input').value = data.options ? data.options.join(', ') : '';
+        newQuestion.querySelector('.question-points').value = data.points || 10;
+        
+        // Update name attributes to ensure they're unique
+        const questionText = newQuestion.querySelector('.question-text');
+        const optionsInput = newQuestion.querySelector('.options-input');
+        const correctSelect = newQuestion.querySelector('.correct-answer');
+        const pointsInput = newQuestion.querySelector('.question-points');
+        
+        questionText.name = `questions[]`;
+        optionsInput.name = `options[]`;
+        correctSelect.name = `correct_options[]`;
+        pointsInput.name = `points[]`;
+        
+        // Set up event listeners
+        optionsInput.addEventListener('input', function() {
+            updateCorrectAnswerSelect(optionsInput, correctSelect);
+        });
+        
+        // Set up character counter
+        setupCharacterCounter(questionText, 500);
+        
+        // Initialize correct answer dropdown if options provided
+        if (data.options && data.options.length >= 2) {
+            updateCorrectAnswerSelect(optionsInput, correctSelect, data.correct_option);
+        } else {
+            optionsInput.dispatchEvent(new Event('input'));
+        }
+        
+        container.appendChild(newQuestion);
+    }
+    
+    // Remove question
+    function removeQuestion(questionElement) {
+        if (container.querySelectorAll('.question-item').length > 1) {
+            questionElement.remove();
+            updateQuestionNumbers();
+        } else {
+            alert('A quiz must have at least one question');
+        }
+    }
+    
+    // Update question numbers
+    function updateQuestionNumbers() {
+        container.querySelectorAll('.question-item').forEach((item, index) => {
+            item.querySelector('.question-number').textContent = `Question ${index + 1}`;
+        });
+    }
+    
+    // Update correct answer dropdown
+    function updateCorrectAnswerSelect(inputElement, selectElement, defaultValue = null) {
+        const options = inputElement.value.split(',').map(opt => opt.trim()).filter(opt => opt !== '');
+        selectElement.innerHTML = '';
+        
+        if (options.length >= 2) {
+            options.forEach((option, index) => {
+                const optElement = document.createElement('option');
+                optElement.value = index;
+                optElement.textContent = option.length > 30 ? option.substring(0, 30) + '...' : option;
+                selectElement.appendChild(optElement);
+            });
+            
+            if (defaultValue !== null && defaultValue >= 0 && defaultValue < options.length) {
+                selectElement.value = defaultValue;
+            }
+            selectElement.disabled = false;
+        } else {
+            selectElement.innerHTML = '<option value="">Add at least 2 options</option>';
+            selectElement.disabled = true;
+        }
+    }
+    
+    // Set up character counter
+    function setupCharacterCounter(element, maxLength) {
+        const counter = element.nextElementSibling.nextElementSibling; // Get the character counter element
+        
+        element.addEventListener('input', function() {
+            const remaining = maxLength - this.value.length;
+            counter.textContent = `${remaining} characters remaining`;
+            counter.classList.toggle('text-danger', remaining < 0);
+        });
+        
+        // Trigger initial count
+        element.dispatchEvent(new Event('input'));
+    }
+    
+    // Save draft to localStorage
+    function saveDraft() {
+        const formData = {
+            questions: []
+        };
+        
+        container.querySelectorAll('.question-item').forEach(question => {
+            const options = question.querySelector('.options-input').value
+                .split(',')
+                .map(opt => opt.trim())
+                .filter(opt => opt !== '');
+            
+            formData.questions.push({
+                text: question.querySelector('.question-text').value,
+                options: options,
+                correct_option: question.querySelector('.correct-answer').value ? 
+                    parseInt(question.querySelector('.correct-answer').value) : null,
+                points: parseInt(question.querySelector('.question-points').value)
+            });
+        });
+        
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
+        showToast('Draft saved successfully!', 'success');
+    }
+    
+    // Load draft from localStorage
+    function loadDraft() {
+        const savedData = localStorage.getItem(STORAGE_KEY);
+        if (savedData) {
+            try {
+                const data = JSON.parse(savedData);
+                
+                // Clear existing questions (except the first one)
+                const questions = container.querySelectorAll('.question-item');
+                for (let i = 1; i < questions.length; i++) {
+                    questions[i].remove();
+                }
+                
+                // Update first question
+                const firstQuestion = questions[0];
+                if (data.questions && data.questions[0]) {
+                    const qData = data.questions[0];
+                    firstQuestion.querySelector('.question-text').value = qData.text || '';
+                    firstQuestion.querySelector('.options-input').value = qData.options ? qData.options.join(', ') : '';
+                    firstQuestion.querySelector('.question-points').value = qData.points || 10;
+                    
+                    const optionsInput = firstQuestion.querySelector('.options-input');
+                    const correctSelect = firstQuestion.querySelector('.correct-answer');
+                    updateCorrectAnswerSelect(optionsInput, correctSelect, qData.correct_option);
+                }
+                
+                // Add additional questions
+                if (data.questions && data.questions.length > 1) {
+                    for (let i = 1; i < data.questions.length; i++) {
+                        addQuestion(data.questions[i]);
+                    }
+                }
+                
+                showToast('Draft loaded successfully!', 'success');
+            } catch (e) {
+                console.error('Error loading draft:', e);
+                localStorage.removeItem(STORAGE_KEY);
+                showToast('Error loading draft', 'danger');
+            }
+        }
+    }
+    
+    // Validate form
+    function validateForm() {
+        let isValid = true;
+        
+        // Validate questions
+        container.querySelectorAll('.question-item').forEach(question => {
+            const textarea = question.querySelector('.question-text');
+            const optionsInput = question.querySelector('.options-input');
+            const correctSelect = question.querySelector('.correct-answer');
+            const pointsInput = question.querySelector('.question-points');
+            
+            // Validate question text
+            if (!textarea.value.trim()) {
+                showError(textarea, 'Question text is required');
+                isValid = false;
+            } else if (textarea.value.trim().length < 10) {
+                showError(textarea, 'Question should be at least 10 characters');
+                isValid = false;
+            } else {
+                clearError(textarea);
+            }
+            
+            // Validate options
+            const options = optionsInput.value.split(',').map(opt => opt.trim()).filter(opt => opt !== '');
+            if (options.length < 2) {
+                showError(optionsInput, 'At least two options required');
+                isValid = false;
+            } else if (options.length !== new Set(options).size) {
+                showError(optionsInput, 'Options must be unique');
+                isValid = false;
+            } else {
+                clearError(optionsInput);
+            }
+            
+            // Validate correct answer
+            if (!correctSelect.value) {
+                showError(correctSelect, 'Please select correct answer');
+                isValid = false;
+            } else {
+                clearError(correctSelect);
+            }
+            
+            // Validate points
+            if (!pointsInput.value || parseInt(pointsInput.value) < 1) {
+                showError(pointsInput, 'Points must be at least 1');
+                isValid = false;
+            } else {
+                clearError(pointsInput);
+            }
+        });
+        
+        return isValid;
+    }
+    
+    // Show error message
+    function showError(element, message) {
+        element.classList.add('is-invalid');
+        let feedback = element.nextElementSibling;
+        
+        while (feedback && !feedback.classList.contains('invalid-feedback')) {
+            feedback = feedback.nextElementSibling;
+        }
+        
+        if (feedback && feedback.classList.contains('invalid-feedback')) {
+            feedback.textContent = message;
+        } else {
+            const div = document.createElement('div');
+            div.className = 'invalid-feedback d-block';
+            div.textContent = message;
+            element.parentNode.appendChild(div);
+        }
+    }
+    
+    // Clear error message
+    function clearError(element) {
+        element.classList.remove('is-invalid');
+        let feedback = element.nextElementSibling;
+        
+        while (feedback && !feedback.classList.contains('invalid-feedback')) {
+            feedback = feedback.nextElementSibling;
+        }
+        
+        if (feedback && feedback.classList.contains('invalid-feedback')) {
+            feedback.textContent = '';
+        }
+    }
+    
+    // Show toast notification
+    function showToast(message, type = 'success') {
+        // Remove existing toasts
+        document.querySelectorAll('.toast').forEach(toast => toast.remove());
+        
+        const toast = document.createElement('div');
+        toast.className = `toast show align-items-center text-white bg-${type} border-0 position-fixed bottom-0 end-0 m-3`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        toast.style.zIndex = '1100';
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        `;
+        document.body.appendChild(toast);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
+
+    // Initialize all event listeners
+    function initEventListeners() {
+        // Add Question Button
+        addBtn.addEventListener('click', addQuestion);
+        
+        // Remove Question Button
+        container.addEventListener('click', function(e) {
+            if (e.target.closest('.remove-question')) {
+                removeQuestion(e.target.closest('.question-item'));
+            }
+        });
+        
+        // Save Draft Button
+        saveDraftBtn.addEventListener('click', saveDraft);
+        
+        // Form Submission
+        questionsForm.addEventListener('submit', function(e) {
+            if (!validateForm()) {
+                e.preventDefault();
+                showToast('Please fix all errors before submitting', 'danger');
+            } else {
+                localStorage.removeItem(STORAGE_KEY);
+                // Form will submit normally to the server
+            }
+        });
+        
+        // Auto-save every 30 seconds
+        setInterval(saveDraft, 30000);
+        
+        // Warn before leaving with unsaved changes
+        window.addEventListener('beforeunload', function(e) {
+            if (localStorage.getItem(STORAGE_KEY)) {
+                e.preventDefault();
+                e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+                return e.returnValue;
+            }
+        });
+    }
+
+    // Initialize the form
+    initFirstQuestion();
+    loadDraft();
+    initEventListeners();
+});
+</script>
+
+<style>
+    .character-counter {
+        font-size: 0.8rem;
+    }
+    .question-item {
+        transition: all 0.3s ease;
+    }
+    .question-item:hover {
+        box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+    .invalid-feedback {
+        display: none;
+    }
+    .is-invalid ~ .invalid-feedback {
+        display: block;
+    }
+</style>
+{% endblock %}

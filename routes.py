@@ -11,22 +11,21 @@ from flask_wtf import FlaskForm
 from wtforms import RadioField
 from wtforms.validators import DataRequired, ValidationError
 from zoneinfo import ZoneInfo  # Python 3.9+ (preferred) or use pytz as fallback
-from forms import AssignmentForm, SubmissionForm,QuizEditForm  # Import the forms
+from forms import AssignmentForm, SubmissionForm, QuizEditForm  # Import the forms
 from forms import QuizCreateForm, QuestionForm  # Ensure this import is added at the top of the file
 import pandas as pd
 from markdown import markdown
 from bleach import clean  # Add this import at the top of the file if not already present
 from sqlalchemy.exc import SQLAlchemyError
 import logging
-
-
-
-from flask import (abort, flash, jsonify, redirect, render_template, request,
-                   send_from_directory, url_for, current_app)
+import traceback
+import json
+from flask import abort, flash, jsonify, redirect, render_template, request, \
+                   send_from_directory, url_for, current_app
 import traceback
 from flask_login import current_user, login_required, login_user, logout_user
 from PIL import Image
-from sqlalchemy import and_
+from sqlalchemy import and_, func
 from sqlalchemy.orm import joinedload, load_only
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import secure_filename
@@ -34,7 +33,11 @@ from werkzeug.utils import secure_filename
 from app import app, db
 from models import (Activity, Assignment, Attendance, Classroom, Department,
                     Grade, Resource, OnlineSession, Question, Quiz, Student,
-                    Submission, Subject, Teacher, User, Enrollment, QuizAttempt, QuizAnswer, Message, ClassAnnouncement)
+                    Submission, Subject, Teacher, User, Enrollment, QuizAttempt, QuizAnswer, Message, ClassAnnouncement, ClassroomActivity)
+from zoneinfo import ZoneInfo
+from pytz import timezone as pytz_timezone
+local_timezone = pytz_timezone('Africa/Dar_es_Salaam')
+import pytz  # Add this import
 
 # Configuration
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
@@ -47,7 +50,6 @@ ALLOWED_EXTENSIONS = {
     'video': {'mp4', 'mov'}
 }
 
-# 
 @app.template_filter('safe_divide')
 def safe_divide(numerator, denominator, default=0):
     return numerator / denominator if denominator else default
@@ -100,11 +102,11 @@ def register():
         image_filename = None
         if image_data:
             try:
-                # Add your code logic here
+                # Add your code here
                 pass
             except Exception as e:
-                current_app.logger.error(f"An error occurred: {e}")
-                return jsonify({'success': False, 'error': 'An error occurred'}), 500
+                current_app.logger.error(f"An error occurred: {str(e)}", exc_info=True)
+                flash('An error occurred while processing your request.', 'danger')
                 _, encoded = image_data.split(",", 1)
                 face_image = face_recognition.load_image_file(BytesIO(base64.b64decode(encoded)))
                 image_filename = secure_filename(f"{username}_face.jpg")
@@ -141,7 +143,6 @@ def register():
 def login():
     """User login route with face recognition option."""
     if request.method == 'POST':
-
         # Standard username/password login
         identifier = request.form.get('identifier')
         password = request.form.get('password')
@@ -169,255 +170,418 @@ def logout():
     flash('You have been logged out.', 'info')
     return redirect(url_for('index'))
 
-
 # ---------- DASHBOARD ROUTES ----------
+
+def get_recent_submissions(student, limit=5):
+    """Retrieve the most recent submissions for a student."""
+    try:
+        return Submission.query.filter_by(student_id=student.id).order_by(Submission.submitted_at.desc()).limit(limit).all()
+    except Exception as e:
+        current_app.logger.error(f"Error fetching recent submissions: {str(e)}")
+        return []
+
+def get_grades_summary(student):
+    """Summarize grades for a student."""
+    try:
+        grades = Grade.query.filter_by(student_id=student.id).all()
+        return {
+            'average': sum(g.score for g in grades) / len(grades) if grades else 0,
+            'total': len(grades),
+            'subjects': {g.subject_id: g.score for g in grades}
+        }
+    except Exception as e:
+        current_app.logger.error(f"Error fetching grades summary: {str(e)}")
+        return {'average': 0, 'total': 0, 'subjects': {}}
+
+from enum import Enum, unique
+from datetime import datetime, timedelta
+from flask import render_template, abort
+from flask_login import login_required, current_user
+from sqlalchemy.orm import joinedload
+
+@unique
+class QuizStatus(Enum):
+    DRAFT = 'draft'
+    PUBLISHED = 'published'
+    ARCHIVED = 'archived'
+    DELETED = 'deleted'
 
 @app.route('/student_dashboard')
 @login_required
 def student_dashboard():
-    # Verify student status
-    if current_user.role != 'student' or not current_user.student_profile:
-        abort(403)
-    
-    student = current_user.student_profile
-    now = datetime.utcnow()
-    
-    # Get class IDs from enrollments
-    class_ids = [enrollment.class_id for enrollment in student.enrollments]
-    
-    # Upcoming Assignments (not submitted)
-    submitted_assignment_ids = [submission.assignment_id for submission in student.submissions]
-    upcoming_assignments = Assignment.query.filter(
-        Assignment.class_id.in_(class_ids),
-        Assignment.due_date >= now,
-        Assignment.id.notin_(submitted_assignment_ids),
-        Assignment.is_published == True
-    ).options(
-        joinedload(Assignment.subject),
-        joinedload(Assignment.classroom)
-    ).order_by(Assignment.due_date.asc()).limit(5).all()
-    
-    # Active Online Sessions
-    active_sessions = OnlineSession.query.filter(
-        OnlineSession.class_id.in_(class_ids),
-        OnlineSession.end_time >= now
-    ).options(
-        joinedload(OnlineSession.classroom)
-    ).order_by(OnlineSession.start_time.asc()).all()
-    
-    # Upcoming Quizzes
-    upcoming_quizzes = Quiz.query.filter(
-        Quiz.classroom_id.in_(class_ids),
-        Quiz.due_date >= now,
-        Quiz.is_published == True
-    ).options(
-        joinedload(Quiz.subject),
-        joinedload(Quiz.classroom),
-        joinedload(Quiz.teacher)
-    ).order_by(Quiz.due_date.asc()).limit(5).all()
-    
-    # Prepare debug information
-    debug_data = {
-        'total_quizzes': Quiz.query.count(),
-        'available_quizzes': Quiz.query.filter(Quiz.classroom_id.in_(class_ids)).count(),
-        'class_ids': class_ids,
-        'query_time': now.strftime('%Y-%m-%d %H:%M:%S')
-    }
-    
-    return render_template('student_dashboard.html',
-        username=current_user.username,
-        upcoming_assignments=upcoming_assignments,
-        active_sessions=active_sessions,
-        upcoming_quizzes=upcoming_quizzes,
-        now=now,
-        student=student,
-        debug_info=debug_data,
-        # Ensure all expected variables are passed
-        grades_summary=get_grades_summary(student),  # Implement this function
-        recent_submissions=get_recent_submissions(student),  # Implement this function
-        recent_quiz_attempts=get_recent_quiz_attempts(student)  # Implement this function
-    )
-
-def get_grades_summary(student):
-    """Returns a comprehensive summary of the student's grades
-    
-    Args:
-        student (Student): The student object to analyze
+    """Student dashboard showing all academic activities with proper timezone handling"""
+    try:
+        # Authentication check
+        if current_user.role != 'student' or not current_user.student_profile:
+            current_app.logger.warning(f"Unauthorized dashboard access by {current_user.id}")
+            abort(403)
         
-    Returns:
-        dict: A dictionary containing:
-            - gpa: Current GPA (float)
-            - distribution: List of grade counts by letter grade
-            - total_assignments: Sum of all graded assignments
-            - completion_percentage: Percentage of completed assignments
-            - highest_grade: Best letter grade achieved
-            - warning_status: Any grade-related warnings
-    """
-    if not hasattr(student, 'grade_counts'):
-        raise AttributeError("Student object missing required grade_counts property")
-    
-    grade_counts = student.grade_counts
-    
-    # Calculate completion percentage if we have enrollment info
-    completion_percentage = None
-    if hasattr(student, 'enrollments'):
-        total_possible = sum(
-            enrollment.classroom.course.assignment_count 
-            for enrollment in student.enrollments 
-            if (enrollment.classroom and 
-                hasattr(enrollment.classroom, 'course') and 
-                enrollment.classroom.course)
+        student = current_user.student_profile
+        local_timezone = pytz.timezone('Africa/Dar_es_Salaam')
+        now = datetime.now(local_timezone)
+
+        current_app.logger.debug(f"Building dashboard for student {student.id} at {now}")
+
+        # Get enrolled classrooms
+        enrollments = Enrollment.query.filter_by(student_id=student.id).options(
+            joinedload(Enrollment.classroom).joinedload(Classroom.subject)
+        ).all()
+
+        class_ids = [e.classroom.id for e in enrollments] if enrollments else []
+
+        # Get published quizzes
+        quizzes = Quiz.query.filter(
+            Quiz.classroom_id.in_(class_ids),
+            Quiz.status == QuizStatus.PUBLISHED.value
+        ).options(
+            joinedload(Quiz.classroom),
+            joinedload(Quiz.teacher)
+        ).all() if class_ids else []
+
+        upcoming_quizzes = []
+        for quiz in quizzes:
+            if quiz.due_date:
+                due_date = quiz.due_date
+                if due_date.tzinfo is None:
+                    due_date = local_timezone.localize(due_date)
+                due_date = due_date.astimezone(local_timezone)
+
+                if due_date > now:
+                    upcoming_quizzes.append({
+                        'quiz': quiz,
+                        'due_date_local': due_date,
+                        'time_remaining': due_date - now,
+                        'status': quiz.status
+                    })
+
+        upcoming_quizzes.sort(key=lambda x: x['due_date_local'])
+
+        # Get additional dashboard data
+        assignments = get_student_assignments(student, class_ids, now)
+        activities = ClassroomActivity.query.filter(
+            ClassroomActivity.classroom_id.in_(class_ids)
+        ).options(
+            joinedload(ClassroomActivity.classroom),
+            joinedload(ClassroomActivity.author)
+        ).order_by(ClassroomActivity.created_at.desc()).limit(10).all() if class_ids else []
+
+        sessions = get_student_sessions(class_ids, now) if class_ids else []
+
+        announcements = ClassAnnouncement.query.filter(
+            ClassAnnouncement.classroom_id.in_(class_ids)
+        ).options(
+            joinedload(ClassAnnouncement.classroom),
+            joinedload(ClassAnnouncement.author)
+        ).order_by(ClassAnnouncement.created_at.desc()).limit(5).all() if class_ids else []
+
+        recent_attempts = QuizAttempt.query.filter(
+            QuizAttempt.student_id == student.id,
+            QuizAttempt.completed_at.isnot(None)
+        ).options(
+            joinedload(QuizAttempt.quiz).joinedload(Quiz.subject)
+        ).order_by(QuizAttempt.completed_at.desc()).limit(2).all()
+
+        debug_info = {
+            'student': f"{current_user.username} (ID: {current_user.id})",
+            'current_time': now.strftime('%Y-%m-%d %H:%M %Z'),
+            'enrolled_classrooms': [e.classroom.class_name for e in enrollments] if enrollments else [],
+            'total_published_quizzes': len(quizzes),
+            'quizzes_in_classes': len(upcoming_quizzes),
+            'time_zone': str(local_timezone)
+        }
+
+        return render_template('student_dashboard.html',
+            student=student,
+            assignments=assignments,
+            quizzes=upcoming_quizzes,
+            activities=activities,
+            sessions=sessions,
+            announcements=announcements,
+            now=now,
+            debug_info=debug_info,
+            local_timezone=local_timezone,
+            grades_summary=get_grades_summary(student),
+            recent_submissions=get_recent_submissions(student),
+            recent_quiz_attempts=recent_attempts,
+            QuizStatus=QuizStatus,
+            humanize=humanize,
+            enrollments=enrollments  # <-- useful if referenced in template
         )
-        if total_possible > 0:
-            completed = sum(grade_counts.values())
-            completion_percentage = round((completed / total_possible) * 100, 1)
+
+    except Exception as e:
+        current_app.logger.error(f"Error loading student dashboard: {str(e)}", exc_info=True)
+        return render_template('error.html', error=str(e)), 500
+
     
-    # Determine highest grade achieved (best letter grade with count > 0)
-    highest_grade = next(
-        (letter for letter in ['A', 'B', 'C', 'D', 'F'] if grade_counts[letter] > 0),
-        None
-    )
+
+# Helper functions with timezone support
+def get_student_quizzes(student, class_ids, now):
+    """Retrieve and organize quizzes by status with timezone awareness"""
+    try:
+        quizzes = Quiz.query.filter(
+            Quiz.classroom_id.in_(class_ids),
+            Quiz.status == QuizStatus.PUBLISHED.value
+        ).options(
+            joinedload(Quiz.subject),
+            joinedload(Quiz.classroom),
+            joinedload(Quiz.teacher)
+        ).order_by(Quiz.due_date.asc()).all()
+
+        attempts = {a.quiz_id: a for a in student.quiz_attempts}
+        
+        return {
+            'upcoming': [q for q in quizzes 
+                        if q.due_date and q.due_date.astimezone(local_timezone) > now
+                        and q.id not in attempts],
+            'past': [q for q in quizzes 
+                    if q.due_date and q.due_date.astimezone(local_timezone) <= now
+                    and q.id not in attempts],
+            'attempted': [q for q in quizzes 
+                         if q.id in attempts]
+        }
+    except Exception as e:
+        current_app.logger.error(f"Error fetching quizzes: {str(e)}")
+        return {}
+
+
+def format_datetime(dt, format_str='%B %d, %Y at %H:%M'):
+    """Safe datetime formatting with timezone conversion"""
+    if not dt:
+        return "Not set"
+    if not dt.tzinfo:
+        dt = local_timezone.localize(dt)
+    return dt.astimezone(local_timezone).strftime(format_str)
+def get_student_quizzes(student, class_ids, now):
+    """Retrieve and organize quizzes with proper filtering"""
+    try:
+        # Base query
+        quizzes = Quiz.query.filter(
+            Quiz.classroom_id.in_(class_ids),
+            Quiz.status == QuizStatus.PUBLISHED.value,
+            Quiz.is_deleted == False,
+            Quiz.due_date > now  # Only future quizzes
+        ).options(
+            joinedload(Quiz.subject),
+            joinedload(Quiz.classroom),
+            joinedload(Quiz.teacher)
+        ).order_by(Quiz.due_date.asc()).all()
+
+        # Debug output
+        current_app.logger.debug(f"Found {len(quizzes)} quizzes for student {student.id}")
+        for q in quizzes:
+            current_app.logger.debug(f"Quiz {q.id}: {q.title} (Class {q.classroom_id}, Due {q.due_date})")
+
+        # Get attempts
+        attempts = {a.quiz_id: a for a in student.quiz_attempts}
+        
+        return {
+            'upcoming': [q for q in quizzes if q.id not in attempts],
+            'past': [],
+            'attempted': []
+        }
+        
+    except Exception as e:
+        current_app.logger.error(f"Quiz query error: {str(e)}", exc_info=True)
+        return {'upcoming': [], 'past': [], 'attempted': []}
+
+def get_student_assignments(student, class_ids, now):
+    """Retrieve and organize assignments by status"""
+    try:
+        assignments = Assignment.query.filter(
+            Assignment.class_id.in_(class_ids),
+            Assignment.is_published == True
+        ).options(
+            joinedload(Assignment.subject),
+            joinedload(Assignment.classroom),
+            joinedload(Assignment.author)
+        ).order_by(Assignment.due_date.asc()).all()
+
+        submitted_ids = {s.assignment_id for s in student.submissions}
+        
+        return {
+            'upcoming': [a for a in assignments 
+                        if a.id not in submitted_ids 
+                        and a.due_date >= now],
+            'pending': [a for a in assignments 
+                       if a.id not in submitted_ids 
+                       and a.due_date < now],
+            'submitted': [a for a in assignments 
+                         if a.id in submitted_ids]
+        }
+    except Exception as e:
+        current_app.logger.error(f"Error fetching assignments: {str(e)}")
+        return {}
+
+def get_student_sessions(class_ids, now):
+    """Retrieve online sessions grouped by status"""
+    try:
+        return {
+            'active': OnlineSession.query.filter(
+                OnlineSession.class_id.in_(class_ids),
+                OnlineSession.end_time >= now
+            ).options(
+                joinedload(OnlineSession.classroom)
+            ).order_by(OnlineSession.start_time.asc()).all(),
+            'past': OnlineSession.query.filter(
+                OnlineSession.class_id.in_(class_ids),
+                OnlineSession.end_time < now
+            ).options(
+                joinedload(OnlineSession.classroom)
+            ).order_by(OnlineSession.start_time.desc()).limit(5).all()
+        }
+    except Exception as e:
+        current_app.logger.error(f"Error fetching sessions: {str(e)}")
+        return {}
+
+
+
+@app.route('/debug/quizzes/<int:student_id>')
+def debug_quizzes(student_id):
+    """Debug endpoint to check quiz visibility"""
+    student = StudentProfile.query.get_or_404(student_id)
+    class_ids = [e.class_id for e in student.enrollments]
+    now=local_timezone.localize(datetime.now())
     
-    # Check for warning conditions
-    warning_status = []
-    if grade_counts['F'] > 0:
-        warning_status.append(f"{grade_counts['F']} failing grade(s)")
-    if completion_percentage is not None and completion_percentage < 75:
-        warning_status.append("Low completion rate")
+    quizzes = Quiz.query.filter(
+        Quiz.classroom_id.in_(class_ids),
+        Quiz.status == 'published',
+        Quiz.is_deleted == False,
+        Quiz.due_date > now
+    ).all()
     
-    return {
-        'gpa': student.gpa or 0.0,
-        'distribution': [
-            {'letter': 'A', 'count': grade_counts['A'], 'range': '90-100%'},
-            {'letter': 'B', 'count': grade_counts['B'], 'range': '80-89%'},
-            {'letter': 'C', 'count': grade_counts['C'], 'range': '70-79%'},
-            {'letter': 'D', 'count': grade_counts['D'], 'range': '60-69%'},
-            {'letter': 'F', 'count': grade_counts['F'], 'range': 'Below 60%'}
-        ],
-        'total_assignments': sum(grade_counts.values()),
-        'completion_percentage': completion_percentage,
-        'highest_grade': highest_grade,
-        'warning_status': warning_status if warning_status else None,
-        'last_updated': datetime.utcnow().isoformat()
-    }
+    return jsonify({
+        'student': student_id,
+        'classrooms': class_ids,
+        'quizzes': [{
+            'id': q.id,
+            'title': q.title,
+            'classroom': q.classroom_id,
+            'due_date': q.due_date.isoformat(),
+            'status': q.status
+        } for q in quizzes]
+    })
 
-def get_recent_submissions(student, limit=2):
-    """Returns the student's most recent submissions"""
-    return Submission.query.filter(
-        Submission.student_id == student.id
-    ).options(
-        joinedload(Submission.assignment).joinedload(Assignment.subject)
-    ).order_by(
-        Submission.submitted_at.desc()
-    ).limit(limit).all()
-
-def get_recent_quiz_attempts(student, limit=2):
-    """Returns the student's most recent quiz attempts"""
-    return QuizAttempt.query.filter(
-        QuizAttempt.student_id == student.id
-    ).options(
-        joinedload(QuizAttempt.quiz).joinedload(Quiz.subject)
-    ).order_by(
-        QuizAttempt.completed_at.desc()
-    ).limit(limit).all()
-
-
-# STUDENT RESOURCES AREA
+# ---------- STUDENT RESOURCES ROUTES ----------
+# Resources Section
 
 @app.route('/student/resources')
 @login_required
 def student_resources():
-    if current_user.role != 'student' or not current_user.student_profile:
-        abort(403)
+    """View all resources available to student"""
+    try:
+        if current_user.role != 'student':
+            abort(403)
 
-    student = current_user.student_profile
-    class_ids = [e.class_id for e in student.enrollments]
-    page = request.args.get('page', 1, type=int)
-    resource_type = request.args.get('type', 'all')
-    subject_id = request.args.get('subject_id', type=int)
+        student = current_user.student_profile
+        class_ids = [e.class_id for e in student.enrollments]
+        
+        if not class_ids:
+            return render_template('student/resources/list.html',
+                               message="No classes found")
 
-    # Base query
-    query = Resource.query.filter(
-        Resource.classroom_id.in_(class_ids),
-        Resource.is_approved == True
-    )
+        page = request.args.get('page', 1, type=int)
+        resource_type = request.args.get('type', 'all')
+        subject_id = request.args.get('subject_id', type=int)
 
-    # Apply filters
-    if resource_type != 'all':
-        query = query.filter(Resource.resource_type == resource_type)
-    if subject_id:
-        query = query.filter(Resource.subject_id == subject_id)
+        query = Resource.query.filter(
+            Resource.classroom_id.in_(class_ids),
+            Resource.is_approved == True
+        )
 
-    resources = query.options(
-        joinedload(Resource.classroom),
-        joinedload(Resource.subject),
-        joinedload(Resource.teacher).joinedload(Teacher.user)
-    ).order_by(Resource.upload_date.desc()).paginate(page=page, per_page=10)
+        if resource_type != 'all':
+            query = query.filter(Resource.resource_type == resource_type)
+        if subject_id:
+            query = query.filter(Resource.subject_id == subject_id)
 
-    # Get subjects for filter dropdown
-    subjects = Subject.query.join(Classroom).filter(
-        Classroom.id.in_(class_ids)
-    ).distinct().all()
+        resources = query.options(
+            joinedload(Resource.classroom),
+            joinedload(Resource.subject),
+            joinedload(Resource.teacher).joinedload(Teacher.user)
+        ).order_by(Resource.upload_date.desc()).paginate(
+            page=page, 
+            per_page=10,
+            error_out=False
+        )
 
-    return render_template('student/resources/list.html',
-        resources=resources,
-        resource_types=ALLOWED_EXTENSIONS.keys(),
-        current_type=resource_type,
-        subjects=subjects,
-        selected_subject=subject_id
-    )
+        subjects = Subject.query.join(Classroom).filter(
+            Classroom.id.in_(class_ids)
+        ).distinct().all()
 
+        return render_template('student/resources/list.html',
+            resources=resources,
+            subjects=subjects,
+            current_type=resource_type,
+            selected_subject=subject_id
+        )
+
+    except Exception as e:
+        current_app.logger.error(f"Error loading resources: {str(e)}")
+        flash("Error loading resources", "danger")
+        return redirect(url_for('student_dashboard'))
 
 @app.route('/student/resources/<int:resource_id>')
 @login_required
 def student_view_resource(resource_id):
-    if current_user.role != 'student' or not current_user.student_profile:
-        abort(403)
+    """View details of a specific resource"""
+    try:
+        if current_user.role != 'student':
+            abort(403)
 
-    student = current_user.student_profile
-    resource = Resource.query.options(
-        joinedload(Resource.classroom),
-        joinedload(Resource.subject),
-        joinedload(Resource.teacher).joinedload(Teacher.user)
-    ).get_or_404(resource_id)
+        student = current_user.student_profile
+        resource = Resource.query.options(
+            joinedload(Resource.classroom),
+            joinedload(Resource.subject),
+            joinedload(Resource.teacher).joinedload(Teacher.user)
+        ).get_or_404(resource_id)
 
-    # Check if student has access to this resource
-    if resource.classroom_id not in [e.class_id for e in student.enrollments]:
-        abort(403)
+        # Verify access
+        if resource.classroom_id not in [e.class_id for e in student.enrollments]:
+            abort(403)
 
-    # Increment view count
-    resource.views_count += 1
-    db.session.commit()
+        # Track view
+        resource.views_count = Resource.views_count + 1
+        db.session.commit()
 
-    return render_template('student/resources/view.html',
-        resource=resource
-    )
+        return render_template('student/resources/view.html',
+            resource=resource
+        )
 
+    except Exception as e:
+        current_app.logger.error(f"Error viewing resource {resource_id}: {str(e)}")
+        flash("Error loading resource", "danger")
+        return redirect(url_for('student_resources'))
 
 @app.route('/student/resources/<int:resource_id>/download')
 @login_required
 def student_download_resource(resource_id):
-    if current_user.role != 'student' or not current_user.student_profile:
-        abort(403)
+    """Download a resource file"""
+    try:
+        if current_user.role != 'student':
+            abort(403)
 
-    student = current_user.student_profile
-    resource = Resource.query.get_or_404(resource_id)
+        student = current_user.student_profile
+        resource = Resource.query.get_or_404(resource_id)
 
-    # Check if student has access to this resource
-    if resource.classroom_id not in [e.class_id for e in student.enrollments]:
-        abort(403)
+        # Verify access
+        if resource.classroom_id not in [e.class_id for e in student.enrollments]:
+            abort(403)
 
-    # Increment download count
-    resource.download_count += 1
-    db.session.commit()
+        # Track download
+        resource.download_count = Resource.download_count + 1
+        db.session.commit()
 
-    return send_from_directory(
-        os.path.dirname(resource.file_path),
-        os.path.basename(resource.file_path),
-        as_attachment=True,
-        attachment_filename=resource.file_name
-    )
+        return send_from_directory(
+            os.path.dirname(resource.file_path),
+            os.path.basename(resource.file_path),
+            as_attachment=True,
+            download_name=resource.file_name
+        )
 
+    except Exception as e:
+        current_app.logger.error(f"Error downloading resource {resource_id}: {str(e)}")
+        flash("Error downloading file", "danger")
+        return redirect(url_for('student_view_resource', resource_id=resource_id))
+        
 # STUDENT ASSIGNMENT AREA
 
 @app.route('/student/assignments')
@@ -447,12 +611,13 @@ def student_assignments():
     elif status_filter == 'pending':
         query = query.filter(
             Assignment.id.notin_(submitted_ids),
-            Assignment.due_date >= datetime.utcnow()
+            Assignment.due_date >= datetime.now(local_timezone)
+
         )
     elif status_filter == 'overdue':
         query = query.filter(
             Assignment.id.notin_(submitted_ids),
-            Assignment.due_date < datetime.utcnow()
+            Assignment.due_date < datetime.now(local_timezone)
         )
 
     # Apply subject filter
@@ -475,9 +640,8 @@ def student_assignments():
         status_filter=status_filter,
         subjects=subjects,
         selected_subject=subject_id,
-        now=datetime.utcnow()
+        now=datetime.now(local_timezone)
     )
-
 
 @app.route('/student/assignments/<int:assignment_id>')
 @login_required
@@ -508,9 +672,8 @@ def student_view_assignment(assignment_id):
     return render_template('student/assignments/view.html',
         assignment=assignment,
         submission=submission,
-        now=datetime.utcnow()
+        now=datetime.now(local_timezone)
     )
-
 
 @app.route('/student/assignments/<int:assignment_id>/submit', methods=['GET', 'POST'])
 @login_required
@@ -531,7 +694,7 @@ def student_submit_assignment(assignment_id):
     if not enrollment:
         abort(403)
 
-    if assignment.due_date < datetime.utcnow():
+    if assignment.due_date < datetime.now(local_timezone):
         flash('The due date for this assignment has passed', 'danger')
         return redirect(url_for('student_view_assignment', assignment_id=assignment_id))
 
@@ -562,7 +725,7 @@ def student_submit_assignment(assignment_id):
                 file_path=file_path,
                 assignment_id=assignment_id,
                 student_id=student.id,
-                submitted_at=datetime.utcnow()
+                submitted_at=datetime.now(local_timezone)
             )
             db.session.add(submission)
             db.session.commit()
@@ -580,266 +743,226 @@ def student_submit_assignment(assignment_id):
         assignment=assignment
     )
 
-# STUDENT QUIZ AREA
+# STUDENT QUIZ AREA - IMPROVED VERSION
 
-@app.route('/student/quizzes')
-@login_required
-def student_quizzes():
-    # Verify student status
-    if current_user.role != 'student' or not current_user.student_profile:
-        abort(403)
-
-    # Get student data
-    student = current_user.student_profile
-    
-    # Get class IDs the student is enrolled in
-    class_ids = [e.class_id for e in student.enrollments]
-    
-    # Get filter parameters
-    status_filter = request.args.get('status', 'upcoming')
-    subject_id = request.args.get('subject_id', type=int)
-    now = datetime.utcnow()
-
-    # Base query with relationships
-    query = Quiz.query.filter(
-        Quiz.classroom_id.in_(class_ids)
-    ).options(
-        joinedload(Quiz.classroom),
-        joinedload(Quiz.subject)
+# Enhanced utility functions
+def get_student_quiz_data(student_id):
+    """Get all quiz-related data for a student in one optimized query"""
+    return (
+        db.session.query(Enrollment, Classroom, Subject)
+        .join(Classroom, Enrollment.class_id == Classroom.id)
+        .join(Subject, Classroom.subject_id == Subject.id)
+        .filter(Enrollment.student_id == student_id)
+        .all()
     )
 
-    # Apply status filter
-    if status_filter == 'upcoming':
-        query = query.filter(Quiz.due_date >= now)
-    elif status_filter == 'past':
-        query = query.filter(Quiz.due_date < now)
-
-    # Apply subject filter
-    if subject_id:
-        query = query.filter(Quiz.subject_id == subject_id)
-
-    # Execute query
-    quizzes = query.order_by(Quiz.due_date.asc()).all()
-
-    # Get quiz attempts and calculate scores
-    attempts = {}
-    for attempt in student.quiz_attempts:
-        attempts[attempt.quiz_id] = {
-            'attempt': attempt,
-            'score': calculate_quiz_score(attempt) if 'calculate_quiz_score' in globals() else None
-        }
-
-    # Get subjects for filter dropdown
-    subjects = Subject.query.join(Classroom).filter(
-        Classroom.id.in_(class_ids)
-    ).distinct().all()
-
-    # Prepare quiz data with additional form-related information
-    enhanced_quizzes = []
-    for quiz in quizzes:
-        quiz_data = {
-            'quiz': quiz,
-            'is_available': quiz.due_date >= now and quiz.id not in attempts,
-            'is_expired': quiz.due_date < now,
-            'is_completed': quiz.id in attempts,
-            'time_remaining': (quiz.due_date - now) if quiz.due_date > now else None
-        }
-        enhanced_quizzes.append(quiz_data)
-
-    return render_template('student/quizzes/list.html',
-        quizzes=enhanced_quizzes,
-        attempts=attempts,
-        status_filter=status_filter,
-        subjects=subjects,
-        selected_subject=subject_id,
-        now=now,
-        QuizForm=QuizCreateForm  # Pass the form class to template
-    )
-
-@app.route('/student/quizzes/<int:quiz_id>')
-@login_required
-def student_view_quiz(quiz_id):
-    if current_user.role != 'student' or not current_user.student_profile:
-        abort(403)
-
-    student = current_user.student_profile
-    quiz = Quiz.query.options(
-        joinedload(Quiz.classroom),
-        joinedload(Quiz.subject),
-        joinedload(Quiz.teacher).joinedload(Teacher.user)
-    ).get_or_404(quiz_id)
-
-    # Check enrollment
-    enrollment = Enrollment.query.filter_by(
-        student_id=student.id,
-        class_id=quiz.classroom_id
-    ).first()
-    if not enrollment:
-        abort(403)
-
-    # Check existing attempts
-    attempt = QuizAttempt.query.filter_by(
-        quiz_id=quiz_id,
-        student_id=student.id
-    ).order_by(QuizAttempt.started_at.desc()).first()
-
-    return render_template('student/quizzes/view.html',
-        quiz=quiz,
-        attempt=attempt,
-        now=datetime.utcnow()
-    )
-
-
-@app.route('/student/quizzes/<int:quiz_id>/start', methods=['POST'])
+@app.route('/student/quizzes/<int:quiz_id>/start', methods=['GET', 'POST'])
 @login_required
 def student_start_quiz(quiz_id):
-    if current_user.role != 'student' or not current_user.student_profile:
+    """Start a new quiz attempt"""
+    if not current_user.is_authenticated or not hasattr(current_user, 'student_profile'):
         abort(403)
-
-    student = current_user.student_profile
+        
     quiz = Quiz.query.get_or_404(quiz_id)
-
-    # Check enrollment
-    enrollment = Enrollment.query.filter_by(
-        student_id=student.id,
-        class_id=quiz.classroom_id
-    ).first()
-    if not enrollment:
-        abort(403)
-
-    # Check if quiz is available
-    if quiz.due_date and quiz.due_date < datetime.utcnow():
-        flash('This quiz is no longer available', 'danger')
-        return redirect(url_for('student_view_quiz', quiz_id=quiz_id))
-
-    # Check for existing incomplete attempt
+    
+    # Check if already has incomplete attempt
     existing_attempt = QuizAttempt.query.filter_by(
         quiz_id=quiz_id,
-        student_id=student.id,
+        student_id=current_user.student_profile.id,
         completed_at=None
     ).first()
+    
     if existing_attempt:
         return redirect(url_for('student_take_quiz', attempt_id=existing_attempt.id))
-
-    # Create new attempt
-    attempt = QuizAttempt(
-        quiz_id=quiz_id,
-        student_id=student.id,
-        started_at=datetime.utcnow()
-    )
-    db.session.add(attempt)
-    db.session.commit()
-
-    return redirect(url_for('student_take_quiz', attempt_id=attempt.id))
-
+    
+    if request.method == 'POST':
+        # Create new attempt
+        new_attempt = QuizAttempt(
+            student_id=current_user.student_profile.id,
+            quiz_id=quiz_id,
+            started_at=datetime.now(timezone.utc)
+        )
+        db.session.add(new_attempt)
+        db.session.commit()
+        
+        return redirect(url_for('student_take_quiz', attempt_id=new_attempt.id))
+    
+    # For GET requests, show confirmation page
+    return render_template('student/quizzes/take_quiz.html',
+        quiz=quiz,
+        time_limit=quiz.time_limit)
 
 @app.route('/student/quizzes/attempt/<int:attempt_id>', methods=['GET', 'POST'])
 @login_required
 def student_take_quiz(attempt_id):
-    if current_user.role != 'student' or not current_user.student_profile:
+    """Handle quiz taking and submission with unanswered question confirmation"""
+    if not current_user.is_authenticated or not hasattr(current_user, 'student_profile'):
         abort(403)
-
-    student = current_user.student_profile
+    
+    # Load attempt with all necessary relationships
     attempt = QuizAttempt.query.options(
-        joinedload(QuizAttempt.quiz).joinedload(Quiz.questions)
+        joinedload(QuizAttempt.quiz).joinedload(Quiz.questions),
+        joinedload(QuizAttempt.answers)
     ).get_or_404(attempt_id)
-
-    # Verify ownership
-    if attempt.student_id != student.id:
+    
+    if attempt.student_id != current_user.student_profile.id:
         abort(403)
-
-    # Check if already completed
+    
+    quiz = attempt.quiz
+    questions = sorted(quiz.questions, key=lambda q: q.position) if quiz.questions else []
+    
+    try:
+        current_index = request.args.get('q', 0, type=int)
+        current_index = max(0, min(current_index, len(questions) - 1)) if questions else 0
+    except ValueError:
+        current_index = 0
+    
+    # Check quiz availability
+    if quiz.due_date and quiz.due_date.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+        flash('This quiz is no longer available', 'danger')
+        return redirect(url_for('student_view_quiz', quiz_id=quiz.id))
+    
     if attempt.completed_at:
         flash('You have already completed this quiz', 'info')
-        return redirect(url_for('student_quiz_results', attempt_id=attempt_id))
-
-    quiz = attempt.quiz
-
-    # Handle form submission
+        return redirect(url_for('student_quiz_results', attempt_id=attempt.id))
+    
+    # Calculate unanswered questions with proper defaults
+    answered_ids = {a.question_id for a in attempt.answers}
+    unanswered_count = len(questions) - len(answered_ids) if questions else 0
+    unanswered_questions = [q for q in questions if q.id not in answered_ids] if questions else []
+    
     if request.method == 'POST':
         try:
-            # Record answers
-            for question in quiz.questions:
-                answer_key = f"question_{question.id}"
-                selected_answer = request.form.get(answer_key)
-                if selected_answer:
-                    answer = QuizAnswer(
-                        attempt_id=attempt.id,
-                        question_id=question.id,
-                        selected_answer=selected_answer,
-                        is_correct=(selected_answer == question.correct_option),
-                        answered_at=datetime.utcnow()
-                    )
-                    db.session.add(answer)
-
-            # Complete the attempt
-            attempt.completed_at = datetime.utcnow()
-            attempt.time_spent = (attempt.completed_at - attempt.started_at).total_seconds()
-            attempt.calculate_score()
+            question_id = request.form.get('question_id', type=int)
+            if not question_id:
+                raise ValueError("Missing question ID")
+            
+            answer = request.form.get('answer', '')
+            current_question = next((q for q in questions if q.id == question_id), None)
+            
+            if not current_question:
+                flash('Invalid question', 'danger')
+                return redirect(url_for('student_take_quiz', attempt_id=attempt.id))
+            
+            if current_question.question_type == 'multiple_choice' and not answer:
+                flash('Please select an option', 'danger')
+                return redirect(url_for('student_take_quiz', attempt_id=attempt.id, q=current_index))
+            
+            # Save or update answer
+            existing_answer = next((a for a in attempt.answers if a.question_id == question_id), None)
+            if existing_answer:
+                existing_answer.selected_answer = answer
+                existing_answer.is_correct = current_question.is_correct_answer(answer)
+                existing_answer.updated_at = datetime.now(timezone.utc)
+            else:
+                new_answer = QuizAnswer(
+                    attempt_id=attempt.id,
+                    question_id=question_id,
+                    selected_answer=answer,
+                    is_correct=current_question.is_correct_answer(answer),
+                    answered_at=datetime.now(timezone.utc)
+                )
+                db.session.add(new_answer)
+            
             db.session.commit()
-
+            
+            # Recalculate unanswered count after saving answer
+            answered_ids = {a.question_id for a in attempt.answers}
+            unanswered_count = len(questions) - len(answered_ids)
+            
+            # Handle quiz submission
+            if 'confirm-submit' in request.form:
+                attempt.completed_at = datetime.now(timezone.utc)
+                attempt.calculate_score()
+                db.session.commit()
+                return redirect(url_for('student_quiz_results', attempt_id=attempt.id))
+            
+            # Move to next question
+            next_index = current_index + 1
+            if next_index < len(questions):
+                return redirect(url_for('student_take_quiz', attempt_id=attempt.id, q=next_index))
             return redirect(url_for('student_quiz_results', attempt_id=attempt.id))
-
+        
         except Exception as e:
             db.session.rollback()
-            current_app.logger.error(f"Error submitting quiz: {str(e)}")
-            flash('An error occurred while submitting your quiz', 'danger')
-
-    # Get unanswered questions
-    answered_question_ids = [a.question_id for a in attempt.answers]
-    current_question = None
-    for question in quiz.questions:
-        if question.id not in answered_question_ids:
-            current_question = question
-            break
-
+            flash('An error occurred while saving your answer', 'danger')
+            return redirect(url_for('student_take_quiz', attempt_id=attempt.id, q=current_index))
+    
+    # GET request handling
+    current_question = questions[current_index] if questions and current_index < len(questions) else None
     if not current_question:
-        # All questions answered but not submitted
-        attempt.completed_at = datetime.utcnow()
-        attempt.time_spent = (attempt.completed_at - attempt.started_at).total_seconds()
-        attempt.calculate_score()
-        db.session.commit()
         return redirect(url_for('student_quiz_results', attempt_id=attempt.id))
-
-    # Calculate time remaining
-    time_remaining = None
-    if quiz.time_limit:
-        elapsed = (datetime.utcnow() - attempt.started_at).total_seconds()
-        time_remaining = max(0, quiz.time_limit * 60 - elapsed)
-
-    return render_template('student/quizzes/take.html',
+    
+    # Calculate time remaining with proper defaults
+    time_remaining = 0
+    if quiz.time_limit and attempt.started_at:
+        try:
+            time_elapsed = (datetime.now(timezone.utc) - attempt.started_at.replace(tzinfo=timezone.utc)).total_seconds()
+            time_remaining = max(0, quiz.time_limit * 60 - time_elapsed)
+        except:
+            time_remaining = 0
+    
+    current_answer = next((a for a in attempt.answers if a.question_id == current_question.id), None)
+    
+    return render_template('student/quizzes/take_quiz.html',
         attempt=attempt,
         quiz=quiz,
-        question=current_question,
-        time_remaining=time_remaining
+        questions=questions,
+        current_question=current_question,
+        current_index=current_index,
+        current_answer=current_answer,
+        time_remaining=time_remaining,
+        unanswered_count=unanswered_count,
+        unanswered_questions=unanswered_questions,
+        total_questions=len(questions),
+        progress=int((len(answered_ids) / len(questions)) * 100) if questions else 0
     )
+
+    
+@app.route('/student/quizzes/attempt/<int:attempt_id>', methods=['POST'])
+@login_required
+def handle_quiz_submission(attempt_id):
+    attempt = QuizAttempt.query.get_or_404(attempt_id)
+    
+    if 'confirm-submit' in request.form:
+        # Calculate score and mark as completed
+        attempt.completed_at = datetime.now(timezone.utc)
+        attempt.score = calculate_quiz_score(attempt)
+        db.session.commit()
+        
+        flash('Quiz submitted successfully!', 'success')
+        return redirect(url_for('student_quiz_results', attempt_id=attempt.id))
+    
+    flash('Quiz submission cancelled', 'info')
+    return redirect(url_for('student_take_quiz', attempt_id=attempt.id))
+
 
 @app.route('/student/quizzes/attempt/<int:attempt_id>/results')
 @login_required
 def student_quiz_results(attempt_id):
-    if current_user.role != 'student' or not current_user.student_profile:
+    """Show quiz results"""
+    if not current_user.is_authenticated or not hasattr(current_user, 'student_profile'):
         abort(403)
-
+    
     attempt = QuizAttempt.query.options(
         joinedload(QuizAttempt.quiz).joinedload(Quiz.questions),
         joinedload(QuizAttempt.answers)
     ).get_or_404(attempt_id)
 
-    # Verify ownership
     if attempt.student_id != current_user.student_profile.id:
         abort(403)
 
-    # Calculate score breakdown
-    score_breakdown = {
-        'correct': sum(1 for a in attempt.answers if a.is_correct),
-        'total': len(attempt.quiz.questions),
-        'percentage': round((sum(1 for a in attempt.answers if a.is_correct) / len(attempt.quiz.questions) * 100) if attempt.quiz.questions else 0)
-    }
+    quiz = attempt.quiz
+    correct_count = sum(1 for a in attempt.answers if a.is_correct)
+    total_questions = len(quiz.questions)
+    percentage_score = (correct_count / total_questions * 100) if total_questions > 0 else 0
 
     return render_template('student/quizzes/results.html',
         attempt=attempt,
-        score_breakdown=score_breakdown
-    )
+        quiz=quiz,
+        correct_count=correct_count,
+        total_questions=total_questions,
+        percentage_score=percentage_score)
 
 # STUDENT MESSAGE AREA
 
@@ -892,7 +1015,6 @@ def student_messages():
         is_read=is_read
     )
 
-
 @app.route('/student/messages/<int:message_id>')
 @login_required
 def student_view_message(message_id):
@@ -922,7 +1044,6 @@ def student_view_message(message_id):
         message=message,
         thread=thread
     )
-
 
 @app.route('/student/messages/<int:message_id>/reply', methods=['POST'])
 @login_required
@@ -954,7 +1075,6 @@ def student_reply_message(message_id):
     
     flash('Your reply has been sent', 'success')
     return redirect(url_for('student_view_message', message_id=message_id))
-
 
 @app.route('/student/messages/new', methods=['GET', 'POST'])
 @login_required
@@ -1045,7 +1165,7 @@ def admin_dashboard():
         return redirect(url_for('index'))
 
     # Time period calculations
-    current_time = datetime.utcnow()
+    current_time = datetime.now(local_timezone)
     last_month_time = current_time - timedelta(days=30)
     last_month_start = last_month_time.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     current_month_start = current_time.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -1097,9 +1217,6 @@ def admin_dashboard():
 def sanitize_input(input_string):
     """Sanitize input to prevent potential security issues."""
     return ''.join(c for c in input_string if c.isalnum() or c.isspace()).strip()
-from datetime import datetime, timezone, timedelta
-from flask import jsonify, request, render_template, redirect, url_for, flash
-from werkzeug.exceptions import NotFound
 
 @app.route('/video_conference')
 @login_required
@@ -1107,7 +1224,6 @@ def video_conference():
     """Video conference route."""
     classes = Classroom.query.all()
     return render_template('video_conference.html', classes=classes, csrf_token=session.get('_csrf_token'))
-
 
 @app.route('/start_session', methods=['POST'])
 @login_required
@@ -1242,6 +1358,7 @@ def join():
     """Redirect to student dashboard if no specific session is specified"""
     flash('Please select a session to join', 'info')
     return redirect(url_for('student_dashboard'))
+
 @app.route('/student_sessions')
 @login_required
 def student_sessions():
@@ -1298,7 +1415,6 @@ def join_session(room_id):
                          room_id=room_id,
                          user_name=current_user.username,
                          user_role=current_user.role)
-
 
 # ---------- USER MANAGEMENT ROUTES ----------
 
@@ -1478,7 +1594,6 @@ def add_student():
                          teacher_dept=department,
                          today=datetime.now().date())
 
-
 @app.route('/edit_student', methods=['POST'])
 @login_required
 def edit_student():
@@ -1546,7 +1661,6 @@ def manage_students():
         flash(f'An error occurred: {e}', 'error')
         return redirect(url_for('admin_dashboard'))
     
-
 @app.route('/add_teacher', methods=['GET', 'POST'])
 @login_required
 def add_teacher():
@@ -1636,7 +1750,6 @@ def add_teacher():
                          subjects=subjects,
                          teachers=teachers,
                          form_data=form_data)
-
 
 # ---------- DEPARTMENT/CLASS/SUBJECT MANAGEMENT ----------
 
@@ -1778,7 +1891,6 @@ def add_class():
                          semesters=semesters,
                          classrooms=classrooms)
 
-
 @app.route('/add_subject', methods=['GET', 'POST'])
 @login_required
 def add_subject():
@@ -1814,8 +1926,6 @@ def add_subject():
                 return redirect(url_for('add_subject'))
 
     return render_template('admin/subjects.html', departments=departments)
-
-
 
 # TEACHER SUBJECTS ROUTES
 
@@ -1895,9 +2005,7 @@ def subject_resources(subject_id):
                          subject=subject,
                          resources=resources)
 
-
 # ---------- ASSIGNMENT/QUIZ ROUTES ----------
-
 
 # ---------- ASSIGNMENT ROUTES ----------
 
@@ -1932,7 +2040,7 @@ def list_assignments():
     return render_template('teacher/assignments/list.html',
                         assignments=assignments,
                         student_submissions=submissions if current_user.role == 'student' else None,
-                        now=datetime.utcnow())
+                        now=datetime.now(local_timezone))
 
 @app.route('/download/<filename>')
 @login_required
@@ -1954,13 +2062,13 @@ def create_assignment():
 
     form = AssignmentForm()
     teacher = current_user.teacher_profile
-
+    
     try:
-        # Get all subjects teacher can teach
+        # Initialize subject choices
         subjects = teacher.get_all_subjects()
         
         if not subjects:
-            flash('You are not assigned to teach any subjects. Please contact administration.', 'warning')
+            flash('You need to be assigned to at least one subject before creating assignments', 'danger')
             return redirect(url_for('teacher_dashboard'))
 
         # Format subjects with department info
@@ -2053,10 +2161,9 @@ def create_assignment():
     return render_template(
         'teacher/assignments/create.html',
         form=form,
-        now=datetime.utcnow(),
-        min_date=(datetime.utcnow() + timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M')
+        now=datetime.now(local_timezone),
+        min_date=(datetime.now(local_timezone) + timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M')
     )
-
 
 @app.route('/assignment/<int:assignment_id>')
 @login_required
@@ -2153,7 +2260,7 @@ def view_assignment(assignment_id):
                          submissions=submissions_with_grades,
                          student_submission=student_submission,
                          student_grade=student_grade,
-                         now=datetime.utcnow())
+                         now=datetime.now(local_timezone))
 
 @app.route('/assignment/<int:assignment_id>/submit', methods=['GET', 'POST'])
 @login_required
@@ -2307,7 +2414,7 @@ def list_quizzes():
             active_quizzes=active_quizzes,
             draft_quizzes=draft_quizzes,
             all_quizzes=all_quizzes,
-            now=datetime.utcnow()
+            now=datetime.now(local_timezone)
         )
     
     except SQLAlchemyError as e:
@@ -2329,6 +2436,9 @@ def view_quiz(quiz_id):
         if not quiz:
             logger.error(f"Quiz {quiz_id} not found")
             abort(404)
+
+        # Get current time in UTC (timezone-aware)
+        now_utc = datetime.now(timezone.utc)
         
         # Verify quiz ownership
         if quiz.teacher_id != current_user.teacher_profile.id:
@@ -2338,23 +2448,118 @@ def view_quiz(quiz_id):
             )
             abort(403, description="You can only view your own quizzes")
         
-        # Calculate time remaining if due date exists
+        # Prepare time-related variables for template
+        due_date_display = None
+        due_status = None
         time_remaining = None
-        if quiz.due_date:
-            delta = quiz.due_date - datetime.utcnow()
-            time_remaining = max(0, delta.days)
         
+        if quiz.due_date:
+            # Ensure due_date is timezone-aware (convert to UTC if it isn't)
+            if quiz.due_date.tzinfo is None:
+                # Assume due_date is in local timezone, then convert to UTC
+                due_date_local = local_timezone.localize(quiz.due_date)
+                due_date_utc = due_date_local.astimezone(timezone.utc)
+            else:
+                # Convert to UTC if it's in another timezone
+                due_date_utc = quiz.due_date.astimezone(timezone.utc)
+            
+            # Convert back to local time for display
+            due_date_display = due_date_utc.astimezone(local_timezone)
+            
+            # Calculate time difference
+            delta = due_date_utc - now_utc
+            time_remaining = max(0, delta.total_seconds())  # in seconds
+            
+            # Determine due status for template
+            if delta.total_seconds() > 0:
+                due_status = {
+                    'class': 'muted',
+                    'text': f"Due in {humanize.naturaldelta(delta)}"
+                }
+            else:
+                overdue_delta = now_utc - due_date_utc
+                if overdue_delta.days < 1:
+                    due_status = {
+                        'class': 'danger',
+                        'text': f"Due {humanize.naturaldelta(overdue_delta)} ago"
+                    }
+                else:
+                    due_status = {
+                        'class': 'danger',
+                        'text': "Past due"
+                    }
+
         return render_template(
             'teacher/quizzes/view.html',
             quiz=quiz,
+            due_date_display=due_date_display,
+            due_status=due_status,
             time_remaining=time_remaining,
-            now=datetime.utcnow()
+            now=now_utc
         )
         
     except SQLAlchemyError as e:
         logger.error(f"Database error viewing quiz {quiz_id}: {str(e)}", exc_info=True)
         flash('Error loading quiz details. Please try again.', 'danger')
         return redirect(url_for('list_quizzes'))
+
+@app.route('/quizzes/restore/<int:quiz_id>', methods=['POST'])
+@login_required
+def restore_quiz(quiz_id):
+    """Restore an archived quiz to draft status"""
+    quiz = Quiz.query.filter_by(
+        id=quiz_id,
+        teacher_id=current_user.teacher_profile.id,
+        status=QuizStatus.ARCHIVED.value
+    ).first_or_404()
+
+    try:
+        quiz.status = QuizStatus.DRAFT.value
+        quiz.archived_at = None
+        db.session.commit()
+        flash('Quiz restored to drafts successfully', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Failed to restore quiz', 'danger')
+    
+    return redirect(url_for('view_quiz', quiz_id=quiz_id))
+
+@app.route('/teacher/quiz/<int:quiz_id>/add-questions', methods=['GET', 'POST'])
+@login_required
+def add_questions(quiz_id):
+    """Add questions to a quiz"""
+    if current_user.role != 'teacher' or not hasattr(current_user, 'teacher_profile'):
+        abort(403)
+    
+    quiz = Quiz.query.get_or_404(quiz_id)
+    if quiz.teacher_id != current_user.teacher_profile.id:
+        abort(403)
+    
+    # Your implementation here
+    return render_template('teacher/quizzes/add_questions.html', quiz=quiz)
+
+@app.route('/teacher/quiz/<int:quiz_id>/analytics')
+@login_required
+def quiz_analytics(quiz_id):
+    """Display analytics for a quiz"""
+    # Verify user is a teacher
+    if current_user.role != 'teacher' or not hasattr(current_user, 'teacher_profile'):
+        abort(403)
+    
+    # Get the quiz
+    quiz = Quiz.query.get_or_404(quiz_id)
+    
+    # Verify quiz ownership
+    if quiz.teacher_id != current_user.teacher_profile.id:
+        abort(403)
+    
+    # Calculate analytics data
+    attempts = QuizAttempt.query.filter_by(quiz_id=quiz_id).all()
+    # Add your analytics calculations here
+    
+    return render_template('teacher/quizzes/analytics.html',
+                         quiz=quiz,
+                         attempts=attempts)
 
 @app.route('/quizzes/create', methods=['GET', 'POST'])
 @login_required
@@ -2430,7 +2635,7 @@ def create_quiz():
                     due_date=form.due_date.data,
                     time_limit=form.time_limit.data,
                     teacher_id=teacher.id,
-                    created_at=datetime.utcnow()
+                    created_at=datetime.now(local_timezone)
                 )
                 
                 # Process questions
@@ -2514,7 +2719,7 @@ def preview_quiz(quiz_id):
         return render_template(
             'teacher/quizzes/preview.html',
             quiz=quiz,
-            now=datetime.utcnow()
+            now=datetime.now(local_timezone)
         )
     
     except SQLAlchemyError as e:
@@ -2522,219 +2727,154 @@ def preview_quiz(quiz_id):
         flash('Error loading quiz preview. Please try again.', 'danger')
         return redirect(url_for('list_quizzes'))
 
+
 @app.route('/quizzes/publish/<int:quiz_id>', methods=['POST'])
 @login_required
 def publish_quiz(quiz_id):
-    """Publish a draft quiz with comprehensive validation and error handling"""
+    """Publish a quiz with full validation and status management"""
     try:
-        # Verify user is a teacher with profile
+        # 1. Authorization Check
         if current_user.role != 'teacher' or not hasattr(current_user, 'teacher_profile'):
             flash('Only teachers can publish quizzes', 'danger')
             return redirect(url_for('list_quizzes'))
 
-        # Get quiz with all necessary relationships
-        quiz = Quiz.query.options(
-            db.joinedload(Quiz.questions),
-            db.joinedload(Quiz.classroom).joinedload(Classroom.subject)
-        ).filter(
+        # 2. Quiz Verification
+        quiz = Quiz.query.filter(
             Quiz.id == quiz_id,
             Quiz.teacher_id == current_user.teacher_profile.id,
-            Quiz.is_deleted == False
+            Quiz.status != QuizStatus.DELETED.value
         ).first()
 
         if not quiz:
-            flash('Quiz not found or you do not have permission to publish it', 'danger')
+            current_app.logger.warning(f"Quiz not found: {quiz_id}")
+            flash('Quiz not found or access denied', 'danger')
             return redirect(url_for('list_quizzes'))
 
-        # Check publication status
+        # 3. Status Check
         if quiz.is_published:
-            flash('This quiz is already published', 'warning')
+            flash('This quiz is already published', 'info')
             return redirect(url_for('view_quiz', quiz_id=quiz_id))
 
-        # Comprehensive validation
-        validation_errors = validate_quiz_for_publication(quiz)
-        
+        # 4. Validation
+        validation_errors = quiz.validate_for_publishing()
         if validation_errors:
             for error in validation_errors:
                 flash(error, 'danger')
+            return redirect(url_for('edit_quiz', quiz_id=quiz_id))
+
+        # 5. Publication Process
+        try:
+            quiz.publish()
+            
+            # Optional: Record publication event
+            try:
+                publication = QuizPublication(
+                    quiz_id=quiz.id,
+                    published_by=current_user.id,
+                    timestamp=datetime.now(local_timezone)
+                )
+                db.session.add(publication)
+                db.session.commit()
+            except Exception as e:
+                db.session.rollback()
+                current_app.logger.error(f"Failed to record publication: {str(e)}")
+
+            # 6. Notifications
+            try:
+                send_quiz_notifications(quiz)
+            except Exception as e:
+                current_app.logger.error(f"Notification failed: {str(e)}")
+
+            flash('Quiz published successfully!', 'success')
             return redirect(url_for('view_quiz', quiz_id=quiz_id))
 
-        # Publish the quiz
-        publish_quiz_to_database(quiz)
-
-        # Additional actions
-        notify_students_about_quiz(quiz)
-        log_quiz_publication(current_user, quiz)
-
-        flash('Quiz published successfully! Students have been notified.', 'success')
-        return redirect(url_for('view_quiz', quiz_id=quiz_id))
+        except ValueError as e:
+            flash(str(e), 'danger')
+            return redirect(url_for('edit_quiz', quiz_id=quiz_id))
 
     except SQLAlchemyError as e:
         db.session.rollback()
-        current_app.logger.error(f"Error publishing quiz {quiz_id}: {str(e)}", exc_info=True)
-        flash('A database error occurred while publishing the quiz', 'danger')
+        current_app.logger.error(f"Database error publishing quiz {quiz_id}: {str(e)}")
+        flash('A database error occurred', 'danger')
         return redirect(url_for('view_quiz', quiz_id=quiz_id))
 
     except Exception as e:
-        current_app.logger.error(f"Unexpected error publishing quiz {quiz_id}: {str(e)}", exc_info=True)
+        current_app.logger.error(f"Unexpected error: {str(e)}")
         flash('An unexpected error occurred', 'danger')
         return redirect(url_for('list_quizzes'))
-
-
-def validate_quiz_for_publication(quiz):
-    """Perform all validation checks before publishing"""
-    errors = []
     
-    # Basic quiz validation
-    if not quiz.title or len(quiz.title.strip()) < 5:
-        errors.append("Quiz title must be at least 5 characters long")
-    
-    # Classroom validation
-    if not quiz.classroom_id:
-        errors.append("Quiz must be assigned to a classroom")
-    elif not quiz.classroom:
-        errors.append("Assigned classroom not found")
-    
-    # Question validation
-    if not quiz.questions or len(quiz.questions) == 0:
-        errors.append("Quiz must contain at least one question")
-    else:
-        for i, question in enumerate(quiz.questions, 1):
-            if not question.text or len(question.text.strip()) < 10:
-                errors.append(f"Question {i} text must be at least 10 characters")
-            if not question.options or len(question.options) < 2:
-                errors.append(f"Question {i} must have at least 2 options")
-            if question.correct_option is None or not 0 <= question.correct_option < len(question.options):
-                errors.append(f"Question {i} must have a valid correct answer selected")
-            if not question.points or question.points <= 0:
-                errors.append(f"Question {i} must have positive points value")
-    
-    # Timing validation
-    if not quiz.time_limit or quiz.time_limit <= 0:
-        errors.append("Time limit must be greater than 0 minutes")
-    
-    if not quiz.due_date:
-        errors.append("Due date is required")
-    else:
-        now = datetime.utcnow()
-        if quiz.due_date <= now:
-            errors.append("Due date must be in the future")
-        elif quiz.due_date <= now + timedelta(minutes=30):
-            errors.append("Due date must be at least 30 minutes from now")
-    
-    return errors
-
-
-def publish_quiz_to_database(quiz):
-    """Handle all database operations for publishing"""
-    with db.session.begin_nested():
-        quiz.is_published = True
-        quiz.published_at = datetime.utcnow()
-        quiz.total_points = sum(q.points for q in quiz.questions)
-        db.session.add(quiz)
-    db.session.commit()
-
-
-def notify_students_about_quiz(quiz):
-    """Notify students in the classroom about the new quiz"""
-    try:
-        if quiz.classroom and quiz.classroom.students:
-            # Implement your notification logic here
-            # This could be emails, in-app notifications, etc.
-            pass
-    except Exception as e:
-        current_app.logger.error(f"Error notifying students about quiz {quiz.id}: {str(e)}")
-
-
-def log_quiz_publication(teacher, quiz):
-    """Log the quiz publication event"""
-    try:
-        # Implement your logging logic here
-        current_app.logger.info(
-            f"Teacher {teacher.id} published quiz {quiz.id} "
-            f"for classroom {quiz.classroom_id} with {len(quiz.questions)} questions"
-        )
-    except Exception as e:
-        current_app.logger.error(f"Error logging quiz publication: {str(e)}")
 
 @app.route('/quizzes/unpublish/<int:quiz_id>', methods=['POST'])
 @login_required
 def unpublish_quiz(quiz_id):
-    """Unpublish a published quiz"""
+    """Unpublish a quiz, moving it back to draft status."""
+    if not (current_user.role == 'teacher' and hasattr(current_user, 'teacher_profile')):
+        abort(403)
+    
+    quiz = Quiz.query.filter_by(
+        id=quiz_id,
+        teacher_id=current_user.teacher_profile.id,
+        status=QuizStatus.PUBLISHED.value
+    ).first_or_404()
+    
     try:
-        # Verify user is a teacher with profile
-        if current_user.role != 'teacher' or not hasattr(current_user, 'teacher_profile'):
-            abort(403, description="Teacher access required")
-        
-        quiz = Quiz.query.filter_by(
-            id=quiz_id,
-            teacher_id=current_user.teacher_profile.id,
-            is_deleted=False
-        ).first_or_404()
-        
-        # Unpublish quiz
-        quiz.is_published = False
+        quiz.status = QuizStatus.DRAFT.value
+        quiz.published_at = None
+        quiz.updated_at = datetime.now(local_timezone)
         db.session.commit()
         
-        flash('Quiz unpublished and moved to drafts', 'warning')
+        flash('Quiz unpublished and moved to drafts', 'success')
         return redirect(url_for('view_quiz', quiz_id=quiz_id))
     
-    except SQLAlchemyError as e:
+    except Exception as e:
         db.session.rollback()
-        logger.error(f"Error unpublishing quiz {quiz_id}: {str(e)}", exc_info=True)
-        flash('Error unpublishing quiz. Please try again.', 'danger')
+        current_app.logger.error(f"Error unpublishing quiz: {str(e)}")
+        flash('Failed to unpublish quiz', 'danger')
         return redirect(url_for('view_quiz', quiz_id=quiz_id))
 
-@app.route('/quizzes/delete/bulk', methods=['POST'])
+def log_publication_event(teacher, quiz):
+    """Record detailed publication event in the logs"""
+    student_count = len(quiz.classroom.enrollments) if quiz.classroom else 0
+    log_entry = f"""
+    Quiz Published Event:
+    - Teacher: {teacher.id} ({teacher.full_name})
+    - Quiz: {quiz.id} ({quiz.title})
+    - Classroom: {quiz.classroom_id} ({quiz.classroom.class_name if quiz.classroom else 'None'})
+    - Students: {student_count}
+    - Questions: {len(quiz.questions)}
+    - Total Points: {sum(q.points for q in quiz.questions)}
+    - Due Date: {quiz.due_date}
+    """
+    current_app.logger.info(log_entry)
+    
+@app.route('/quizzes/delete/<int:quiz_id>', methods=['POST'])
 @login_required
-def delete_quizzes_bulk():
-    """Bulk soft delete quizzes"""
+def delete_quiz(quiz_id):
+    """Delete a single quiz"""
     try:
         # Verify user is a teacher with profile
         if current_user.role != 'teacher' or not hasattr(current_user, 'teacher_profile'):
             abort(403, description="Teacher access required")
         
-        quiz_ids = request.form.getlist('quiz_ids[]')
-        if not quiz_ids:
-            flash('No quizzes selected for deletion', 'warning')
-            return redirect(url_for('list_quizzes'))
+        quiz = Quiz.query.get_or_404(quiz_id)
         
-        # Convert and validate quiz IDs
-        valid_quiz_ids = []
-        for quiz_id in quiz_ids:
-            try:
-                valid_quiz_ids.append(int(quiz_id))
-            except ValueError:
-                continue
+        # Verify quiz ownership
+        if quiz.teacher_id != current_user.teacher_profile.id:
+            abort(403, description="You can only delete your own quizzes")
         
-        if not valid_quiz_ids:
-            flash('Invalid quiz selections', 'danger')
-            return redirect(url_for('list_quizzes'))
-        
-        # Perform bulk soft delete
-        deleted_count = Quiz.query.filter(
-            Quiz.id.in_(valid_quiz_ids),
-            Quiz.teacher_id == current_user.teacher_profile.id,
-            Quiz.is_deleted == False
-        ).update({
-            'is_deleted': True,
-            'deleted_at': datetime.utcnow()
-        }, synchronize_session=False)
-        
+        # Soft delete the quiz
+        quiz.is_deleted = True
+        quiz.deleted_at = datetime.now(local_timezone)
         db.session.commit()
         
-        if deleted_count == 0:
-            flash('No quizzes were deleted (either already deleted or not found)', 'warning')
-        else:
-            flash(f'Moved {deleted_count} quiz(es) to trash', 'success')
-        
+        flash('Quiz moved to trash', 'success')
         return redirect(url_for('list_quizzes'))
     
     except SQLAlchemyError as e:
         db.session.rollback()
-        logger.error(f"Bulk quiz deletion failed: {str(e)}", exc_info=True)
-        flash('Error deleting quizzes. Please try again.', 'danger')
-        return redirect(url_for('list_quizzes'))
+        logger.error(f"Failed to delete quiz {quiz_id}: {str(e)}", exc_info=True)
+        flash('Error deleting quiz. Please try again.', 'danger')
+        return redirect(url_for('view_quiz', quiz_id=quiz_id))
 
 # ---------- EDIT QUIZ ENDPOINT (MISSING IN ORIGINAL) ----------
 
@@ -2816,7 +2956,7 @@ def edit_quiz(quiz_id):
                 # Handle publishing
                 if form.is_published.data and not quiz.is_published:
                     quiz.is_published = True
-                    quiz.published_at = datetime.utcnow()
+                    quiz.published_at = datetime.now(local_timezone)
                     if form.notify_students.data:
                         pass  # Add notification logic here
                 
@@ -3023,8 +3163,8 @@ def get_classroom_details(classroom_id):
             'error': 'Database error',
             'details': str(e)
         }), 500
-# ---------- RESOURCES MANAGEMENT ROUTES ----------
 
+# ---------- RESOURCES MANAGEMENT ROUTES ----------
 
 def allowed_file(filename, resource_type):
     return '.' in filename and \
@@ -3108,7 +3248,7 @@ def upload_resource():
                 subject_id=subject_id,
                 classroom_id=classroom_id,
                 teacher_id=current_user.id,
-                upload_date=datetime.utcnow(),
+                upload_date=datetime.now(local_timezone),
                 download_count=0
             )
             
@@ -3322,7 +3462,6 @@ def edit_resource(resource_id):
                          resource=resource,
                          subjects=subjects,
                          classrooms=classrooms)
-
 
 # ---------- MISCELLANEOUS ROUTES ----------
 

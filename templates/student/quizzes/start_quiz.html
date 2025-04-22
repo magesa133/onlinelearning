@@ -1,0 +1,56 @@
+{% extends "student_dashboard.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h2>Start Quiz: {{ quiz.title }}</h2>
+        </div>
+        
+        <div class="card-body">
+            <div class="quiz-info mb-4">
+                <h4>Quiz Information:</h4>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item">
+                        <strong>Class:</strong> {{ quiz.classroom.name }}
+                    </li>
+                    <li class="list-group-item">
+                        <strong>Questions:</strong> {{ quiz.questions|length }}
+                    </li>
+                    <li class="list-group-item">
+                        <strong>Total Points:</strong> {{ quiz.total_points }}
+                    </li>
+                    {% if quiz.time_limit %}
+                    <li class="list-group-item">
+                        <strong>Time Limit:</strong> {{ quiz.time_limit }} minutes
+                    </li>
+                    {% endif %}
+                    {% if quiz.due_date %}
+                    <li class="list-group-item">
+                        <strong>Due Date:</strong> {{ quiz.due_date|format_datetime }}
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+            
+            <div class="attempt-info mb-4">
+                <h4>Attempt Information:</h4>
+                <div class="alert alert-info">
+                    You have used {{ attempts_count }} of {{ max_attempts }} attempts.
+                </div>
+            </div>
+
+            <form method="POST" action="{{ url_for('student_start_quiz', quiz_id=quiz.id) }}">
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('student_view_quiz', quiz_id=quiz.id) }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-2"></i> Back to Quiz
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-play me-2"></i> Start Quiz Now
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

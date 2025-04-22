@@ -8,6 +8,8 @@ from datetime import datetime, timezone, timedelta
 import os
 import json
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.exceptions import NotFound, Forbidden
+import pytz
 
 db = SQLAlchemy()
 
@@ -27,6 +29,14 @@ class UserRole:
     STUDENT = 'student'
     TEACHER = 'teacher'
     ADMIN = 'admin'
+
+class ActivityTypes:
+    QUIZ_PUBLISHED = 'quiz_published'
+    QUIZ_UNPUBLISHED = 'quiz_unpublished'
+    ANNOUNCEMENT = 'announcement'
+    MATERIAL_ADDED = 'material_added'
+    CLASS_CANCELLED = 'class_cancelled'
+    GRADE_POSTED = 'grade_posted'
 
 class BaseMixin:
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -57,6 +67,7 @@ class Announcement(db.Model, BaseMixin):
     def __repr__(self):
         return f'<Announcement {self.title[:20]}...>'
 
+# Updated User model (remove conflicting relationship)
 class User(UserMixin, db.Model, BaseMixin):
     __tablename__ = 'users'
     
@@ -72,40 +83,32 @@ class User(UserMixin, db.Model, BaseMixin):
 
     # Relationships
     teacher_profile = db.relationship('Teacher', 
-                                   back_populates='user', 
-                                   uselist=False, 
-                                   cascade='all, delete-orphan')
+                                    back_populates='user', 
+                                    uselist=False, 
+                                    cascade='all, delete-orphan',
+                                    foreign_keys='Teacher.user_id')
     
     student_profile = db.relationship('Student', 
                                     back_populates='user', 
                                     uselist=False, 
-                                    cascade='all, delete-orphan')
-    
+                                    cascade='all, delete-orphan',
+                                    primaryjoin='User.id==Student.user_id')
     sent_messages = db.relationship('Message', 
                                   foreign_keys='Message.sender_id', 
                                   back_populates='sender')
-    
     received_messages = db.relationship('Message', 
                                       foreign_keys='Message.recipient_id', 
                                       back_populates='recipient')
-    
     comments = db.relationship('ResourceComment', 
                              back_populates='author')
-    
     uploaded_resources = db.relationship('Resource', 
                                        back_populates='teacher')
-    
     created_assignments = db.relationship('Assignment', 
                                         back_populates='author', 
                                         cascade='all, delete-orphan')
-    
     created_sessions = db.relationship('OnlineSession', 
                                      back_populates='creator', 
                                      cascade='all, delete-orphan')
-    
-    authored_quizzes = db.relationship('Quiz', back_populates='teacher')
-    
-    # Quiz relationships now handled through Quiz model's backref
     quiz_attempts = db.relationship('QuizAttempt', 
                                   back_populates='user', 
                                   cascade='all, delete-orphan')
@@ -113,20 +116,26 @@ class User(UserMixin, db.Model, BaseMixin):
     @validates('email')
     def validate_email(self, key, email):
         """Validate email format"""
-        assert '@' in email, "Invalid email address"
+        if '@' not in email:
+            raise ValueError("Invalid email address")
         return email
 
     def get_full_name(self):
         """Get user's full name based on their role"""
-        if self.role == UserRole.TEACHER and self.teacher_profile:
+        if self.role == 'teacher' and self.teacher_profile:
             return self.teacher_profile.full_name()
-        elif self.role == UserRole.STUDENT and self.student_profile:
+        elif self.role == 'student' and self.student_profile:
             return self.student_profile.full_name()
         return self.username
 
+    @property
+    def is_student(self):
+        """Check if user is a student"""
+        return self.role == 'student' and self.student_profile is not None
+    
     def get_submissions(self):
         """Get student submissions if user is a student"""
-        if self.role == UserRole.STUDENT and self.student_profile:
+        if self.is_student:
             return self.student_profile.submissions
         return []
     
@@ -144,14 +153,13 @@ class User(UserMixin, db.Model, BaseMixin):
 
     def __repr__(self):
         return f'<User {self.username} ({self.role})>'
-    
 
 class Department(db.Model, BaseMixin):
     __tablename__ = 'departments'
     
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
-    description = db.Column(db.String(255), nullable=True)
+    description = db.Column(db.String(255))
 
     students = db.relationship('Student', back_populates='department')
     teachers = db.relationship('Teacher', back_populates='department')
@@ -159,7 +167,7 @@ class Department(db.Model, BaseMixin):
 
     def __repr__(self):
         return f'<Department {self.name}>'
-
+    
 class Subject(db.Model, BaseMixin):
     __tablename__ = 'subjects'
     
@@ -212,22 +220,25 @@ class Subject(db.Model, BaseMixin):
         return list(classroom_teachers | direct_teachers)
     
 
+# Updated Teacher model with quizzes relationship
 class Teacher(db.Model, BaseMixin):
     __tablename__ = 'teachers'
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
     department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=False)
-    teacher_name = db.Column(db.String(100))  # Add this line
+    teacher_name = db.Column(db.String(100))
     bio = db.Column(db.Text)
     specialization = db.Column(db.String(100))
     office_location = db.Column(db.String(100))
 
+    # Relationships
     user = db.relationship('User', back_populates='teacher_profile')
     department = db.relationship('Department', back_populates='teachers')
     subjects = db.relationship('Subject', secondary=teacher_subjects, back_populates='teachers')
     classrooms = db.relationship('Classroom', back_populates='teacher', cascade='all, delete-orphan')
     announcements = db.relationship('Announcement', back_populates='author')
+    quizzes = db.relationship('Quiz', back_populates='teacher')  # Added this relationship
 
     def full_name(self):
         return f"{self.user.username}"
@@ -268,7 +279,7 @@ class Student(db.Model, BaseMixin):
     last_name = db.Column(db.String(50), nullable=False)
     student_id = db.Column(db.String(20), unique=True)
     department_id = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=False)
-    date_of_birth = db.Column(db.Date, nullable=False)
+    date_of_birth = db.Column(db.Date)
     enrollment_date = db.Column(db.Date, default=datetime.utcnow().date)
     graduation_date = db.Column(db.Date)
     current_semester = db.Column(db.Integer, default=1)
@@ -276,6 +287,7 @@ class Student(db.Model, BaseMixin):
     address = db.Column(db.String(200))
     phone_number = db.Column(db.String(20))
     emergency_contact = db.Column(db.String(100))
+    is_active = db.Column(db.Boolean, default=True)
 
     # Relationships
     user = db.relationship('User', back_populates='student_profile')
@@ -296,32 +308,31 @@ class Student(db.Model, BaseMixin):
     def calculate_gpa(self):
         """Calculate the student's current GPA"""
         if not self.grades:
-            return 0.0
+            self.gpa = 0.0
+            return self.gpa
         
         total_credits = sum(
             grade.classroom.course.credits 
             for grade in self.grades 
-            if (grade.final_score and 
-                hasattr(grade, 'classroom') and 
+            if (grade.final_score is not None and 
                 grade.classroom and 
-                hasattr(grade.classroom, 'course') and 
                 grade.classroom.course)
         )
         
         if total_credits == 0:
-            return 0.0
+            self.gpa = 0.0
+            return self.gpa
             
         weighted_sum = sum(
             grade.final_score * grade.classroom.course.credits 
             for grade in self.grades 
-            if (grade.final_score and 
-                hasattr(grade, 'classroom') and 
+            if (grade.final_score is not None and 
                 grade.classroom and 
-                hasattr(grade.classroom, 'course') and 
                 grade.classroom.course)
         )
         
-        return round(weighted_sum / total_credits, 2)
+        self.gpa = round(weighted_sum / total_credits, 2)
+        return self.gpa
 
     def active_courses(self):
         """Get list of currently active courses the student is enrolled in"""
@@ -329,7 +340,6 @@ class Student(db.Model, BaseMixin):
             enrollment.classroom 
             for enrollment in self.enrollments 
             if (enrollment.classroom and 
-                hasattr(enrollment.classroom, 'is_active') and 
                 enrollment.classroom.is_active)
         ]
 
@@ -339,7 +349,7 @@ class Student(db.Model, BaseMixin):
         counts = {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'F': 0}
         
         for grade in self.grades:
-            if not grade.final_score:
+            if grade.final_score is None:
                 continue
                 
             if grade.final_score >= 90:
@@ -357,48 +367,40 @@ class Student(db.Model, BaseMixin):
     
     @property
     def grade_a_count(self):
-        """Count of A grades (90-100) the student has received"""
         return self.grade_counts['A']
     
     @property
     def grade_b_count(self):
-        """Count of B grades (80-89) the student has received"""
         return self.grade_counts['B']
     
     @property
     def grade_c_count(self):
-        """Count of C grades (70-79) the student has received"""
         return self.grade_counts['C']
     
     @property
     def grade_d_count(self):
-        """Count of D grades (60-69) the student has received"""
         return self.grade_counts['D']
     
     @property
     def grade_f_count(self):
-        """Count of F grades (below 60) the student has received"""
         return self.grade_counts['F']
     
     @property
     def assignment_completion_rate(self):
         """Percentage of completed assignments"""
-        if not hasattr(self, 'enrollments'):
-            return None
-            
-        total_possible = sum(
-            enrollment.classroom.course.assignment_count 
-            for enrollment in self.enrollments 
-            if (enrollment.classroom and 
-                hasattr(enrollment.classroom, 'course') and 
-                enrollment.classroom.course)
+        total_assignments = sum(
+            len(enrollment.classroom.assignments)
+            for enrollment in self.enrollments
+            if enrollment.classroom
         )
         
-        if total_possible == 0:
+        if total_assignments == 0:
             return 0.0
             
-        return round((sum(self.grade_counts.values()) / total_possible) * 100, 1)
+        completed = sum(1 for submission in self.submissions if submission.is_completed)
+        return round((completed / total_assignments) * 100, 1)
     
+
 class Message(db.Model, BaseMixin):
     __tablename__ = 'messages'
     
@@ -498,6 +500,9 @@ class Classroom(db.Model, BaseMixin):
     sessions = db.relationship('OnlineSession',
                              back_populates='classroom',
                              cascade='all, delete-orphan')
+    activities = db.relationship('ClassroomActivity', 
+                               back_populates='classroom',
+                               cascade='all, delete-orphan')
 
     __table_args__ = (
         Index('idx_classroom_subject', 'subject_id'),
@@ -523,6 +528,28 @@ class Classroom(db.Model, BaseMixin):
     def __repr__(self):
         return f'<Classroom {self.class_name} ({self.academic_year} S{self.semester})>'
     
+class ClassroomActivity(db.Model):
+    """Tracks all significant classroom events and activities"""
+    __tablename__ = 'classroom_activities'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    classroom_id = db.Column(db.Integer, db.ForeignKey('classrooms.id'), nullable=False)
+    activity_type = db.Column(db.String(50), nullable=False)  # e.g., 'quiz_published', 'announcement'
+    content = db.Column(db.Text, nullable=False)              # Human-readable description
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))  # Teacher who initiated
+    activity_data = db.Column(db.JSON)                        # Changed from 'metadata' to 'activity_data'
+
+    # Relationships
+    classroom = db.relationship('Classroom', back_populates='activities')
+    author = db.relationship('User')
+
+    def __init__(self, classroom_id, activity_type, content, created_by=None, activity_data=None):
+        self.classroom_id = classroom_id
+        self.activity_type = activity_type
+        self.content = content
+        self.created_by = created_by
+        self.activity_data = activity_data or {}
 
 class ClassAnnouncement(db.Model, BaseMixin):
     __tablename__ = 'class_announcements'
@@ -624,7 +651,7 @@ class Assignment(db.Model, BaseMixin):
     description = db.Column(db.Text, nullable=False)
     questions = db.Column(db.Text)
     question_file_path = db.Column(db.String(255))
-    due_date = db.Column(db.DateTime, nullable=False)
+    due_date = db.Column(db.DateTime(timezone=True), nullable=False)  # Explicit timezone
     max_score = db.Column(db.Integer, nullable=False)
     subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
     class_id = db.Column(db.Integer, db.ForeignKey('classrooms.id'), nullable=False)
@@ -687,6 +714,7 @@ class QuizStatus(Enum):
     DELETED = 'deleted'
 
 
+# Updated Quiz model with proper relationships
 class Quiz(db.Model):
     __tablename__ = 'quizzes'
     
@@ -695,10 +723,11 @@ class Quiz(db.Model):
     description = db.Column(db.Text)
     subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'))
     classroom_id = db.Column(db.Integer, db.ForeignKey('classrooms.id'))
-    due_date = db.Column(db.DateTime, nullable=False)
+    due_date = db.Column(db.DateTime(timezone=True), nullable=False)
     time_limit = db.Column(db.Integer)  # in minutes
+    max_attempts = db.Column(db.Integer, default=1)  # max number of attempts allowed
     total_points = db.Column(db.Integer, default=0)
-    teacher_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'))  # Changed to reference teachers.id
     
     # Status tracking
     status = db.Column(db.String(20), default=QuizStatus.DRAFT.value, nullable=False)
@@ -712,22 +741,15 @@ class Quiz(db.Model):
     
     # Relationships
     subject = db.relationship('Subject', back_populates='quizzes')
-
-    classroom = db.relationship("Classroom", back_populates="quizzes")
-
-    classroom_id = db.Column(db.Integer, db.ForeignKey('classrooms.id'))
-
-    
+    classroom = db.relationship('Classroom', back_populates='quizzes')
     questions = db.relationship('Question', 
                               back_populates='quiz', 
                               cascade='all, delete-orphan',
                               order_by='Question.position')
-    
     attempts = db.relationship('QuizAttempt', 
                              back_populates='quiz', 
                              cascade='all, delete-orphan')
-    
-    teacher = db.relationship("User", back_populates="authored_quizzes")
+    teacher = db.relationship('Teacher', back_populates='quizzes')  # Updated to reference Teacher
 
     # Status Management Methods
     def publish(self):
@@ -843,21 +865,25 @@ class Quiz(db.Model):
 
     def __repr__(self):
         return f'<Quiz {self.id}: {self.title} ({self.status})>'
-    
+
 
 class Question(db.Model):
     __tablename__ = 'questions'
     
     id = db.Column(db.Integer, primary_key=True)
-    text = db.Column(db.Text, nullable=False)  # TEXT for question content
-    question_type = db.Column(db.String(20), default='multiple_choice')  # VARCHAR(20)
-    options = db.Column(db.JSON)  # Stores as JSON data type
-    correct_option = db.Column(db.Integer)  # Index of correct option (0-based)
-    correct_answer = db.Column(db.String(50))  # For non-multiple choice answers
+    text = db.Column(db.Text, nullable=False)
+    question_type = db.Column(db.String(20), default='multiple_choice')
+    
+    # For multiple choice questions - store options as JSON
+    options = db.Column(db.JSON)  # This is correct for your use case
+    
+    # For other fields
+    correct_option = db.Column(db.Integer)
+    correct_answer = db.Column(db.String(50))
     points = db.Column(db.Integer, default=1)
-    time_limit = db.Column(db.Integer, default=60)  # in seconds
+    time_limit = db.Column(db.Integer, default=60)
     quiz_id = db.Column(db.Integer, db.ForeignKey('quizzes.id'), nullable=False)
-    position = db.Column(db.Integer)  # For ordering questions
+    position = db.Column(db.Integer)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -888,164 +914,213 @@ class Question(db.Model):
         self.position = new_position
         db.session.commit()
         return self
-    
+
+    def get_options(self):
+        """Return question options in a standardized format"""
+        if self.question_type == 'multiple_choice':
+            # Return options as a dictionary if they're stored that way
+            if isinstance(self.options, dict):
+                return self.options
+            # Or convert from list to dict if needed
+            elif isinstance(self.options, list):
+                return {chr(65+i): option for i, option in enumerate(self.options)}
+            # Default fallback
+            return {
+                'A': getattr(self, 'option_a', 'Option A'),
+                'B': getattr(self, 'option_b', 'Option B'),
+                'C': getattr(self, 'option_c', 'Option C'),
+                'D': getattr(self, 'option_d', 'Option D')
+            }
+        elif self.question_type == 'true_false':
+            return {0: 'False', 1: 'True'}
+        elif self.question_type == 'short_answer':
+            return {}  # No options for short answer questions
+        else:
+            return {}
+
     def validate_answer(self, answer):
         """Validate student's answer against correct answer"""
         if self.question_type == 'multiple_choice':
-            return str(answer) == str(self.correct_option)
+            if isinstance(self.options, dict):
+                return str(answer) in self.options
+            elif isinstance(self.options, list):
+                try:
+                    index = int(answer)
+                    return 0 <= index < len(self.options)
+                except ValueError:
+                    return False
         return str(answer).strip().lower() == str(self.correct_answer).strip().lower()
 
     def __repr__(self):
         return f'<Question {self.id}: {self.text[:50]}...>'
     
+
+class BaseMixin:
+    def save(self):
+        db.session.add(self)
+        db.session.commit()
+    
+    def delete(self):
+        db.session.delete(self)
+        db.session.commit()
+
 class QuizAttempt(db.Model):
     __tablename__ = 'quiz_attempts'
     
     id = db.Column(db.Integer, primary_key=True)
-    quiz_id = db.Column(db.Integer, db.ForeignKey('quizzes.id'), nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
+    quiz_id = db.Column(db.Integer, db.ForeignKey('quizzes.id', ondelete='CASCADE'), nullable=False)
+    student_id = db.Column(db.Integer, db.ForeignKey('students.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'))
     
     # Timestamps
-    started_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
-    completed_at = db.Column(db.DateTime)
+    started_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    completed_at = db.Column(db.DateTime(timezone=True))
     
     # Performance metrics
     score = db.Column(db.Float)
     time_spent = db.Column(db.Integer)  # in seconds
     
-    # Tracking information
-    ip_address = db.Column(db.String(45))  # Supports both IPv4 and IPv6
-    
     # Relationships
-    quiz = db.relationship('Quiz', 
-                         back_populates='attempts')
-    
-    user = db.relationship('User', 
-                         back_populates='quiz_attempts')
-    
-    student = db.relationship('Student', 
-                            back_populates='quiz_attempts')
-    
+    quiz = db.relationship('Quiz', back_populates='attempts')
+    student = db.relationship('Student', back_populates='quiz_attempts')
+    user = db.relationship('User', back_populates='quiz_attempts')
     answers = db.relationship('QuizAnswer', 
                             back_populates='attempt', 
                             cascade='all, delete-orphan',
                             order_by='QuizAnswer.id')
 
+    def __init__(self, **kwargs):
+        # Automatically set student_id from user's student_profile if not provided
+        if 'student_id' not in kwargs and 'user' in kwargs:
+            user = kwargs['user']
+            if user and user.student_profile:
+                kwargs['student_id'] = user.student_profile.id
+                kwargs['user_id'] = user.id
+        super().__init__(**kwargs)
+
+    @validates('student_id')
+    def validate_student(self, key, student_id):
+        """Validate the student exists and is active"""
+        student = Student.query.get(student_id)
+        
+        if not student:
+            raise ValueError("Student account not found")
+            
+        if hasattr(student, 'is_active') and not student.is_active:
+            raise ValueError("Student account is not active")
+            
+        return student_id
+
     def calculate_score(self):
-        """
-        Calculate and update the score based on correct answers.
-        Returns the percentage score (0-100).
-        """
+        """Calculate score based on correct answers"""
         if not self.answers:
             self.score = 0.0
-            db.session.commit()
             return self.score
             
-        # Calculate points from correct answers
-        correct_points = sum(
-            answer.question.points 
-            for answer in self.answers 
-            if answer.is_correct
-        )
+        correct = sum(1 for answer in self.answers if answer.is_correct)
+        total = len(self.quiz.questions) if self.quiz else len(self.answers)
         
-        # Calculate percentage score if possible
-        if self.quiz and self.quiz.total_points > 0:
-            self.score = round((correct_points / self.quiz.total_points) * 100, 2)
-        else:
-            self.score = 0.0
-            
-        db.session.commit()
+        self.score = round((correct / total) * 100, 2) if total > 0 else 0.0
         return self.score
 
-    def completion_percentage(self):
-        """
-        Calculate the percentage of questions answered.
-        Returns:
-            float: Completion percentage (0-100)
-        """
-        if not self.quiz or not self.quiz.questions:
-            return 0.0
-            
-        total_questions = len(self.quiz.questions)
-        if total_questions == 0:
-            return 0.0
-            
-        answered_questions = len(self.answers)
-        return round((answered_questions / total_questions) * 100, 2)
+    def complete_attempt(self):
+        """Mark attempt as completed and calculate final score"""
+        if not self.completed_at:
+            self.completed_at = datetime.now(timezone.utc)
+            if self.started_at:
+                started = self.started_at if self.started_at.tzinfo else self.started_at.replace(tzinfo=timezone.utc)
+                self.time_spent = (self.completed_at - started).total_seconds()
+            self.calculate_score()
 
     @property
-    def duration(self):
-        """
-        Calculate the duration of the attempt.
-        Returns:
-            float: Duration in seconds if completed, None otherwise
-        """
-        if self.completed_at and self.started_at:
-            return (self.completed_at - self.started_at).total_seconds()
-        return None
-
-    def is_completed(self):
-        """
-        Check if the attempt is completed.
-        Returns:
-            bool: True if completed, False otherwise
-        """
-        return self.completed_at is not None
+    def status(self):
+        """Get attempt status"""
+        if self.completed_at:
+            return 'completed'
+        if self.started_at:
+            return 'in_progress'
+        return 'not_started'
 
     def __repr__(self):
-        return (f'<QuizAttempt id={self.id} '
-                f'quiz={self.quiz_id} '
-                f'user={self.user_id} '
-                f'score={self.score}>')
+        return f'<QuizAttempt {self.id} for quiz {self.quiz_id} by student {self.student_id}>'
     
-    
+
+# ======================
+# QUIZ MODELS
+# ======================
+
 class QuizAnswer(db.Model):
     __tablename__ = 'quiz_answers'
     
     id = db.Column(db.Integer, primary_key=True)
-    attempt_id = db.Column(db.Integer, db.ForeignKey('quiz_attempts.id'), nullable=False)
-    question_id = db.Column(db.Integer, db.ForeignKey('questions.id'), nullable=False)
-    answer_text = db.Column(db.Text)  # Changed to text to support all answer types
+    attempt_id = db.Column(db.Integer, db.ForeignKey('quiz_attempts.id', ondelete='CASCADE'), nullable=False)
+    question_id = db.Column(db.Integer, db.ForeignKey('questions.id', ondelete='CASCADE'), nullable=False)
+    selected_answer = db.Column(db.String(500))
+    answer_text = db.Column(db.Text)
     is_correct = db.Column(db.Boolean, default=False)
-    time_taken = db.Column(db.Integer)  # in seconds
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)  # Added timestamp
+    points_earned = db.Column(db.Float)
+    time_taken = db.Column(db.Integer)
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc))
     
     # Relationships
     attempt = db.relationship('QuizAttempt', back_populates='answers')
     question = db.relationship('Question', back_populates='answers')
 
-    @validates('answer_text')
-    def validate_answer_text(self, key, answer_text):
-        """Ensure answer matches question type"""
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.points_earned = 0
+        self.time_taken = 0
+
+    @validates('selected_answer')
+    def validate_selected_answer(self, key, selected_answer):
+        if self.question and self.question.question_type == 'multiple_choice':
+            if selected_answer not in self.question.options:
+                raise ValueError(f"Invalid answer for question {self.question_id}")
+        return selected_answer
+
+    def check_correctness(self):
+        if not self.question:
+            return False
+            
         if self.question.question_type == 'multiple_choice':
-            if not answer_text.isdigit():
-                raise ValueError("Multiple choice answers must be numeric")
-        return answer_text
+            self.is_correct = str(self.selected_answer) == str(self.question.correct_option)
+        else:
+            self.is_correct = str(self.answer_text).strip().lower() == str(self.question.correct_answer).strip().lower()
+        
+        return self.is_correct
 
-    def __repr__(self):
-        return f'<QuizAnswer {self.id} for Question {self.question_id}>'
+    def calculate_points(self):
+        if not self.question:
+            return 0
+            
+        self.check_correctness()
+        self.points_earned = self.question.points if self.is_correct else 0
+        return self.points_earned
 
-# Add indexes for better performance
-Index('ix_quiz_status', Quiz.status)
-Index('ix_quiz_teacher_id', Quiz.teacher_id)
-Index('ix_question_quiz_id', Question.quiz_id)
-Index('ix_quiz_attempt_quiz_id', QuizAttempt.quiz_id)
-Index('ix_quiz_attempt_student_id', QuizAttempt.student_id)
-Index('ix_quiz_answer_attempt_id', QuizAnswer.attempt_id)
-Index('ix_quiz_answer_question_id', QuizAnswer.question_id)
+    def update_from_request(self, data):
+        if 'selected_answer' in data:
+            self.selected_answer = data['selected_answer']
+        if 'answer_text' in data:
+            self.answer_text = data['answer_text']
+        if 'time_taken' in data:
+            self.time_taken = data['time_taken']
+        
+        self.calculate_points()
+        self.updated_at = datetime.now(timezone.utc)
 
-# Event listeners
-@event.listens_for(Quiz.questions, 'append')
-def update_quiz_points(target, value, initiator):
-    """Update quiz total points when new questions are added"""
-    target.update_total_points()
-
-@event.listens_for(Question, 'after_update')
-def question_updated(mapper, connection, target):
-    """Update quiz points when question points change"""
-    if db.inspect(target).attrs.points.history.has_changes():
-        target.quiz.update_total_points()
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'question_id': self.question_id,
+            'selected_answer': self.selected_answer,
+            'answer_text': self.answer_text,
+            'is_correct': self.is_correct,
+            'points_earned': self.points_earned,
+            'time_taken': self.time_taken,
+            'created_at': self.created_at.isoformat(),
+            'updated_at': self.updated_at.isoformat()
+        }
 
 class OnlineSession(db.Model, BaseMixin):
     __tablename__ = 'online_sessions'

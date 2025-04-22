@@ -9,10 +9,71 @@ from config import Config
 from models import db, OnlineSession, User
 from datetime import datetime
 from forms import TimeSinceFormatter  # Import the formatter class
+import humanize
+from datetime import datetime
+from pytz import timezone as pytz_timezone
+
+# Configure timezone
+local_timezone = pytz_timezone('Africa/Dar_es_Salaam')
+
+def make_timezone_aware(dt):
+    """Convert naive datetime to timezone-aware datetime"""
+    if dt and not dt.tzinfo:
+        return local_timezone.localize(dt)
+    return dt
+
+def format_datetime(value, format="%b %d at %H:%M"):
+    if value is None:
+        return ""
+    return value.strftime(format)
 
 
 # Initialize Flask app
 app = Flask(__name__)
+
+@app.template_filter('humanize')
+def humanize_time(delta):
+    if delta is None:
+        return ""
+    seconds = int(delta.total_seconds())
+    days, remainder = divmod(seconds, 86400)
+    hours, remainder = divmod(remainder, 3600)
+    minutes, _ = divmod(remainder, 60)
+
+    parts = []
+    if days > 0:
+        parts.append(f"{days} day{'s' if days != 1 else ''}")
+    if hours > 0:
+        parts.append(f"{hours} hour{'s' if hours != 1 else ''}")
+    if minutes > 0:
+        parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
+    
+    return ", ".join(parts) if parts else "a few seconds"
+
+def safe_markdown(text):
+    """Convert markdown to HTML with safety checks"""
+    if not text:
+        return ""
+    # Basic tags we'll allow
+    allowed_tags = [
+        'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 
+        'strong', 'em', 'a', 'ul', 'ol', 'li', 
+        'code', 'pre', 'blockquote'
+    ]
+    allowed_attributes = {'a': ['href', 'title']}
+    
+    html = markdown(text)
+    return clean(html, tags=allowed_tags, attributes=allowed_attributes)
+
+# Register filters
+app.jinja_env.filters['format_datetime'] = format_datetime
+app.jinja_env.filters['humanize_time'] = humanize_time
+# Register humanize filters with Jinja2
+app.jinja_env.filters['naturaltime'] = humanize.naturaltime
+app.jinja_env.filters['naturalday'] = humanize.naturalday
+app.jinja_env.filters['intcomma'] = humanize.intcomma
+
+app.jinja_env.filters['markdown'] = safe_markdown
 
 # Register the template filter after app creation
 # Correct way to register a filter
