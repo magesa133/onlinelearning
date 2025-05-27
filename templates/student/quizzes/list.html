@@ -1,4 +1,5 @@
 {% extends "student_dashboard.html" %}
+
 {% block content %}
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -16,15 +17,19 @@
                href="{{ url_for('student_quizzes', status='upcoming') }}">Upcoming</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link {% if status_filter == 'past' %}active{% endif %}" 
-               href="{{ url_for('student_quizzes', status='past') }}">Completed</a>
+            <a class="nav-link {% if status_filter == 'completed' %}active{% endif %}" 
+               href="{{ url_for('student_quizzes', status='completed') }}">Completed</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if status_filter == 'expired' %}active{% endif %}" 
+               href="{{ url_for('student_quizzes', status='expired') }}">Expired</a>
         </li>
     </ul>
 
     <div class="mb-4">
         <select class="form-select" onchange="location = this.value;">
             <option value="{{ url_for('student_quizzes', status=status_filter) }}">All Subjects</option>
-            {% for subject in subjects %}  <!-- Removed .values() here -->
+            {% for subject in subjects %}
             <option value="{{ url_for('student_quizzes', status=status_filter, subject_id=subject.id) }}"
                     {% if selected_subject == subject.id %}selected{% endif %}>
                 {{ subject.name }}
@@ -51,18 +56,75 @@
                         </div>
                         <div class="mb-3">
                             <i class="fas fa-calendar-day me-1"></i>
-                            Due: {{ quiz.due_date.strftime('%b %d, %Y at %I:%M %p') if quiz.due_date else "No due date" }}
+                            Due: 
+                            {% if quiz.due_date %}
+                                {{ quiz.due_date.strftime('%b %d, %Y at %I:%M %p') }}
+                            {% else %}
+                                No due date
+                            {% endif %}
                         </div>
+                        
+                        <!-- Quiz Status Indicators -->
+                        {% set attempt = quiz.attempts|selectattr('student_id', 'equalto', current_user.student_profile.id)|first %}
+                        {% if attempt %}
+                            <div class="alert alert-{% if attempt.completed_at %}success{% else %}warning{% endif %} py-2 mb-0">
+                                <i class="fas fa-{% if attempt.completed_at %}check-circle{% else %}hourglass-half{% endif %} me-2"></i>
+                                {% if attempt.completed_at %}
+                                    Completed on {{ attempt.completed_at.strftime('%b %d, %Y') }}
+                                    <div class="progress mt-2" style="height: 20px;">
+                                        <div class="progress-bar bg-{% if attempt.score >= 70 %}success{% elif attempt.score >= 50 %}warning{% else %}danger{% endif %}" 
+                                             role="progressbar" 
+                                             style="width: {{ attempt.score }}%;"
+                                             aria-valuenow="{{ attempt.score }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                            <span class="fw-bold">{{ attempt.score|round(1) }}%</span>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex justify-content-between small mt-1">
+                                        <span>Score: {{ attempt.correct_answers }}/{{ quiz.questions|length }} correct</span>
+                                        <span>{{ attempt.score|round(1) }}%</span>
+                                    </div>
+                                {% else %}
+                                    In Progress ({{ attempt.answers|length }}/{{ quiz.questions|length }} answered)
+                                {% endif %}
+                            </div>
+                        {% endif %}
                     </div>
                     <div class="card-footer bg-transparent">
                         <a href="{{ url_for('student_view_quiz', quiz_id=quiz.id) }}" 
-                           class="btn btn-sm btn-outline-primary me-2">Details</a>
-                        {% if not quiz.due_date or quiz.due_date > now %}
-                        <a href="{{ url_for('student_start_quiz', quiz_id=quiz.id) }}" class="btn btn-primary btn-sm">
-                            <i class="fas fa-play"></i> Start Quiz
+                           class="btn btn-sm btn-outline-primary me-2">
+                            <i class="fas fa-info-circle"></i> Details
                         </a>
-                        {% else %}
-                        <span class="badge bg-secondary">Expired</span>
+                        
+                        {% if status_filter == 'upcoming' %}
+                            {% if not attempt %}
+                            <a href="{{ url_for('student_start_quiz', quiz_id=quiz.id) }}" 
+                               class="btn btn-primary btn-sm start-quiz-btn"
+                               data-quiz-title="{{ quiz.title }}"
+                               data-time-limit="{{ quiz.time_limit }} minutes">
+                                <i class="fas fa-play"></i> Start Quiz
+                            </a>
+                            {% elif not attempt.completed_at %}
+                            <a href="{{ url_for('student_take_quiz', attempt_id=attempt.id) }}" 
+                               class="btn btn-warning btn-sm">
+                                <i class="fas fa-redo"></i> Continue
+                            </a>
+                            {% endif %}
+                        {% elif status_filter == 'completed' %}
+                            <a href="{{ url_for('student_quiz_results', attempt_id=attempt.id) }}" 
+                               class="btn btn-success btn-sm">
+                                <i class="fas fa-chart-bar"></i> View Results
+                            </a>
+                        {% elif status_filter == 'expired' %}
+                            {% if attempt and attempt.completed_at %}
+                            <a href="{{ url_for('student_quiz_results', attempt_id=attempt.id) }}" 
+                               class="btn btn-success btn-sm">
+                                <i class="fas fa-chart-bar"></i> Results
+                            </a>
+                            {% else %}
+                            <span class="badge bg-danger">Expired{% if attempt %} - Incomplete{% endif %}</span>
+                            {% endif %}
                         {% endif %}
                     </div>
                 </div>
@@ -74,13 +136,20 @@
                 <i class="fas fa-info-circle fa-3x mb-3 text-muted"></i>
                 <h4>No quizzes found</h4>
                 <p class="mb-0">
-                    {% if status_filter == 'upcoming' %}You don't have any upcoming quizzes.{% else %}You haven't completed any quizzes yet.{% endif %}
+                    {% if status_filter == 'upcoming' %}
+                        You don't have any upcoming quizzes.
+                    {% elif status_filter == 'completed' %}
+                        You haven't completed any quizzes yet.
+                    {% else %}
+                        You don't have any expired quizzes.
+                    {% endif %}
                 </p>
             </div>
         </div>
         {% endif %}
     </div>
 </div>
+
 <style>
 .quiz-card {
     transition: transform 0.2s;
@@ -91,9 +160,17 @@
     transform: translateY(-3px);
     box-shadow: 0 4px 15px rgba(0,0,0,0.1);
 }
+.quiz-card .alert {
+    margin-bottom: 0;
+}
+.progress-bar span {
+    text-shadow: 1px 1px 1px rgba(0,0,0,0.3);
+}
 </style>
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Confirm before starting quiz
     document.querySelectorAll('.start-quiz-btn').forEach(btn => {
         btn.addEventListener('click', function(e) {
             const quizTitle = this.getAttribute('data-quiz-title');
@@ -102,6 +179,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
             }
         });
+    });
+    
+    // Highlight current tab
+    const currentTab = window.location.pathname + window.location.search;
+    document.querySelectorAll('.nav-link').forEach(link => {
+        if (link.href.includes(currentTab)) {
+            link.classList.add('active');
+        }
     });
 });
 </script>

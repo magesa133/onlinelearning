@@ -1,0 +1,348 @@
+{% extends "teacher_dashboard.html" %}
+
+{% block title %}Quiz Analytics Dashboard | {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center page-header py-4">
+        <h1 class="mb-0">
+            <i class="fas fa-chart-line text-primary me-2"></i>Quiz Performance Analytics
+        </h1>
+        <div class="action-buttons">
+            <button class="btn btn-light border" onclick="window.print()">
+                <i class="fas fa-print me-2"></i>Export Report
+            </button>
+        </div>
+    </div>
+
+    <!-- Key Metrics Summary -->
+    <section class="metrics-summary mb-5">
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card metric-card bg-primary bg-opacity-10 border-primary">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="metric-icon bg-primary text-white">
+                                <i class="fas fa-clipboard-list"></i>
+                            </div>
+                            <div class="ms-3">
+                                <h6 class="metric-title text-muted mb-1">Total Quizzes</h6>
+                                <h3 class="metric-value mb-0">{{ total_quizzes }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card metric-card bg-info bg-opacity-10 border-info">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="metric-icon bg-info text-white">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="ms-3">
+                                <h6 class="metric-title text-muted mb-1">Total Attempts</h6>
+                                <h3 class="metric-value mb-0">{{ total_attempts }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card metric-card bg-success bg-opacity-10 border-success">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div class="metric-icon bg-success text-white">
+                                <i class="fas fa-star"></i>
+                            </div>
+                            <div class="ms-3">
+                                <h6 class="metric-title text-muted mb-1">Average Score</h6>
+                                <h3 class="metric-value mb-0">{{ avg_score|round(1) }}%</h3>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Performance Breakdown Section -->
+    <section class="performance-section mb-5">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h5 class="section-title mb-0">
+                    <i class="fas fa-table me-2 text-secondary"></i>Detailed Quiz Performance
+                </h5>
+            </div>
+            <div class="card-body pt-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle" id="quizAnalyticsTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th width="25%">Quiz Title</th>
+                                <th width="15%">Subject</th>
+                                <th width="10%">Attempts</th>
+                                <th width="25%">Average Score</th>
+                                <th width="15%">Highest Score</th>
+                                <th width="10%">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for quiz in quiz_data %}
+                            <tr class="performance-row">
+                                <td class="fw-semibold">{{ quiz.title }}</td>
+                                <td>
+                                    <span class="badge bg-light text-dark border">
+                                        {{ quiz.subject }}
+                                    </span>
+                                </td>
+                                <td>{{ quiz.attempts }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="progress flex-grow-1" style="height: 24px;">
+                                            <div class="progress-bar 
+                                                {% if quiz.avg_score >= 75 %}bg-success
+                                                {% elif quiz.avg_score >= 50 %}bg-warning
+                                                {% else %}bg-danger
+                                                {% endif %}" 
+                                                role="progressbar" 
+                                                style="width: {{ quiz.avg_score }}%"
+                                                aria-valuenow="{{ quiz.avg_score }}" 
+                                                aria-valuemin="0" 
+                                                aria-valuemax="100">
+                                                <span class="progress-text">{{ quiz.avg_score|round(1) }}%</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge 
+                                        {% if quiz.highest_score >= 85 %}bg-success
+                                        {% elif quiz.highest_score >= 60 %}bg-warning
+                                        {% else %}bg-danger
+                                        {% endif %}">
+                                        <i class="fas fa-trophy me-1"></i>{{ quiz.highest_score|round(1) }}%
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('teacher_quiz_analytics', quiz_id=quiz.id) }}" 
+                                       class="btn btn-sm btn-outline-primary"
+                                       data-bs-toggle="tooltip"
+                                       title="View detailed analytics">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Performance Visualization -->
+    <section class="visualization-section">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0 py-3">
+                <h5 class="section-title mb-0">
+                    <i class="fas fa-chart-bar me-2 text-secondary"></i>Performance Trends Analysis
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="chart-container" style="position: relative; height: 400px;">
+                    <canvas id="performanceChart"></canvas>
+                </div>
+                <div class="chart-legend mt-3 text-center">
+                    <span class="legend-item me-3">
+                        <i class="fas fa-square text-primary me-1"></i>Average Scores
+                    </span>
+                    <span class="legend-item">
+                        <i class="fas fa-square text-teal me-1"></i>Highest Scores
+                    </span>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- JavaScript Libraries -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize DataTable with enhanced options
+    $('#quizAnalyticsTable').DataTable({
+        order: [[3, 'desc']],
+        pageLength: 10,
+        language: {
+            search: "_INPUT_",
+            searchPlaceholder: "Search quizzes...",
+            lengthMenu: "Show _MENU_ quizzes per page",
+            info: "Showing _START_ to _END_ of _TOTAL_ quizzes",
+            infoEmpty: "No quizzes available",
+            infoFiltered: "(filtered from _MAX_ total quizzes)"
+        },
+        dom: '<"top"f>rt<"bottom"lip><"clear">'
+    });
+
+    // Initialize tooltips
+    $('[data-bs-toggle="tooltip"]').tooltip();
+
+    // Prepare chart data
+    const quizTitles = {{ quiz_data|map(attribute='title')|list|tojson }};
+    const avgScores = {{ quiz_data|map(attribute='avg_score')|list|tojson }};
+    const highestScores = {{ quiz_data|map(attribute='highest_score')|list|tojson }};
+
+    // Create performance chart with enhanced options
+    const ctx = document.getElementById('performanceChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: quizTitles,
+            datasets: [
+                {
+                    label: 'Average Score',
+                    data: avgScores,
+                    backgroundColor: 'rgba(13, 110, 253, 0.7)',
+                    borderColor: 'rgba(13, 110, 253, 1)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    label: 'Highest Score',
+                    data: highestScores,
+                    backgroundColor: 'rgba(32, 201, 151, 0.7)',
+                    borderColor: 'rgba(32, 201, 151, 1)',
+                    borderWidth: 1,
+                    borderRadius: 4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    grid: {
+                        drawBorder: false
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return value + '%';
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Performance Score (%)',
+                        font: {
+                            weight: 'bold'
+                        }
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    title: {
+                        display: true,
+                        text: 'Quiz Titles',
+                        font: {
+                            weight: 'bold'
+                        }
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': ' + context.raw + '%';
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+
+<!-- Custom Styles -->
+<style>
+.page-header {
+    border-bottom: 1px solid #eee;
+    margin-bottom: 2rem;
+}
+
+.metric-card {
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    height: 100%;
+}
+
+.metric-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.metric-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+}
+
+.metric-title {
+    font-size: 0.875rem;
+    letter-spacing: 0.5px;
+}
+
+.metric-value {
+    font-weight: 600;
+}
+
+.section-title {
+    font-weight: 600;
+    color: #495057;
+}
+
+.progress-text {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-shadow: 0 1px 1px rgba(0,0,0,0.2);
+}
+
+.performance-row:hover {
+    background-color: #f8f9fa;
+}
+
+.legend-item {
+    display: inline-block;
+    font-size: 0.875rem;
+    color: #6c757d;
+}
+
+@media print {
+    .action-buttons, .dataTables_length, .dataTables_filter {
+        display: none !important;
+    }
+    
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+}
+</style>
+{% endblock %}

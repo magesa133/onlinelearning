@@ -1,79 +1,216 @@
 import base64
 import os
+import io
+import random
 from datetime import datetime, timedelta, timezone
+from dateutil.relativedelta import relativedelta
 import uuid
+from io import StringIO, BytesIO
 from io import BytesIO
 import pytz as pytz_timezone
 from pytz.exceptions import UnknownTimeZoneError
 import humanize
-from flask import render_template, session, send_file
+from flask import render_template, session as flask_session, send_file, make_response
 from flask_wtf import FlaskForm
+from flask_wtf.csrf import generate_csrf
 from wtforms import RadioField
 from wtforms.validators import DataRequired, ValidationError
 from zoneinfo import ZoneInfo  # Python 3.9+ (preferred) or use pytz as fallback
 from forms import AssignmentForm, SubmissionForm, QuizEditForm  # Import the forms
-from forms import QuizCreateForm, QuestionForm  # Ensure this import is added at the top of the file
+from forms import QuizCreateForm, QuestionForm, MessageForm # Ensure this import is added at the top of the file
 import pandas as pd
 from markdown import markdown
 from bleach import clean  # Add this import at the top of the file if not already present
 from sqlalchemy.exc import SQLAlchemyError
 import logging
 import traceback
+from werkzeug.exceptions import HTTPException
+import bisect
 import json
 from flask import abort, flash, jsonify, redirect, render_template, request, \
                    send_from_directory, url_for, current_app
 import traceback
 from flask_login import current_user, login_required, login_user, logout_user
+import face_recognition  # Add this import for face recognition functionality
 from PIL import Image
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, exists, case
 from sqlalchemy.orm import joinedload, load_only
 from werkzeug.security import check_password_hash, generate_password_hash
-from werkzeug.utils import secure_filename
+from werkzeug.utils import secure_filename, safe_join
 
 from app import app, db
 from models import (Activity, Assignment, Attendance, Classroom, Department,
                     Grade, Resource, OnlineSession, Question, Quiz, Student,
-                    Submission, Subject, Teacher, User, Enrollment, QuizAttempt, QuizAnswer, Message, ClassAnnouncement, ClassroomActivity)
+                    Submission, Subject, Teacher, User, Enrollment, QuizAttempt, QuizAnswer, Message, ClassAnnouncement, ClassroomActivity, ResourceComment, Notification, NotificationSettings)
+import csv
+import re  # Add this import for regular expressions
+from reportlab.pdfgen import canvas  # For PDF export
+# routes.py
+from app import socketio
+from apscheduler.schedulers.background import BackgroundScheduler
+
+
+
+@app.template_filter('humanize')
+def humanize_time(dt):
+    """Convert datetime to human-readable relative time using humanize package."""
+    return humanize.naturaltime(datetime.utcnow() - dt)
+
+@app.template_filter('score_color')
+def score_color(score, max_score=None):
+    """Determine badge color based on score"""
+    if score is None:
+        return 'secondary'
+    if max_score:
+        percentage = (score/max_score)*100
+    else:
+        percentage = score
+    return 'success' if percentage >= 70 else 'warning' if percentage >= 50 else 'danger'
+
+@app.template_filter('format_time')
+def format_time(seconds):
+    """Format seconds into MM:SS"""
+    if not seconds:
+        return "0:00"
+    minutes = seconds // 60
+    seconds = seconds % 60
+    return f"{minutes}:{seconds:02d}"
+
+
+@app.template_filter('format_relative_time')
+def format_relative_time(dt):
+    now = datetime.utcnow()
+    diff = now - dt
+    
+    if diff.days > 365:
+        return f"{diff.days//365}y ago"
+    elif diff.days > 30:
+        return f"{diff.days//30}mo ago"
+    elif diff.days > 0:
+        return f"{diff.days}d ago"
+    elif diff.seconds > 3600:
+        return f"{diff.seconds//3600}h ago"
+    elif diff.seconds > 60:
+        return f"{diff.seconds//60}m ago"
+    else:
+        return "just now"
+
+@app.template_filter('to_letter')
+def to_letter_grade(score):
+    """Convert numerical score to letter grade"""
+    if score >= 90:
+        return 'A'
+    elif score >= 80:
+        return 'B'
+    elif score >= 70:
+        return 'C'
+    elif score >= 60:
+        return 'D'
+    else:
+        return 'F'
 from zoneinfo import ZoneInfo
-from pytz import timezone as pytz_timezone
+from pytz import timezone as pytz_timezone, utc
 local_timezone = pytz_timezone('Africa/Dar_es_Salaam')
 import pytz  # Add this import
+
+from zoneinfo import ZoneInfo
+# Timezone setup
+APP_TIMEZONE = 'Africa/Dar_es_Salaam'  # Using Nairobi as it's the same as Dar es Salaam time
+local_tz = ZoneInfo(APP_TIMEZONE)
+
 
 # Configuration
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# Define allowed extensions by resource type
 ALLOWED_EXTENSIONS = {
-    'document': {'pdf', 'docx', 'txt', 'zip'},
-    'image': {'png', 'jpg', 'jpeg'},
-    'audio': {'mp3', 'wav'},
-    'video': {'mp4', 'mov'}
+    'document': {'pdf', 'doc', 'docx', 'ppt', 'pptx', 'txt', 'rtf', 'odt', 'xls', 'xlsx'},
+    'image': {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'svg', 'webp'},
+    'video': {'mp4', 'mov', 'avi', 'mkv', 'webm'},
+    'audio': {'mp3', 'wav', 'ogg', 'm4a'},
+    'archive': {'zip', 'rar', '7z', 'tar', 'gz'}
 }
 
-@app.template_filter('safe_divide')
-def safe_divide(numerator, denominator, default=0):
-    return numerator / denominator if denominator else default
+MIME_TYPES = {
+    'pdf': 'application/pdf',
+    'doc': 'application/msword',
+    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'ppt': 'application/vnd.ms-powerpoint',
+    'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'xls': 'application/vnd.ms-excel',
+    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'zip': 'application/zip',
+    'rar': 'application/vnd.rar',
+    '7z': 'application/x-7z-compressed',
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'gif': 'image/gif',
+    'mp4': 'video/mp4',
+    'mov': 'video/quicktime',
+    'avi': 'video/x-msvideo',
+    'mp3': 'audio/mpeg',
+    'wav': 'audio/wav'
+}
 
-# Set configuration in app
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload size
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max upload size
+app.config['ALLOWED_EXTENSIONS'] = ALLOWED_EXTENSIONS
+app.config['MIME_TYPES'] = MIME_TYPES
 
 def allowed_file(filename, resource_type):
-    """Check if the file has an allowed extension for the given resource type."""
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS.get(resource_type, set())
+    """Check if the file extension is allowed for the resource type"""
+    if '.' not in filename:
+        return False
+    ext = filename.rsplit('.', 1)[1].lower()
+    return ext in ALLOWED_EXTENSIONS.get(resource_type, set())
 
 def get_resource_folder(resource_type):
-    """Ensure the correct upload directory for the resource type exists and return its path."""
-    resource_dir = os.path.join(app.config['UPLOAD_FOLDER'], f"{resource_type}s")
+    """Get the upload directory path for a resource type, creating if needed"""
+    resource_dir = os.path.join(
+        app.config['UPLOAD_FOLDER'],
+        f"{resource_type}s"
+    )
     os.makedirs(resource_dir, exist_ok=True)
     return resource_dir
 
+def get_mime_type(filename):
+    """Get MIME type based on file extension"""
+    ext = filename.split('.')[-1].lower()
+    return app.config['MIME_TYPES'].get(ext, 'application/octet-stream')
+
+
+@app.template_filter('time_ago')
+def time_ago_filter(dt):
+    now = datetime.now()
+    diff = now - dt
+    seconds = diff.total_seconds()
+    
+    intervals = (
+        ('year', 31536000),
+        ('month', 2592000),
+        ('week', 604800),
+        ('day', 86400),
+        ('hour', 3600),
+        ('minute', 60),
+        ('second', 1)
+    )
+    
+    for name, count in intervals:
+        value = seconds // count
+        if value:
+            if value == 1:
+                return f"{int(value)} {name} ago"
+            return f"{int(value)} {name}s ago"
+    return "just now"
 # ---------- AUTHENTICATION ROUTES ----------
 
 @app.route('/')
 def index():
     """Home page route."""
-    return render_template('index.html')
+    current_year = datetime.now().year
+    return render_template('index.html', current_year=current_year)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -127,6 +264,11 @@ def register():
         )
 
         try:
+            # Add your code here
+            pass
+        except Exception as e:
+            current_app.logger.error(f"An error occurred: {str(e)}")
+            flash("An error occurred while processing your request.", "danger")
             db.session.add(new_user)
             db.session.commit()
             login_user(new_user)
@@ -175,10 +317,13 @@ def logout():
 def get_recent_submissions(student, limit=5):
     """Retrieve the most recent submissions for a student."""
     try:
-        return Submission.query.filter_by(student_id=student.id).order_by(Submission.submitted_at.desc()).limit(limit).all()
+        return Submission.query.filter_by(student_id=student.id)\
+            .order_by(Submission.submitted_at.desc())\
+            .limit(limit).all()
     except Exception as e:
-        current_app.logger.error(f"Error fetching recent submissions: {str(e)}")
+        current_app.logger.error(f"Error fetching recent submissions: {str(e)}", exc_info=True)
         return []
+
 
 def get_grades_summary(student):
     """Summarize grades for a student."""
@@ -206,30 +351,29 @@ class QuizStatus(Enum):
     ARCHIVED = 'archived'
     DELETED = 'deleted'
 
+
 @app.route('/student_dashboard')
 @login_required
 def student_dashboard():
-    """Student dashboard showing all academic activities with proper timezone handling"""
+    """Student dashboard with robust timezone handling and validation"""
     try:
-        # Authentication check
+        # Authentication and authorization
         if current_user.role != 'student' or not current_user.student_profile:
-            current_app.logger.warning(f"Unauthorized dashboard access by {current_user.id}")
             abort(403)
-        
-        student = current_user.student_profile
-        local_timezone = pytz.timezone('Africa/Dar_es_Salaam')
-        now = datetime.now(local_timezone)
 
-        current_app.logger.debug(f"Building dashboard for student {student.id} at {now}")
+        # Timezone setup
+        student = current_user.student_profile
+        user_tz = ZoneInfo(current_user.timezone) if current_user.timezone else ZoneInfo(APP_TIMEZONE)
+        current_utc = datetime.now(timezone.utc)
+        now_local = current_utc.astimezone(user_tz)
 
         # Get enrolled classrooms
         enrollments = Enrollment.query.filter_by(student_id=student.id).options(
             joinedload(Enrollment.classroom).joinedload(Classroom.subject)
         ).all()
-
         class_ids = [e.classroom.id for e in enrollments] if enrollments else []
 
-        # Get published quizzes
+        # --- Quizzes ---
         quizzes = Quiz.query.filter(
             Quiz.classroom_id.in_(class_ids),
             Quiz.status == QuizStatus.PUBLISHED.value
@@ -241,39 +385,67 @@ def student_dashboard():
         upcoming_quizzes = []
         for quiz in quizzes:
             if quiz.due_date:
-                due_date = quiz.due_date
-                if due_date.tzinfo is None:
-                    due_date = local_timezone.localize(due_date)
-                due_date = due_date.astimezone(local_timezone)
-
-                if due_date > now:
+                due_date_utc = make_timezone_aware(quiz.due_date)
+                if due_date_utc > current_utc:
                     upcoming_quizzes.append({
                         'quiz': quiz,
-                        'due_date_local': due_date,
-                        'time_remaining': due_date - now,
+                        'due_date_local': localize_time(due_date_utc, current_user.timezone),
+                        'time_remaining': due_date_utc - current_utc,
                         'status': quiz.status
                     })
-
         upcoming_quizzes.sort(key=lambda x: x['due_date_local'])
 
-        # Get additional dashboard data
-        assignments = get_student_assignments(student, class_ids, now)
-        activities = ClassroomActivity.query.filter(
-            ClassroomActivity.classroom_id.in_(class_ids)
+        # --- Assignments ---
+        assignments = Assignment.query.filter(
+            Assignment.class_id.in_(class_ids),
+            Assignment.is_published == True
         ).options(
-            joinedload(ClassroomActivity.classroom),
-            joinedload(ClassroomActivity.author)
-        ).order_by(ClassroomActivity.created_at.desc()).limit(10).all() if class_ids else []
+            joinedload(Assignment.classroom),
+            joinedload(Assignment.subject)
+        ).all()
 
-        sessions = get_student_sessions(class_ids, now) if class_ids else []
+        assignment_data = []
+        for assignment in assignments:
+            due_date_utc = make_timezone_aware(assignment.due_date)
+            assignment_data.append({
+                'assignment': assignment,
+                'due_date_local': localize_time(due_date_utc, current_user.timezone),
+                'is_past_due': due_date_utc < current_utc
+            })
 
-        announcements = ClassAnnouncement.query.filter(
-            ClassAnnouncement.classroom_id.in_(class_ids)
-        ).options(
-            joinedload(ClassAnnouncement.classroom),
-            joinedload(ClassAnnouncement.author)
-        ).order_by(ClassAnnouncement.created_at.desc()).limit(5).all() if class_ids else []
+        # --- Submissions ---
+        recent_submissions = []
+        for submission in get_recent_submissions(student):
+            try:
+                # Create regular attributes instead of trying to set properties
+                if submission.submitted_at:
+                    submission._submitted_at_aware = make_timezone_aware(submission.submitted_at)
+                    submission._submitted_at_local = localize_time(submission._submitted_at_aware, current_user.timezone)
+                if submission.last_modified:
+                    submission._last_modified_aware = make_timezone_aware(submission.last_modified)
+                    submission._last_modified_local = localize_time(submission._last_modified_aware, current_user.timezone)
+                recent_submissions.append(submission)
+            except Exception as e:
+                current_app.logger.error(f"Error processing submission {submission.id}: {str(e)}")
 
+        # --- Online Sessions ---
+        active_sessions = []
+        for session in OnlineSession.query.filter(OnlineSession.class_id.in_(class_ids)).all():
+            try:
+                # Ensure timezone awareness
+                session.start_time = make_timezone_aware(session.start_time)
+                session.end_time = make_timezone_aware(session.end_time)
+                
+                # Get status and other properties (don't try to set the read-only properties)
+                session.status = session.get_status(current_utc)
+                session.class_name = session.classroom.class_name if session.classroom else "Unknown Class"
+                
+                active_sessions.append(session)
+            except Exception as e:
+                current_app.logger.error(f"Error processing session {session.id}: {str(e)}")
+                continue
+
+        # --- Quiz Attempts ---
         recent_attempts = QuizAttempt.query.filter(
             QuizAttempt.student_id == student.id,
             QuizAttempt.completed_at.isnot(None)
@@ -281,41 +453,60 @@ def student_dashboard():
             joinedload(QuizAttempt.quiz).joinedload(Quiz.subject)
         ).order_by(QuizAttempt.completed_at.desc()).limit(2).all()
 
-        debug_info = {
-            'student': f"{current_user.username} (ID: {current_user.id})",
-            'current_time': now.strftime('%Y-%m-%d %H:%M %Z'),
-            'enrolled_classrooms': [e.classroom.class_name for e in enrollments] if enrollments else [],
-            'total_published_quizzes': len(quizzes),
-            'quizzes_in_classes': len(upcoming_quizzes),
-            'time_zone': str(local_timezone)
-        }
+        for attempt in recent_attempts:
+            if attempt.completed_at:
+                attempt.completed_at_aware = make_timezone_aware(attempt.completed_at)
+                attempt.completed_at_local = localize_time(attempt.completed_at_aware, current_user.timezone)
 
         return render_template('student_dashboard.html',
             student=student,
-            assignments=assignments,
             quizzes=upcoming_quizzes,
-            activities=activities,
-            sessions=sessions,
-            announcements=announcements,
-            now=now,
-            debug_info=debug_info,
-            local_timezone=local_timezone,
+            assignments=assignment_data,
+            now=now_local,
+            user_timezone=user_tz,
             grades_summary=get_grades_summary(student),
-            recent_submissions=get_recent_submissions(student),
+            recent_submissions=recent_submissions,
             recent_quiz_attempts=recent_attempts,
             QuizStatus=QuizStatus,
             humanize=humanize,
-            enrollments=enrollments  # <-- useful if referenced in template
+            enrollments=enrollments,
+            active_sessions=active_sessions,
+            
+            debug_info={
+                'student': f"{current_user.username} (ID: {current_user.id})",
+                'current_time_utc': current_utc.strftime('%Y-%m-%d %H:%M %Z'),
+                'current_time_local': now_local.strftime('%Y-%m-%d %H:%M %Z'),
+                'enrolled_classrooms': [e.classroom.class_name for e in enrollments],
+                'time_zone': str(user_tz)
+            }
         )
 
     except Exception as e:
         current_app.logger.error(f"Error loading student dashboard: {str(e)}", exc_info=True)
-        return render_template('error.html', error=str(e)), 500
-
+        return render_template('error.html',
+            error="We encountered an error loading your dashboard",
+            error_details=str(e) if current_app.debug else None,
+            debug=current_app.debug
+        ), 500
     
 
-# Helper functions with timezone support
-def get_student_quizzes(student, class_ids, now):
+# Helper functions with proper timezone support
+
+def make_timezone_aware(dt, tz=timezone.utc):
+    """Ensure a datetime object is timezone-aware"""
+    if dt is None:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=tz)
+    
+def localize_time(dt, user_timezone):
+    """Convert a datetime to user's local timezone"""
+    if dt is None:
+        return None
+    if not user_timezone:
+        return dt
+    return dt.astimezone(ZoneInfo(user_timezone))
+
+def get_student_quizzes(student, class_ids, now_utc):
     """Retrieve and organize quizzes by status with timezone awareness"""
     try:
         quizzes = Quiz.query.filter(
@@ -329,63 +520,33 @@ def get_student_quizzes(student, class_ids, now):
 
         attempts = {a.quiz_id: a for a in student.quiz_attempts}
         
-        return {
-            'upcoming': [q for q in quizzes 
-                        if q.due_date and q.due_date.astimezone(local_timezone) > now
-                        and q.id not in attempts],
-            'past': [q for q in quizzes 
-                    if q.due_date and q.due_date.astimezone(local_timezone) <= now
-                    and q.id not in attempts],
-            'attempted': [q for q in quizzes 
-                         if q.id in attempts]
-        }
-    except Exception as e:
-        current_app.logger.error(f"Error fetching quizzes: {str(e)}")
-        return {}
-
-
-def format_datetime(dt, format_str='%B %d, %Y at %H:%M'):
-    """Safe datetime formatting with timezone conversion"""
-    if not dt:
-        return "Not set"
-    if not dt.tzinfo:
-        dt = local_timezone.localize(dt)
-    return dt.astimezone(local_timezone).strftime(format_str)
-def get_student_quizzes(student, class_ids, now):
-    """Retrieve and organize quizzes with proper filtering"""
-    try:
-        # Base query
-        quizzes = Quiz.query.filter(
-            Quiz.classroom_id.in_(class_ids),
-            Quiz.status == QuizStatus.PUBLISHED.value,
-            Quiz.is_deleted == False,
-            Quiz.due_date > now  # Only future quizzes
-        ).options(
-            joinedload(Quiz.subject),
-            joinedload(Quiz.classroom),
-            joinedload(Quiz.teacher)
-        ).order_by(Quiz.due_date.asc()).all()
-
-        # Debug output
-        current_app.logger.debug(f"Found {len(quizzes)} quizzes for student {student.id}")
-        for q in quizzes:
-            current_app.logger.debug(f"Quiz {q.id}: {q.title} (Class {q.classroom_id}, Due {q.due_date})")
-
-        # Get attempts
-        attempts = {a.quiz_id: a for a in student.quiz_attempts}
-        
-        return {
-            'upcoming': [q for q in quizzes if q.id not in attempts],
+        organized = {
+            'upcoming': [],
             'past': [],
             'attempted': []
         }
         
+        for quiz in quizzes:
+            if not quiz.due_date:
+                continue
+                
+            # Ensure due_date is timezone-aware UTC
+            due_date_utc = quiz.due_date if quiz.due_date.tzinfo else pytz.utc.localize(quiz.due_date)
+            
+            if quiz.id in attempts:
+                organized['attempted'].append(quiz)
+            elif due_date_utc > now_utc:
+                organized['upcoming'].append(quiz)
+            else:
+                organized['past'].append(quiz)
+                
+        return organized
     except Exception as e:
-        current_app.logger.error(f"Quiz query error: {str(e)}", exc_info=True)
+        current_app.logger.error(f"Error fetching quizzes: {str(e)}")
         return {'upcoming': [], 'past': [], 'attempted': []}
 
-def get_student_assignments(student, class_ids, now):
-    """Retrieve and organize assignments by status"""
+def get_student_assignments(student, class_ids, now_utc):
+    """Retrieve and organize assignments by status with UTC comparison"""
     try:
         assignments = Assignment.query.filter(
             Assignment.class_id.in_(class_ids),
@@ -398,42 +559,90 @@ def get_student_assignments(student, class_ids, now):
 
         submitted_ids = {s.assignment_id for s in student.submissions}
         
-        return {
-            'upcoming': [a for a in assignments 
-                        if a.id not in submitted_ids 
-                        and a.due_date >= now],
-            'pending': [a for a in assignments 
-                       if a.id not in submitted_ids 
-                       and a.due_date < now],
-            'submitted': [a for a in assignments 
-                         if a.id in submitted_ids]
+        organized = {
+            'upcoming': [],
+            'pending': [],
+            'submitted': []
         }
+        
+        for assignment in assignments:
+            if not assignment.due_date:
+                continue
+                
+            # Ensure due_date is timezone-aware UTC
+            due_date_utc = assignment.due_date if assignment.due_date.tzinfo else pytz.utc.localize(assignment.due_date)
+            
+            if assignment.id in submitted_ids:
+                organized['submitted'].append(assignment)
+            elif due_date_utc > now_utc:
+                organized['upcoming'].append(assignment)
+            else:
+                organized['pending'].append(assignment)
+                
+        return organized
     except Exception as e:
         current_app.logger.error(f"Error fetching assignments: {str(e)}")
-        return {}
+        return {'upcoming': [], 'pending': [], 'submitted': []}
 
-def get_student_sessions(class_ids, now):
-    """Retrieve online sessions grouped by status"""
+def get_student_sessions(class_ids, now_utc):
+    """Retrieve online sessions grouped by status with UTC comparison"""
     try:
+        all_sessions = OnlineSession.query.filter(
+            OnlineSession.class_id.in_(class_ids)
+        ).options(
+            joinedload(OnlineSession.classroom)
+        ).order_by(OnlineSession.start_time.asc()).all()
+        
+        active_sessions = []
+        past_sessions = []
+        
+        for session in all_sessions:
+            # Ensure session times are timezone-aware UTC
+            start_utc = session.start_time if session.start_time.tzinfo else pytz.utc.localize(session.start_time)
+            end_utc = session.end_time if session.end_time.tzinfo else pytz.utc.localize(session.end_time)
+            
+            # Determine if the session is active or upcoming
+            if start_utc <= now_utc <= end_utc:
+                active_sessions.append(session)
+            elif now_utc < start_utc:  # Upcoming sessions
+                active_sessions.append(session)
+            else:
+                past_sessions.append(session)
+                
         return {
-            'active': OnlineSession.query.filter(
-                OnlineSession.class_id.in_(class_ids),
-                OnlineSession.end_time >= now
-            ).options(
-                joinedload(OnlineSession.classroom)
-            ).order_by(OnlineSession.start_time.asc()).all(),
-            'past': OnlineSession.query.filter(
-                OnlineSession.class_id.in_(class_ids),
-                OnlineSession.end_time < now
-            ).options(
-                joinedload(OnlineSession.classroom)
-            ).order_by(OnlineSession.start_time.desc()).limit(5).all()
+            'active': active_sessions,
+            'past': past_sessions[:5]  # Limit past sessions to 5 most recent
         }
     except Exception as e:
         current_app.logger.error(f"Error fetching sessions: {str(e)}")
-        return {}
+        return {'active': [], 'past': []}
 
 
+def format_datetime(dt, format_str='%B %d, %Y at %H:%M', tz='Africa/Dar_es_Salaam'):
+    """Safe datetime formatting with timezone conversion"""
+    if not dt:
+        return "Not set"
+        
+    try:
+        # Convert to timezone-aware UTC if naive
+        dt_utc = dt if dt.tzinfo else pytz.utc.localize(dt)
+        # Convert to target timezone
+        target_tz = pytz.timezone(tz)
+        return dt_utc.astimezone(target_tz).strftime(format_str)
+    except Exception as e:
+        current_app.logger.error(f"Error formatting datetime: {str(e)}")
+        return "Invalid date"
+
+
+@app.context_processor
+def inject_unread_count():
+    if current_user.is_authenticated:
+        unread_count = Notification.query.filter_by(
+            user_id=current_user.id,
+            is_read=False
+        ).count()
+        return {'unread_count': unread_count}
+    return {'unread_count': 0}
 
 @app.route('/debug/quizzes/<int:student_id>')
 def debug_quizzes(student_id):
@@ -461,99 +670,577 @@ def debug_quizzes(student_id):
         } for q in quizzes]
     })
 
+
+# ------- Grades Area for all Quiz and Assignemt for teacher purpose ------
+
+class AssessmentType(Enum):
+    ASSIGNMENT = 'assignment'
+    QUIZ = 'quiz'
+
+def calculate_grade(score, max_score):
+    """Calculate letter grade based on percentage"""
+    if score is None or max_score == 0:
+        return None
+    percentage = (score / max_score) * 100
+    if percentage >= 90: return 'A'
+    if percentage >= 80: return 'B'
+    if percentage >= 70: return 'C'
+    if percentage >= 60: return 'D'
+    return 'F'
+
+def get_current_term_range():
+    """Determine current academic term dates"""
+    today = datetime.now()
+    if today.month >= 8:  # Fall term (Aug-Jan)
+        return (datetime(today.year, 8, 1), datetime(today.year + 1, 1, 1))
+    else:  # Spring term (Jan-Aug)
+        return (datetime(today.year, 1, 1), datetime(today.year, 8, 1))
+
+def calculate_assessment_stats(assessment, assessment_type, classroom):
+    """Calculate statistics for an assessment"""
+    try:
+        # Get submissions based on assessment type
+        if assessment_type == AssessmentType.ASSIGNMENT:
+            submissions = assessment.submissions
+            max_score = assessment.max_score
+        else:  # Quiz
+            submissions = []
+            for attempt in assessment.attempts:
+                submissions.append({
+                    'id': attempt.id,
+                    'student': attempt.student,
+                    'score': attempt.score,
+                    'submitted_at': attempt.completed_at,
+                    'graded_at': attempt.completed_at
+                })
+            max_score = assessment.total_points
+
+        # Calculate basic stats
+        total_submissions = len(submissions)
+        graded_submissions = sum(1 for s in submissions if s and s.get('score') is not None)
+
+        # Calculate average score
+        average = None
+        if graded_submissions > 0:
+            valid_scores = [s.get('score') for s in submissions if s and s.get('score') is not None]
+            average = sum(valid_scores) / len(valid_scores) if valid_scores else None
+
+        # Calculate grade distribution
+        distribution = {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'F': 0}
+        for submission in submissions:
+            if submission and submission.get('score') is not None:
+                grade = calculate_grade(submission.get('score'), max_score)
+                if grade in distribution:
+                    distribution[grade] += 1
+
+        return {
+            'id': assessment.id,
+            'title': assessment.title,
+            'type': assessment_type.value,
+            'class_name': classroom.class_name,
+            'class_id': classroom.id,
+            'due_date': assessment.due_date,
+            'max_score': max_score,
+            'submissions': submissions,
+            'total_submissions': total_submissions,
+            'graded_submissions': graded_submissions,
+            'completion': (graded_submissions / total_submissions * 100) if total_submissions else 0,
+            'average': average,
+            'distribution': distribution,
+            'created_at': assessment.created_at
+        }
+    except Exception as e:
+        app.logger.error(f"Error calculating stats for {assessment.id}: {str(e)}\n{traceback.format_exc()}")
+        raise
+
+
+@app.route('/gradebook')
+@login_required
+def view_gradebook():
+    """Display comprehensive gradebook for teacher"""
+    if current_user.role != 'teacher':
+        flash('Only teachers can access the gradebook', 'danger')
+        return redirect(url_for('teacher_dashboard'))
+
+    try:
+        # Get all classes taught by this teacher with counts
+        classes = (Classroom.query
+                  .filter_by(teacher_id=current_user.id)
+                  .options(
+                      joinedload(Classroom.assignments),
+                      joinedload(Classroom.quizzes))
+                  .all())
+
+        # Log diagnostic information
+        app.logger.info(f"Found {len(classes)} classes for teacher {current_user.id}")
+        for i, class_obj in enumerate(classes):
+            app.logger.info(f"Class {i+1}: {class_obj.class_name} - "
+                          f"Assignments: {len(class_obj.assignments)}, "
+                          f"Quizzes: {len(class_obj.quizzes)}")
+
+        assignments = []
+        quizzes = []
+
+        for class_obj in classes:
+            # Process assignments
+            for assignment in class_obj.assignments:
+                try:
+                    stats = calculate_assessment_stats(assignment, AssessmentType.ASSIGNMENT, class_obj)
+                    assignments.append(stats)
+                except Exception as e:
+                    app.logger.error(f"Error processing assignment {assignment.id}: {str(e)}")
+                    continue
+
+            # Process quizzes
+            for quiz in class_obj.quizzes:
+                if quiz.is_published:  # Only include published quizzes
+                    try:
+                        stats = calculate_assessment_stats(quiz, AssessmentType.QUIZ, class_obj)
+                        quizzes.append(stats)
+                    except Exception as e:
+                        app.logger.error(f"Error processing quiz {quiz.id}: {str(e)}")
+                        continue
+
+        # Calculate overall metrics
+        total_assignments = len(assignments)
+        total_quizzes = len(quizzes)
+        total_graded = sum(1 for a in assignments + quizzes if a['completion'] == 100)
+        total_assessments = total_assignments + total_quizzes
+
+        return render_template('teacher/grades/gradebook.html',
+                            classes=classes,
+                            assignments=assignments,
+                            quizzes=quizzes,
+                            overall_completion=(total_graded / total_assessments * 100) if total_assessments else 0,
+                            total_assignments=total_assignments,
+                            total_quizzes=total_quizzes)
+
+    except Exception as e:
+        app.logger.error(f"Full error traceback: {traceback.format_exc()}")
+        current_app.logger.error(f"Current user: {current_user.id}, Role: {current_user.role}")
+        current_app.logger.error(f"Classes found: {len(classes)}")
+        if classes:
+            current_app.logger.error(f"First class assignments: {len(classes[0].assignments)}")
+            current_app.logger.error(f"First class quizzes: {len(classes[0].quizzes)}")
+        flash(f'Failed to load gradebook data. Administrator has been notified.', 'danger')
+        return redirect(url_for('teacher_dashboard'))
+    
+
+
+@app.route('/gradebook/export')
+@login_required
+def export_grades():
+    """Export gradebook data in various formats"""
+    if current_user.role != 'teacher':
+        abort(403)
+    
+    try:
+        # Get export parameters from request
+        export_format = request.args.get('format', 'csv')
+        content_type = request.args.get('content_type', 'all')
+        date_range = request.args.get('date_range', 'all')
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        selected_fields = request.args.getlist('fields')
+        
+        # Validate date range if custom is selected
+        if date_range == 'custom' and (not start_date or not end_date):
+            flash('Please specify both start and end dates for custom range', 'warning')
+            return redirect(url_for('view_gradebook'))
+        
+        # Query data based on filters
+        query = Classroom.query.filter_by(teacher_id=current_user.id)
+        
+        # Apply date filters if specified
+        if date_range == 'current':
+            # Current term (assuming academic year starts in September)
+            today = datetime.now()
+            if today.month >= 9:  # September or later
+                term_start = datetime(today.year, 9, 1)
+            else:  # January-August
+                term_start = datetime(today.year - 1, 9, 1)
+            query = query.filter(Assignment.due_date >= term_start)
+        elif date_range == 'last_month':
+            last_month = datetime.now() - timedelta(days=30)
+            query = query.filter(Assignment.due_date >= last_month)
+        elif date_range == 'custom' and start_date and end_date:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d')
+            end_date = datetime.strptime(end_date, '%Y-%m-%d')
+            query = query.filter(Assignment.due_date.between(start_date, end_date))
+        
+        # Eager load related data
+        classes = query.options(
+            joinedload(Classroom.assignments)
+            .joinedload(Assignment.submissions)
+            .joinedload(Submission.student)
+            .joinedload(Student.user),
+            joinedload(Classroom.quizzes)
+            .joinedload(Quiz.attempts)
+            .joinedload(QuizAttempt.student)
+            .joinedload(Student.user)
+        ).all()
+        
+        # Prepare export data based on selected fields
+        export_data = []
+        field_mapping = {
+            'student': ('Student', lambda x: f"{x.student.user.last_name}, {x.student.user.first_name}"),
+            'student_id': ('Student ID', lambda x: x.student.student_id),
+            'email': ('Email', lambda x: x.student.user.email),
+            'class': ('Class', lambda x: x.classroom.name),
+            'type': ('Type', lambda x: x.assignment.type if hasattr(x, 'assignment') else 'quiz'),
+            'title': ('Title', lambda x: x.assignment.title if hasattr(x, 'assignment') else x.quiz.title),
+            'due_date': ('Due Date', lambda x: x.assignment.due_date.strftime('%Y-%m-%d') if hasattr(x, 'assignment') 
+                         else (x.quiz.due_date.strftime('%Y-%m-%d') if x.quiz.due_date else '')),
+            'score': ('Score', lambda x: x.score),
+            'max_score': ('Max Score', lambda x: x.assignment.max_score if hasattr(x, 'assignment') else x.quiz.total_points),
+            'grade': ('Grade', lambda x: calculate_grade(x.score, x.assignment.max_score) if hasattr(x, 'assignment') 
+                     else calculate_grade(x.score, x.quiz.total_points)),
+            'submitted_at': ('Submitted At', lambda x: x.submitted_at.strftime('%Y-%m-%d %H:%M') if hasattr(x, 'submitted_at') 
+                            else (x.completed_at.strftime('%Y-%m-%d %H:%M') if x.completed_at else '')),
+            'status': ('Status', lambda x: 'Graded' if x.score is not None else 'Pending' if hasattr(x, 'submitted_at') 
+                      else 'Completed' if x.completed_at else 'In Progress')
+        }
+        
+        # Filter fields if specific fields were selected
+        if selected_fields:
+            field_mapping = {k: v for k, v in field_mapping.items() if k in selected_fields}
+        
+        # Process data based on content type
+        for class_obj in classes:
+            # Process assignments if requested
+            if content_type in ['all', 'assignments']:
+                for assignment in class_obj.assignments:
+                    for submission in assignment.submissions:
+                        item = {
+                            'classroom': class_obj,
+                            'assignment': assignment,
+                            'submission': submission,
+                            'student': submission.student
+                        }
+                        export_data.append({
+                            field: getter(item) for field, (_, getter) in field_mapping.items()
+                        })
+            
+            # Process quizzes if requested
+            if content_type in ['all', 'quizzes']:
+                for quiz in [q for q in class_obj.quizzes if q.is_published]:
+                    for attempt in quiz.attempts:
+                        item = {
+                            'classroom': class_obj,
+                            'quiz': quiz,
+                            'attempt': attempt,
+                            'student': attempt.student
+                        }
+                        export_data.append({
+                            field: getter(item) for field, (_, getter) in field_mapping.items()
+                        })
+        
+        if not export_data:
+            flash('No data available for export with current filters', 'warning')
+            return redirect(url_for('view_gradebook'))
+        
+        # Generate export based on format
+        if export_format == 'csv':
+            return _export_csv(export_data, field_mapping)
+        elif export_format == 'json':
+            return _export_json(export_data)
+        elif export_format == 'pdf':
+            return _export_pdf(export_data, field_mapping)
+        else:
+            flash('Invalid export format', 'danger')
+            return redirect(url_for('view_gradebook'))
+
+    except Exception as e:
+        app.logger.error(f"Export error: {str(e)}", exc_info=True)
+        flash('Failed to generate export', 'danger')
+        return redirect(url_for('view_gradebook'))
+
+def _export_csv(data, field_mapping):
+    """Generate CSV export"""
+    output = StringIO()
+    
+    # Write header
+    writer = csv.DictWriter(output, fieldnames=field_mapping.keys())
+    writer.writerow({field: header for field, (header, _) in field_mapping.items()})
+    
+    # Write data
+    writer.writerows(data)
+    
+    response = make_response(output.getvalue())
+    response.headers['Content-Type'] = 'text/csv'
+    response.headers['Content-Disposition'] = 'attachment; filename=gradebook_export.csv'
+    return response
+
+def _export_json(data):
+    """Generate JSON export"""
+    response = make_response(json.dumps(data, indent=2))
+    response.headers['Content-Type'] = 'application/json'
+    response.headers['Content-Disposition'] = 'attachment; filename=gradebook_export.json'
+    return response
+
+def _export_pdf(data, field_mapping):
+    """Generate PDF export"""
+    buffer = BytesIO()
+    p = canvas.Canvas(buffer)
+    
+    # PDF Header
+    p.setFont("Helvetica-Bold", 16)
+    p.drawString(100, 800, "Gradebook Export Report")
+    p.setFont("Helvetica", 12)
+    p.drawString(100, 780, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+    p.drawString(100, 760, f"Total Records: {len(data)}")
+    
+    # PDF Content - Column headers
+    p.setFont("Helvetica-Bold", 10)
+    y_position = 730
+    col_width = 500 / len(field_mapping)  # Distribute columns across page
+    
+    for i, (header, _) in enumerate(field_mapping.values()):
+        p.drawString(100 + i * col_width, y_position, header)
+    
+    # Data rows
+    p.setFont("Helvetica", 8)
+    y_position -= 20
+    
+    for row in data:
+        if y_position < 50:  # New page if we're at the bottom
+            p.showPage()
+            y_position = 800
+            p.setFont("Helvetica-Bold", 10)
+            for i, (header, _) in enumerate(field_mapping.values()):
+                p.drawString(100 + i * col_width, y_position, header)
+            y_position -= 20
+            p.setFont("Helvetica", 8)
+        
+        for i, (field, _) in enumerate(field_mapping.items()):
+            value = str(row.get(field, ''))[:20]  # Truncate long values
+            p.drawString(100 + i * col_width, y_position, value)
+        
+        y_position -= 15
+    
+    p.save()
+    buffer.seek(0)
+    
+    response = make_response(buffer.getvalue())
+    response.headers['Content-Type'] = 'application/pdf'
+    response.headers['Content-Disposition'] = 'attachment; filename=gradebook_export.pdf'
+    return response
+
+
 # ---------- STUDENT RESOURCES ROUTES ----------
 # Resources Section
 
-@app.route('/student/resources')
+# ---------- MISCELLANEOUS ROUTES ----------
+
+@app.route('/grades')
 @login_required
-def student_resources():
-    """View all resources available to student"""
+def grades():
+    """View grades with all necessary context."""
+    if current_user.role != 'teacher':
+        flash('Access denied', 'danger')
+        return redirect(url_for('teacher_dashboard'))
+
+    # Get all assignments with their submissions
+    assignments = Assignment.query.filter_by(author_id=current_user.id).options(
+        joinedload(Assignment.submissions)
+    ).all()
+
+    # Prepare gradebook data
+    gradebook = []
+    for assignment in assignments:
+        graded_count = len([s for s in assignment.submissions if s.score is not None])
+        gradebook.append({
+            'assignment': assignment,
+            'graded_count': graded_count,
+            'total_count': len(assignment.submissions),
+            'completion': (graded_count / len(assignment.submissions)) * 100 if assignment.submissions else 0
+        })
+
+    return render_template('teacher/assignments/grade.html',
+                         gradebook=gradebook,
+                         now=datetime.now(timezone.utc))
+
+# ---------- STUDY RESOURCES ROUTES ----------
+from datetime import datetime, timedelta
+from sqlalchemy import or_
+
+@app.route('/study-resources')
+@login_required
+def study_resources():
     try:
-        if current_user.role != 'student':
+        if current_user.role != 'student' or not current_user.student_profile:
             abort(403)
 
         student = current_user.student_profile
-        class_ids = [e.class_id for e in student.enrollments]
+        enrolled_class_ids = [enrollment.class_id for enrollment in student.enrollments]
         
-        if not class_ids:
-            return render_template('student/resources/list.html',
-                               message="No classes found")
-
-        page = request.args.get('page', 1, type=int)
-        resource_type = request.args.get('type', 'all')
-        subject_id = request.args.get('subject_id', type=int)
-
+        # Base query
         query = Resource.query.filter(
-            Resource.classroom_id.in_(class_ids),
+            Resource.classroom_id.in_(enrolled_class_ids),
             Resource.is_approved == True
-        )
-
-        if resource_type != 'all':
-            query = query.filter(Resource.resource_type == resource_type)
-        if subject_id:
-            query = query.filter(Resource.subject_id == subject_id)
-
-        resources = query.options(
-            joinedload(Resource.classroom),
+        ).options(
             joinedload(Resource.subject),
-            joinedload(Resource.teacher).joinedload(Teacher.user)
-        ).order_by(Resource.upload_date.desc()).paginate(
+            joinedload(Resource.classroom),
+            joinedload(Resource.teacher)
+        )
+        
+        # Apply filters
+        subject_filter = request.args.get('subject')
+        if subject_filter and subject_filter.isdigit():
+            query = query.filter(Resource.subject_id == int(subject_filter))
+        
+        type_filter = request.args.get('type')
+        if type_filter:
+            if type_filter == 'video':
+                query = query.filter(Resource.resource_type.in_(['mp4', 'mov', 'avi']))
+            else:
+                query = query.filter(Resource.resource_type.startswith(type_filter))
+        
+        date_filter = request.args.get('date')
+        if date_filter:
+            today = datetime.utcnow()
+            if date_filter == 'week':
+                query = query.filter(Resource.upload_date >= today - timedelta(days=7))
+            elif date_filter == 'month':
+                query = query.filter(Resource.upload_date >= today - timedelta(days=30))
+            elif date_filter == 'year':
+                query = query.filter(Resource.upload_date >= today - timedelta(days=365))
+        
+        # Get all subjects for filter dropdown
+        subjects = Subject.query.join(Classroom).join(Enrollment).filter(
+            Enrollment.student_id == student.id
+        ).distinct().all()
+        
+        # Pagination
+        page = request.args.get('page', 1, type=int)
+        pagination = query.order_by(Resource.upload_date.desc()).paginate(
             page=page, 
             per_page=10,
             error_out=False
         )
-
-        subjects = Subject.query.join(Classroom).filter(
-            Classroom.id.in_(class_ids)
-        ).distinct().all()
-
+        
         return render_template('student/resources/list.html',
-            resources=resources,
-            subjects=subjects,
-            current_type=resource_type,
-            selected_subject=subject_id
-        )
+                            resources=pagination.items,
+                            subjects=subjects,
+                            pagination=pagination,
+                            current_user=current_user)
 
     except Exception as e:
         current_app.logger.error(f"Error loading resources: {str(e)}")
-        flash("Error loading resources", "danger")
-        return redirect(url_for('student_dashboard'))
+        return render_template('error.html',
+            error="We couldn't load the resources",
+            error_details=str(e) if current_app.debug else None
+        ), 500
 
-@app.route('/student/resources/<int:resource_id>')
+@app.route('/study-resources/<int:resource_id>')
 @login_required
-def student_view_resource(resource_id):
-    """View details of a specific resource"""
+def study_resource_detail(resource_id):
     try:
-        if current_user.role != 'student':
+        if current_user.role != 'student' or not current_user.student_profile:
             abort(403)
 
         student = current_user.student_profile
         resource = Resource.query.options(
-            joinedload(Resource.classroom),
             joinedload(Resource.subject),
-            joinedload(Resource.teacher).joinedload(Teacher.user)
+            joinedload(Resource.classroom),
+            joinedload(Resource.teacher)  # Just load the User directly
         ).get_or_404(resource_id)
 
-        # Verify access
-        if resource.classroom_id not in [e.class_id for e in student.enrollments]:
+            # Get related resources (example - same subject and type)
+        related_resources = Resource.query.filter(
+            Resource.subject_id == resource.subject_id,
+            Resource.resource_type == resource.resource_type,
+            Resource.id != resource.id
+        ).order_by(func.random()).limit(3).all()
+
+        enrollment = Enrollment.query.filter_by(
+            student_id=student.id,
+            class_id=resource.classroom_id
+        ).first()
+        if not enrollment:
             abort(403)
 
-        # Track view
-        resource.views_count = Resource.views_count + 1
+        resource.views_count += 1
         db.session.commit()
 
-        return render_template('student/resources/view.html',
-            resource=resource
+        return render_template('student/resources/detail.html',
+                            resource=resource,
+                            current_user=current_user,
+                            related_resources=related_resources)
+
+    except Exception as e:
+        current_app.logger.error(f"Error loading resource {resource_id}: {str(e)}")
+        return render_template('error.html',
+            error="We couldn't load this resource",
+            error_details=str(e) if current_app.debug else None
+        ), 500
+
+@app.route('/download-resource/<int:resource_id>')
+@login_required
+def student_download_resource(resource_id):
+    """Handle secure resource downloads with authorization checks"""
+    try:
+        # Verify user is a student
+        if current_user.role != 'student' or not current_user.student_profile:
+            current_app.logger.warning(f"Unauthorized download attempt by user {current_user.id}")
+            abort(403)
+
+        student = current_user.student_profile
+
+        # Get the resource with minimal query
+        resource = Resource.query.options(
+            joinedload(Resource.classroom)
+        ).get_or_404(resource_id)
+
+        # Verify student enrollment in the class
+        enrollment = Enrollment.query.filter_by(
+            student_id=student.id,
+            class_id=resource.classroom_id
+        ).first()
+        if not enrollment:
+            current_app.logger.warning(
+                f"Student {student.id} attempted to download unauthorized resource {resource_id}"
+            )
+            abort(403)
+
+        # Build secure file path
+        resources_dir = current_app.config['RESOURCES_UPLOAD_FOLDER']
+        file_path = safe_join(resources_dir, resource.file_path)
+        
+        if not os.path.exists(file_path):
+            current_app.logger.error(f"Resource file not found: {file_path}")
+            abort(404)
+
+        # Update download count
+        resource.download_count += 1
+        db.session.commit()
+
+        # Log the download
+        current_app.logger.info(
+            f"Resource {resource_id} downloaded by student {student.id}"
+        )
+
+        # Send file with original filename
+        return send_from_directory(
+            directory=resources_dir,
+            path=resource.file_path,
+            as_attachment=True,
+            download_name=resource.file_name
         )
 
     except Exception as e:
-        current_app.logger.error(f"Error viewing resource {resource_id}: {str(e)}")
-        flash("Error loading resource", "danger")
-        return redirect(url_for('student_resources'))
-
+        current_app.logger.error(
+            f"Error downloading resource {resource_id}: {str(e)}",
+            exc_info=True
+        )
+        return render_template('error.html',
+            error="We couldn't download this resource",
+            error_details=str(e) if current_app.debug else None
+        ), 500
+    
 @app.route('/student/resources/<int:resource_id>/download')
 @login_required
-def student_download_resource(resource_id):
+def students_download_resource(resource_id):
     """Download a resource file"""
     try:
         if current_user.role != 'student':
@@ -580,8 +1267,71 @@ def student_download_resource(resource_id):
     except Exception as e:
         current_app.logger.error(f"Error downloading resource {resource_id}: {str(e)}")
         flash("Error downloading file", "danger")
-        return redirect(url_for('student_view_resource', resource_id=resource_id))
+        return redirect(url_for('study_resource_detail', resource_id=resource_id))
+
+@app.route('/resources/<int:resource_id>/comment', methods=['POST'])
+@login_required
+def add_resource_comment(resource_id):
+    try:
+        if current_user.role != 'student':
+            flash('Only students can comment on resources', 'error')
+            return redirect(url_for('study_resource_detail', resource_id=resource_id))
+
+        # Get the comment content from form
+        comment_content = request.form.get('comment')
+        if not comment_content or len(comment_content.strip()) == 0:
+            flash('Comment cannot be empty', 'error')
+            return redirect(url_for('study_resource_detail', resource_id=resource_id))
+
+        # Verify the resource exists and student has access
+        resource = Resource.query.get_or_404(resource_id)
+        student = current_user.student_profile
         
+        # Check if student is enrolled in the class
+        enrollment = Enrollment.query.filter_by(
+            student_id=student.id,
+            class_id=resource.classroom_id
+        ).first()
+        
+        if not enrollment:
+            abort(403)
+
+        # Create and save the comment
+        new_comment = ResourceComment(
+            content=comment_content.strip(),
+            resource_id=resource_id,
+            author_id=current_user.id
+        )
+        
+        db.session.add(new_comment)
+        db.session.commit()
+
+        flash('Your comment has been added', 'success')
+        return redirect(url_for('study_resource_detail', resource_id=resource_id))
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error adding comment to resource {resource_id}: {str(e)}")
+        flash('An error occurred while adding your comment', 'error')
+        return redirect(url_for('study_resource_detail', resource_id=resource_id))
+    
+@app.route('/uploads/<path:filename>')
+def serve_uploaded_file(filename):
+    # Normalize path (convert backslashes to forward slashes)
+    filename = filename.replace('\\', '/')
+    
+    # Construct full path to uploads directory
+    uploads_dir = os.path.join(current_app.root_path, 'uploads')
+    
+    # Ensure the path is secure
+    try:
+        return send_from_directory(uploads_dir, filename)
+    except FileNotFoundError:
+        current_app.logger.error(f"File not found: {filename}")
+        abort(404)
+
+
+
 # STUDENT ASSIGNMENT AREA
 
 @app.route('/student/assignments')
@@ -595,6 +1345,9 @@ def student_assignments():
     status_filter = request.args.get('status', 'all')
     subject_id = request.args.get('subject_id', type=int)
 
+    # Get current time in UTC
+    now_utc = datetime.now(utc)
+    
     # Base query
     query = Assignment.query.filter(
         Assignment.class_id.in_(class_ids),
@@ -604,20 +1357,22 @@ def student_assignments():
         joinedload(Assignment.subject)
     )
 
-    # Apply status filter
-    submitted_ids = [s.assignment_id for s in student.submissions]
+    # Get all submissions for the student
+    submissions = {s.assignment_id: s for s in student.submissions}
+    submitted_ids = list(submissions.keys())
+
+    # Apply status filter with timezone-aware comparisons
     if status_filter == 'submitted':
         query = query.filter(Assignment.id.in_(submitted_ids))
     elif status_filter == 'pending':
         query = query.filter(
             Assignment.id.notin_(submitted_ids),
-            Assignment.due_date >= datetime.now(local_timezone)
-
+            Assignment.due_date > now_utc
         )
     elif status_filter == 'overdue':
         query = query.filter(
             Assignment.id.notin_(submitted_ids),
-            Assignment.due_date < datetime.now(local_timezone)
+            Assignment.due_date < now_utc
         )
 
     # Apply subject filter
@@ -631,48 +1386,69 @@ def student_assignments():
         Classroom.id.in_(class_ids)
     ).distinct().all()
 
-    # Get submissions for display
-    submissions = {s.assignment_id: s for s in student.submissions}
-
     return render_template('student/assignments/list.html',
         assignments=assignments,
         submissions=submissions,
         status_filter=status_filter,
         subjects=subjects,
         selected_subject=subject_id,
-        now=datetime.now(local_timezone)
+        now=now_utc,  # Pass current UTC time
+        local_timezone=local_timezone,
+        utc=utc  # Pass utc timezone object
     )
 
 @app.route('/student/assignments/<int:assignment_id>')
 @login_required
 def student_view_assignment(assignment_id):
+    # Authentication and authorization checks
     if current_user.role != 'student' or not current_user.student_profile:
         abort(403)
 
     student = current_user.student_profile
+
+    # Load assignment with relationships
     assignment = Assignment.query.options(
         joinedload(Assignment.classroom),
         joinedload(Assignment.subject),
-        joinedload(Assignment.author).joinedload(Teacher.user)
+        joinedload(Assignment.author)
     ).get_or_404(assignment_id)
 
-    # Check if student is enrolled in the class
-    enrollment = Enrollment.query.filter_by(
+    # Verify enrollment
+    if not Enrollment.query.filter_by(
         student_id=student.id,
         class_id=assignment.class_id
-    ).first()
-    if not enrollment:
+    ).first():
         abort(403)
 
+    # Get user's timezone with proper fallback
+    user_tz_string = getattr(current_user, 'timezone', 'UTC')
+    
+    # Calculate time-related values
+    now_utc = datetime.now(pytz.utc)
+    time_remaining = assignment.time_remaining(user_tz_string)
+    local_due_date = assignment.local_due_date(user_tz_string)
+    status_class, status_text, status_icon = assignment.status(user_tz_string)
+
     submission = Submission.query.filter_by(
-        assignment_id=assignment_id,
+        assignment_id=assignment.id,
         student_id=student.id
     ).first()
-
-    return render_template('student/assignments/view.html',
+    
+    # Get localized timestamps
+    localized_times = submission.to_local_timezone(user_tz_string) if submission else None
+    
+    return render_template(
+        'student/assignments/view.html',
         assignment=assignment,
         submission=submission,
-        now=datetime.now(local_timezone)
+        localized_times=localized_times,  # Pass the converted times separately
+        now=now_utc,
+        time_remaining=time_remaining,
+        local_due_date=local_due_date,
+        status_class=status_class,
+        status_text=status_text,
+        status_icon=status_icon,
+        user_timezone=user_tz_string
     )
 
 @app.route('/student/assignments/<int:assignment_id>/submit', methods=['GET', 'POST'])
@@ -681,265 +1457,177 @@ def student_submit_assignment(assignment_id):
     if current_user.role != 'student' or not current_user.student_profile:
         abort(403)
 
+    # Get assignment and ensure it's timezone-aware
+    assignment = Assignment.query.get_or_404(assignment_id)
+    if assignment.due_date.tzinfo is None:
+        assignment_due_date = assignment.due_date.replace(tzinfo=utc)
+    else:
+        assignment_due_date = assignment.due_date
+
     student = current_user.student_profile
-    assignment = Assignment.query.options(
-        joinedload(Assignment.classroom)
-    ).get_or_404(assignment_id)
+    now_utc = datetime.now(utc)
 
-    # Check enrollment and deadline
-    enrollment = Enrollment.query.filter_by(
-        student_id=student.id,
-        class_id=assignment.class_id
-    ).first()
-    if not enrollment:
-        abort(403)
-
-    if assignment.due_date < datetime.now(local_timezone):
-        flash('The due date for this assignment has passed', 'danger')
+    # Check if submission is still allowed
+    if assignment_due_date < now_utc:
+        flash('The submission period for this assignment has ended', 'danger')
         return redirect(url_for('student_view_assignment', assignment_id=assignment_id))
 
     # Check for existing submission
-    existing_submission = Submission.query.filter_by(
+    submission = Submission.query.filter_by(
         assignment_id=assignment_id,
         student_id=student.id
     ).first()
-    if existing_submission:
-        flash('You have already submitted this assignment', 'warning')
-        return redirect(url_for('student_view_assignment', assignment_id=assignment_id))
 
-    form = SubmissionForm()
-    if form.validate_on_submit():
-        try:
-            # Handle file upload
-            file_path = None
-            if form.file.data:
-                filename = secure_filename(f"{student.id}_{assignment_id}_{form.file.data.filename}")
-                upload_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], 'submissions')
-                os.makedirs(upload_dir, exist_ok=True)
-                file_path = os.path.join(upload_dir, filename)
-                form.file.data.save(file_path)
+    if request.method == 'POST':
+        # Handle form submission
+        content = request.form.get('content', '').strip()
+        file = request.files.get('file')
 
-            # Create submission
+        # Validate at least one submission method
+        if not content and not file:
+            flash('Please provide either a written answer or upload a file', 'danger')
+            return redirect(request.url)
+
+        # Handle file upload
+        file_path = None
+        if file and file.filename:
+            # Then the function would be:
+            def allowed_submission_file(filename):
+                return '.' in filename and \
+                    filename.rsplit('.', 1)[1].lower() in current_app.config['ALLOWED_EXTENSIONS']
+            
+            # Create student-specific upload directory
+            upload_dir = os.path.join(
+                current_app.config['UPLOAD_FOLDER'], 
+                f'student_{student.id}'
+            )
+            os.makedirs(upload_dir, exist_ok=True)
+            
+            filename = secure_filename(f"assignment_{assignment_id}_{file.filename}")
+            file_path = os.path.join(upload_dir, filename)
+            file.save(file_path)
+
+        # Create or update submission
+        if submission:
+            # Update existing submission
+            if content:
+                submission.content = content
+            if file_path:
+                # Remove old file if exists
+                if submission.file_path and os.path.exists(submission.file_path):
+                    try:
+                        os.remove(submission.file_path)
+                    except OSError:
+                        pass  # File might have been already deleted
+                submission.file_path = file_path
+            submission.submitted_at = now_utc
+            db.session.commit()
+            flash('Submission updated successfully', 'success')
+        else:
+            # Create new submission
             submission = Submission(
-                content=form.content.data,
-                file_path=file_path,
                 assignment_id=assignment_id,
                 student_id=student.id,
-                submitted_at=datetime.now(local_timezone)
+                content=content,
+                file_path=file_path,
+                submitted_at=now_utc
             )
             db.session.add(submission)
             db.session.commit()
+            flash('Submission created successfully', 'success')
 
-            flash('Assignment submitted successfully!', 'success')
-            return redirect(url_for('student_view_assignment', assignment_id=assignment_id))
+        return redirect(url_for('student_view_assignment', assignment_id=assignment_id))
 
-        except Exception as e:
-            db.session.rollback()
-            current_app.logger.error(f"Error submitting assignment: {str(e)}")
-            flash('An error occurred while submitting your assignment', 'danger')
+    # Calculate time remaining properly
+    time_remaining = assignment_due_date - now_utc
 
     return render_template('student/assignments/submit.html',
-        form=form,
-        assignment=assignment
+        assignment=assignment,
+        submission=submission,
+        now=now_utc,
+        time_remaining=time_remaining
     )
 
-# STUDENT QUIZ AREA - IMPROVED VERSION
-
-# Enhanced utility functions
-def get_student_quiz_data(student_id):
-    """Get all quiz-related data for a student in one optimized query"""
-    return (
-        db.session.query(Enrollment, Classroom, Subject)
-        .join(Classroom, Enrollment.class_id == Classroom.id)
-        .join(Subject, Classroom.subject_id == Subject.id)
-        .filter(Enrollment.student_id == student_id)
-        .all()
+@app.route('/submissions/<int:submission_id>/download')
+@login_required
+def download_submission(submission_id):
+    submission = Submission.query.get_or_404(submission_id)
+    
+    # Verify the requesting user has permission
+    if current_user.role == 'student' and submission.student.user_id != current_user.id:
+        abort(403)
+    elif current_user.role == 'teacher' and submission.assignment.author_id != current_user.id:
+        abort(403)
+    
+    if not submission.file_path or not os.path.exists(submission.file_path):
+        abort(404)
+    
+    return send_file(
+        submission.file_path,
+        as_attachment=True,
+        download_name=submission.get_file_name()
     )
 
-@app.route('/student/quizzes/<int:quiz_id>/start', methods=['GET', 'POST'])
-@login_required
-def student_start_quiz(quiz_id):
-    """Start a new quiz attempt"""
-    if not current_user.is_authenticated or not hasattr(current_user, 'student_profile'):
-        abort(403)
-        
-    quiz = Quiz.query.get_or_404(quiz_id)
-    
-    # Check if already has incomplete attempt
-    existing_attempt = QuizAttempt.query.filter_by(
-        quiz_id=quiz_id,
-        student_id=current_user.student_profile.id,
-        completed_at=None
-    ).first()
-    
-    if existing_attempt:
-        return redirect(url_for('student_take_quiz', attempt_id=existing_attempt.id))
-    
-    if request.method == 'POST':
-        # Create new attempt
-        new_attempt = QuizAttempt(
-            student_id=current_user.student_profile.id,
-            quiz_id=quiz_id,
-            started_at=datetime.now(timezone.utc)
-        )
-        db.session.add(new_attempt)
-        db.session.commit()
-        
-        return redirect(url_for('student_take_quiz', attempt_id=new_attempt.id))
-    
-    # For GET requests, show confirmation page
-    return render_template('student/quizzes/take_quiz.html',
-        quiz=quiz,
-        time_limit=quiz.time_limit)
+# ---------- STUNDENT GRADE AREA ----------
 
-@app.route('/student/quizzes/attempt/<int:attempt_id>', methods=['GET', 'POST'])
+@app.route('/my-grades')
 @login_required
-def student_take_quiz(attempt_id):
-    """Handle quiz taking and submission with unanswered question confirmation"""
-    if not current_user.is_authenticated or not hasattr(current_user, 'student_profile'):
-        abort(403)
-    
-    # Load attempt with all necessary relationships
-    attempt = QuizAttempt.query.options(
-        joinedload(QuizAttempt.quiz).joinedload(Quiz.questions),
-        joinedload(QuizAttempt.answers)
-    ).get_or_404(attempt_id)
-    
-    if attempt.student_id != current_user.student_profile.id:
-        abort(403)
-    
-    quiz = attempt.quiz
-    questions = sorted(quiz.questions, key=lambda q: q.position) if quiz.questions else []
-    
-    try:
-        current_index = request.args.get('q', 0, type=int)
-        current_index = max(0, min(current_index, len(questions) - 1)) if questions else 0
-    except ValueError:
-        current_index = 0
-    
-    # Check quiz availability
-    if quiz.due_date and quiz.due_date.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
-        flash('This quiz is no longer available', 'danger')
-        return redirect(url_for('student_view_quiz', quiz_id=quiz.id))
-    
-    if attempt.completed_at:
-        flash('You have already completed this quiz', 'info')
-        return redirect(url_for('student_quiz_results', attempt_id=attempt.id))
-    
-    # Calculate unanswered questions with proper defaults
-    answered_ids = {a.question_id for a in attempt.answers}
-    unanswered_count = len(questions) - len(answered_ids) if questions else 0
-    unanswered_questions = [q for q in questions if q.id not in answered_ids] if questions else []
-    
-    if request.method == 'POST':
-        try:
-            question_id = request.form.get('question_id', type=int)
-            if not question_id:
-                raise ValueError("Missing question ID")
-            
-            answer = request.form.get('answer', '')
-            current_question = next((q for q in questions if q.id == question_id), None)
-            
-            if not current_question:
-                flash('Invalid question', 'danger')
-                return redirect(url_for('student_take_quiz', attempt_id=attempt.id))
-            
-            if current_question.question_type == 'multiple_choice' and not answer:
-                flash('Please select an option', 'danger')
-                return redirect(url_for('student_take_quiz', attempt_id=attempt.id, q=current_index))
-            
-            # Save or update answer
-            existing_answer = next((a for a in attempt.answers if a.question_id == question_id), None)
-            if existing_answer:
-                existing_answer.selected_answer = answer
-                existing_answer.is_correct = current_question.is_correct_answer(answer)
-                existing_answer.updated_at = datetime.now(timezone.utc)
-            else:
-                new_answer = QuizAnswer(
-                    attempt_id=attempt.id,
-                    question_id=question_id,
-                    selected_answer=answer,
-                    is_correct=current_question.is_correct_answer(answer),
-                    answered_at=datetime.now(timezone.utc)
-                )
-                db.session.add(new_answer)
-            
-            db.session.commit()
-            
-            # Recalculate unanswered count after saving answer
-            answered_ids = {a.question_id for a in attempt.answers}
-            unanswered_count = len(questions) - len(answered_ids)
-            
-            # Handle quiz submission
-            if 'confirm-submit' in request.form:
-                attempt.completed_at = datetime.now(timezone.utc)
-                attempt.calculate_score()
-                db.session.commit()
-                return redirect(url_for('student_quiz_results', attempt_id=attempt.id))
-            
-            # Move to next question
-            next_index = current_index + 1
-            if next_index < len(questions):
-                return redirect(url_for('student_take_quiz', attempt_id=attempt.id, q=next_index))
-            return redirect(url_for('student_quiz_results', attempt_id=attempt.id))
-        
-        except Exception as e:
-            db.session.rollback()
-            flash('An error occurred while saving your answer', 'danger')
-            return redirect(url_for('student_take_quiz', attempt_id=attempt.id, q=current_index))
-    
-    # GET request handling
-    current_question = questions[current_index] if questions and current_index < len(questions) else None
-    if not current_question:
-        return redirect(url_for('student_quiz_results', attempt_id=attempt.id))
-    
-    # Calculate time remaining with proper defaults
-    time_remaining = 0
-    if quiz.time_limit and attempt.started_at:
-        try:
-            time_elapsed = (datetime.now(timezone.utc) - attempt.started_at.replace(tzinfo=timezone.utc)).total_seconds()
-            time_remaining = max(0, quiz.time_limit * 60 - time_elapsed)
-        except:
-            time_remaining = 0
-    
-    current_answer = next((a for a in attempt.answers if a.question_id == current_question.id), None)
-    
-    return render_template('student/quizzes/take_quiz.html',
-        attempt=attempt,
-        quiz=quiz,
-        questions=questions,
-        current_question=current_question,
-        current_index=current_index,
-        current_answer=current_answer,
-        time_remaining=time_remaining,
-        unanswered_count=unanswered_count,
-        unanswered_questions=unanswered_questions,
-        total_questions=len(questions),
-        progress=int((len(answered_ids) / len(questions)) * 100) if questions else 0
-    )
+def view_grades():
+    """Display all grades for the current student"""
+    if current_user.role != 'student':
+        flash('Access denied', 'danger')
+        return redirect(url_for('teacher_dashboard'))
 
-    
-@app.route('/student/quizzes/attempt/<int:attempt_id>', methods=['POST'])
-@login_required
-def handle_quiz_submission(attempt_id):
-    attempt = QuizAttempt.query.get_or_404(attempt_id)
-    
-    if 'confirm-submit' in request.form:
-        # Calculate score and mark as completed
-        attempt.completed_at = datetime.now(timezone.utc)
-        attempt.score = calculate_quiz_score(attempt)
-        db.session.commit()
-        
-        flash('Quiz submitted successfully!', 'success')
-        return redirect(url_for('student_quiz_results', attempt_id=attempt.id))
-    
-    flash('Quiz submission cancelled', 'info')
-    return redirect(url_for('student_take_quiz', attempt_id=attempt.id))
+    # Get assignments with submissions
+    assignments = Assignment.query.join(Submission).filter(
+        Submission.student_id == current_user.student_profile.id
+    ).options(
+        joinedload(Assignment.subject),
+        joinedload(Assignment.classroom)
+    ).all()
+
+    # Get completed quiz attempts with scores
+    quiz_attempts = QuizAttempt.query.filter(
+        QuizAttempt.student_id == current_user.student_profile.id,
+        QuizAttempt.completed_at.isnot(None),
+        QuizAttempt.score.isnot(None)
+    ).options(
+        joinedload(QuizAttempt.quiz).joinedload(Quiz.subject)
+    ).all()
+
+    # Calculate statistics
+    assignment_stats = {
+        'average': calculate_assignment_average(assignments),
+        'completed': len([a for a in assignments if a.submissions[0].score is not None]),
+        'total': len(assignments)
+    }
+
+    quiz_stats = {
+        'average': calculate_quiz_average(quiz_attempts),
+        'completed': len(quiz_attempts),
+        'passed': len([q for q in quiz_attempts if q.is_passed]),
+        'total': QuizAttempt.query.filter_by(student_id=current_user.student_profile.id).count()
+    }
+
+    return render_template('student/grades/view_grades.html',
+                         assignments=assignments,
+                         quiz_attempts=quiz_attempts,
+                         assignment_stats=assignment_stats,
+                         quiz_stats=quiz_stats)
+
+def calculate_assignment_average(assignments):
+    """Helper function to calculate assignment average"""
+    graded = [a.submissions[0].score for a in assignments if a.submissions[0].score is not None]
+    return round(sum(graded)/len(graded), 2) if graded else 0
+
+def calculate_quiz_average(quiz_attempts):
+    """Helper function to calculate quiz average"""
+    return round(sum(q.score for q in quiz_attempts)/len(quiz_attempts), 2) if quiz_attempts else 0
 
 
-@app.route('/student/quizzes/attempt/<int:attempt_id>/results')
+@app.route('/student/quiz_results/<int:attempt_id>')
 @login_required
-def student_quiz_results(attempt_id):
+def quiz_results(attempt_id):
     """Show quiz results"""
     if not current_user.is_authenticated or not hasattr(current_user, 'student_profile'):
         abort(403)
@@ -962,7 +1650,630 @@ def student_quiz_results(attempt_id):
         quiz=quiz,
         correct_count=correct_count,
         total_questions=total_questions,
-        percentage_score=percentage_score)
+        percentage_score=percentage_score
+    )
+
+
+
+# ------------- LIBRARY AREA -------------
+
+@app.route('/library')
+def library():
+    # Get filter parameters from request
+    resource_type = request.args.get('type', 'all')
+    subject_id = request.args.get('subject', None, type=int)
+    classroom_id = request.args.get('classroom', None, type=int)
+    search_query = request.args.get('q', '').strip()
+    
+    # Start building the query with eager loading
+    query = Resource.query.filter_by(is_approved=True)\
+                .options(db.joinedload(Resource.subject),
+                         db.joinedload(Resource.classroom),
+                         db.joinedload(Resource.teacher))
+    
+    # Apply filters
+    if resource_type != 'all':
+        query = query.filter_by(resource_type=resource_type)
+    if subject_id:
+        query = query.filter_by(subject_id=subject_id)
+    if classroom_id:
+        query = query.filter_by(classroom_id=classroom_id)
+    if search_query:
+        query = query.filter(
+            db.or_(
+                Resource.title.ilike(f'%{search_query}%'),
+                Resource.description.ilike(f'%{search_query}%')
+            )
+        )
+    
+    # Get sorting option
+    sort_by = request.args.get('sort', 'recent')
+    if sort_by == 'recent':
+        query = query.order_by(Resource.upload_date.desc())
+    elif sort_by == 'popular':
+        query = query.order_by(Resource.download_count.desc())
+    elif sort_by == 'views':
+        query = query.order_by(Resource.views_count.desc())
+    
+    # Pagination
+    page = request.args.get('page', 1, type=int)
+    per_page = 12
+    resources = query.paginate(page=page, per_page=per_page, error_out=False)
+    
+    # Debug output
+    app.logger.debug(f"Resources query: {query}")
+    app.logger.debug(f"Found {resources.total} resources")
+    
+    # Get filter options
+    subjects = Subject.query.order_by(Subject.name).all()
+    classrooms = Classroom.query.order_by(Classroom.class_name).all()
+    
+    return render_template('library/library.html', 
+                        resources=resources,
+                        subjects=subjects,
+                        classrooms=classrooms,
+                        current_type=resource_type,
+                        current_subject=subject_id,
+                        current_classroom=classroom_id,
+                        search_query=search_query,
+                        sort_by=sort_by)
+
+@app.route('/resources/download/<int:resource_id>')
+def download_library_resource(resource_id):
+    """Download a resource file with proper MIME type and security checks"""
+    resource = Resource.query.get_or_404(resource_id)
+    
+    # Security checks
+    if '..' in resource.file_path or resource.file_path.startswith('/'):
+        current_app.logger.warning(f"Potential path traversal attempt: {resource.file_path}")
+        abort(400, description="Invalid file path")
+    
+    # Increment download count
+    resource.download_count += 1
+    db.session.commit()
+    
+    # Build absolute file path
+    base_dir = current_app.config['UPLOAD_FOLDER']
+    file_dir = os.path.join(base_dir, os.path.dirname(resource.file_path))
+    filename = os.path.basename(resource.file_path)
+    full_path = os.path.join(file_dir, filename)
+    
+    # Verify file exists
+    if not os.path.exists(full_path):
+        current_app.logger.error(f"File not found. Expected at: {full_path}")
+        current_app.logger.error(f"Upload folder: {base_dir}")
+        current_app.logger.error(f"Resource path: {resource.file_path}")
+        abort(404, description="File not found")
+    
+    try:
+        return send_from_directory(
+            directory=file_dir,
+            path=filename,
+            as_attachment=True,
+            download_name=resource.file_name,
+            mimetype=get_mime_type(resource.file_name)
+        )
+    except Exception as e:
+        current_app.logger.error(f"Failed to send file: {str(e)}")
+        abort(500, description="File download failed")
+
+@app.route('/resources/view/<int:resource_id>')
+def view_library_resource(resource_id):
+    """View resource details with integrated preview functionality"""
+    resource = Resource.query.options(
+        db.joinedload(Resource.subject),
+        db.joinedload(Resource.classroom),
+        db.joinedload(Resource.teacher)
+    ).get_or_404(resource_id)
+    
+    # Increment view count
+    resource.views_count += 1
+    db.session.commit()
+    
+    # Get comments
+    comments = ResourceComment.query.filter_by(resource_id=resource_id)\
+                .order_by(ResourceComment.created_at.desc()).all()
+    
+    # Determine preview capability
+    preview_config = {
+        'can_preview': False,
+        'preview_type': None,
+        'preview_url': None,
+        'download_url': url_for('download_library_resource', resource_id=resource.id)
+    }
+    
+    # Set preview options based on file type
+    if resource.file_type.lower() == 'pdf':
+        preview_config.update({
+            'can_preview': True,
+            'preview_type': 'pdf',
+            'preview_url': url_for('download_library_resource', resource_id=resource.id) + '#toolbar=0'
+        })
+    elif resource.file_type.lower() in ['jpg', 'jpeg', 'png', 'gif']:
+        preview_config.update({
+            'can_preview': True,
+            'preview_type': 'image',
+            'preview_url': url_for('download_library_resource', resource_id=resource.id)
+        })
+    elif resource.file_type.lower() in ['mp4', 'webm', 'ogg']:
+        preview_config.update({
+            'can_preview': True,
+            'preview_type': 'video',
+            'preview_url': url_for('download_library_resource', resource_id=resource.id)
+        })
+    elif resource.file_type.lower() in ['mp3', 'wav', 'ogg']:
+        preview_config.update({
+            'can_preview': True,
+            'preview_type': 'audio',
+            'preview_url': url_for('download_library_resource', resource_id=resource.id)
+        })
+    
+    return render_template('library/view_library_resource.html',
+                         resource=resource,
+                         comments=comments,
+                         preview=preview_config)
+
+
+# STUDENT QUIZ AREA - IMPROVED VERSION
+
+# Enhanced utility functions
+def get_student_quiz_data(student_id):
+    """Get all quiz-related data for a student in one optimized query"""
+    return (
+        db.session.query(Enrollment, Classroom, Subject)
+        .join(Classroom, Enrollment.class_id == Classroom.id)
+        .join(Subject, Classroom.subject_id == Subject.id)
+        .filter(Enrollment.student_id == student_id)
+        .all()
+    )
+
+@app.route('/student/quizzes/<int:quiz_id>/start', methods=['GET', 'POST'])
+@login_required
+def student_start_quiz(quiz_id):
+    """Start a quiz with timezone awareness"""
+    if not current_user.is_authenticated or not hasattr(current_user, 'student_profile'):
+        abort(403)
+        
+    quiz = Quiz.query.get_or_404(quiz_id)
+    user_tz = getattr(current_user, 'timezone', ZoneInfo(APP_TIMEZONE))
+    current_utc = now_utc()
+    
+    # Convert quiz times to local timezone for display
+    if quiz.due_date:
+        if isinstance(user_tz, str):
+            user_tz = ZoneInfo(user_tz)
+        quiz.due_date_local = quiz.due_date.astimezone(user_tz)
+    
+    # Check if already has incomplete attempt
+    existing_attempt = QuizAttempt.query.filter_by(
+        quiz_id=quiz_id,
+        student_id=current_user.student_profile.id,
+        completed_at=None
+    ).first()
+    
+    if existing_attempt:
+        return redirect(url_for('student_take_quiz', attempt_id=existing_attempt.id))
+    
+    if request.method == 'POST':
+        # Create new attempt with UTC timestamp
+        new_attempt = QuizAttempt(
+            student_id=current_user.student_profile.id,
+            quiz_id=quiz_id,
+            started_at=current_utc
+        )
+        db.session.add(new_attempt)
+        db.session.commit()
+        
+        return redirect(url_for('student_take_quiz', attempt_id=new_attempt.id))
+    
+    # For GET requests, show confirmation page with local times
+    return render_template('student/quizzes/start_quiz.html',
+        quiz=quiz,
+        time_limit=quiz.time_limit,
+        now_local=current_utc.astimezone(user_tz)
+    )
+
+
+# In your routes.py or views.py
+@app.route('/student/quizzes/attempt/<int:attempt_id>', methods=['GET', 'POST'])
+@login_required
+def student_take_quiz(attempt_id):
+    """Handle the quiz taking process including answer submission and navigation"""
+    
+    # 1. Authentication and Authorization
+    if not current_user.is_authenticated or not hasattr(current_user, 'student_profile'):
+        abort(403)  # Forbidden if not logged in or not a student
+    
+    # 2. Load Quiz Attempt Data
+    attempt = QuizAttempt.query.options(
+        joinedload(QuizAttempt.quiz).joinedload(Quiz.questions),
+        joinedload(QuizAttempt.answers)
+    ).get_or_404(attempt_id)
+
+    if attempt.student_id != current_user.student_profile.id:
+        abort(403)  # Forbidden if not the student's attempt
+
+    quiz = attempt.quiz
+    questions = sorted(quiz.questions, key=lambda q: q.position) if quiz.questions else []
+    total_questions = len(questions)
+
+    # 3. Quiz Availability Checks
+    if quiz.due_date and quiz.due_date.replace(tzinfo=timezone.utc) < datetime.now(timezone.utc):
+        flash('This quiz is no longer available.', 'danger')
+        return redirect(url_for('student_view_quiz', quiz_id=quiz.id))
+
+    if attempt.completed_at:
+        flash('You have already completed this quiz.', 'info')
+        return redirect(url_for('student_quiz_results', attempt_id=attempt.id))
+
+    # 4. Handle Current Question Index
+    try:
+        current_index = int(request.args.get('q', 0))
+        current_index = max(0, min(current_index, total_questions - 1))  # Clamp between 0 and max index
+    except (ValueError, TypeError):
+        current_index = 0
+
+    # 5. Process Form Submissions (POST requests)
+    if request.method == 'POST':
+        return handle_quiz_submission(attempt_id, attempt, questions, current_index, total_questions)
+
+    # 6. Display Current Question (GET requests)
+    return display_quiz_question(attempt, quiz, questions, current_index, total_questions)
+
+
+def handle_quiz_submission(attempt_id, attempt, questions, current_index, total_questions):
+    """Process the submission of a quiz answer and handle navigation"""
+    
+    # 1. Get form data
+    question_id = request.form.get('question_id', type=int)
+    answer = request.form.get('answer', '').strip()
+    current_index = request.form.get('current_index', type=int, default=current_index)
+
+    # 2. Validate current question
+    current_question = next((q for q in questions if q.id == question_id), None)
+    if not current_question:
+        flash('Invalid question.', 'danger')
+        return redirect(url_for('student_take_quiz', attempt_id=attempt_id, q=current_index))
+
+    # 3. Validate answer exists (unless question is optional)
+    if not answer and not current_question.is_optional:
+        flash('Please provide an answer.', 'danger')
+        return redirect(url_for('student_take_quiz', attempt_id=attempt_id, q=current_index))
+
+    # 4. Save the answer if provided
+    if answer or current_question.is_optional:
+        save_quiz_answer(attempt, current_question, answer)
+
+    # 5. Handle final submission
+    if 'confirm-submit' in request.form:
+        return handle_quiz_completion(attempt_id, attempt, current_index, total_questions)
+
+    # 6. Navigate to next question or stay on current if at end
+    next_index = current_index + 1
+    return redirect(url_for('student_take_quiz', 
+        attempt_id=attempt_id, 
+        q=next_index if next_index < total_questions else current_index
+    ))
+
+
+def save_quiz_answer(attempt, question, answer):
+    """Save or update a quiz answer with proper validation"""
+    
+    # 1. Find existing answer or create new
+    existing_answer = next((a for a in attempt.answers if a.question_id == question.id), None)
+    now = datetime.now(timezone.utc)
+    
+    # 2. Determine if answer is correct
+    is_correct = check_answer_correctness(question, answer)
+    
+    # 3. Update existing answer or create new one
+    if existing_answer:
+        update_existing_answer(existing_answer, question, answer, is_correct, now)
+    else:
+        create_new_answer(attempt, question, answer, is_correct, now)
+    
+    db.session.commit()
+
+
+def check_answer_correctness(question, answer):
+    """Determine if the submitted answer matches the correct answer"""
+    
+    # Handle empty answers
+    if not answer:
+        return False
+
+    # Multiple Choice Questions
+    if question.question_type == 'multiple_choice':
+        # Handle dictionary format options (e.g., {'A': 'Option 1', 'B': 'Option 2'})
+        if isinstance(question.options, dict):
+            return str(answer).strip().upper() == str(question.correct_option).strip().upper()
+        
+        # Handle list format options (e.g., ['Option 1', 'Option 2'])
+        elif isinstance(question.options, list):
+            try:
+                selected_index = int(answer)
+                if 0 <= selected_index < len(question.options):
+                    selected_text = str(question.options[selected_index]).strip().upper()
+                    correct_text = str(question.correct_option).strip().upper()
+                    return selected_text == correct_text
+            except (ValueError, IndexError):
+                return False
+    
+    # True/False Questions
+    elif question.question_type == 'true_false':
+        user_answer = str(answer).strip().upper()
+        correct_answer = str(question.correct_option).strip().upper()
+        return user_answer == correct_answer
+    
+    # Short Answer Questions
+    elif question.question_type == 'short_answer':
+        user_answer = str(answer).strip().lower()
+        # Handle multiple correct answers separated by pipes (e.g., "Paris|paris|PARIS")
+        correct_answers = [a.strip().lower() for a in str(question.correct_option).split('|')]
+        return user_answer in correct_answers
+    
+    return False
+
+
+def update_existing_answer(answer, question, user_answer, is_correct, timestamp):
+    """Update an existing answer record"""
+    if question.question_type == 'short_answer':
+        answer.answer_text = str(user_answer).strip()
+        answer.selected_answer = None
+    else:
+        answer.selected_answer = str(user_answer).strip()
+        answer.answer_text = None
+    
+    answer.is_correct = is_correct
+    answer.updated_at = timestamp
+
+
+def create_new_answer(attempt, question, answer, is_correct, timestamp):
+    """Create a new answer record"""
+    new_answer = QuizAnswer(
+        attempt_id=attempt.id,
+        question_id=question.id,
+        selected_answer=str(answer).strip() if question.question_type != 'short_answer' else None,
+        answer_text=str(answer).strip() if question.question_type == 'short_answer' else None,
+        is_correct=is_correct,
+        answered_at=timestamp,
+        created_at=timestamp
+    )
+    db.session.add(new_answer)
+
+
+def handle_quiz_completion(attempt_id, attempt, current_index, total_questions):
+    """Finalize the quiz attempt and show results"""
+    
+    # 1. Check if all questions are answered
+    answered_questions = {a.question_id for a in attempt.answers if a.has_answer}
+    unanswered_count = total_questions - len(answered_questions)
+    
+    if unanswered_count > 0:
+        flash(f'You have {unanswered_count} unanswered question(s).', 'warning')
+        return redirect(url_for('student_take_quiz', attempt_id=attempt_id, q=current_index))
+    
+    # 2. Mark attempt as completed
+    attempt.completed_at = datetime.now(timezone.utc)
+    attempt.calculate_score()  # Assuming this method exists to calculate total score
+    db.session.commit()
+    
+    # 3. Redirect to results page
+    return redirect(url_for('student_quiz_results', attempt_id=attempt_id))
+
+
+def display_quiz_question(attempt, quiz, questions, current_index, total_questions):
+    """Render the quiz question page with all necessary context"""
+    
+    current_question = questions[current_index]
+    current_answer = next((a for a in attempt.answers if a.question_id == current_question.id), None)
+
+    # Calculate progress metrics
+    answered_ids = {a.question_id for a in attempt.answers if a.has_answer}
+    unanswered_count = total_questions - len(answered_ids)
+    
+    time_remaining = calculate_time_remaining(quiz, attempt)  # Assuming this helper exists
+    progress = int((len(answered_ids) / total_questions) * 100) if total_questions else 0
+
+    return render_template('student/quizzes/take_quiz.html',
+        attempt=attempt,
+        quiz=quiz,
+        questions=questions,
+        current_question=current_question,
+        current_index=current_index,
+        current_answer=current_answer,
+        time_remaining=time_remaining,
+        unanswered_count=unanswered_count,
+        total_questions=total_questions,
+        progress=progress
+    )
+
+def calculate_time_remaining(quiz, attempt):
+    """Calculate remaining time for timed quizzes"""
+    if not quiz.time_limit or not attempt.started_at:
+        return 0
+    
+    elapsed = (datetime.now(timezone.utc) - attempt.started_at.replace(tzinfo=timezone.utc)).total_seconds()
+    return max(0, quiz.time_limit * 60 - elapsed)
+
+
+@app.route('/student/quizzes')
+@login_required
+def student_quizzes():
+    """List quizzes for student with proper timezone handling and attempt status"""
+    try:
+        status_filter = request.args.get('status', 'upcoming')
+        subject_id = request.args.get('subject_id', type=int)
+        now_utc = datetime.now(timezone.utc)
+
+        # Get enrolled classes
+        enrollments = Enrollment.query.filter_by(
+            student_id=current_user.student_profile.id,
+            is_dropped=False
+        ).all()
+
+        if not enrollments:
+            return render_template('student/quizzes/list.html',
+                                quizzes=[],
+                                subjects=[],
+                                status_filter=status_filter,
+                                selected_subject=subject_id,
+                                now=now_utc)
+
+        class_ids = [e.class_id for e in enrollments]
+
+        # Base query
+        query = Quiz.query.options(
+            joinedload(Quiz.classroom).joinedload(Classroom.subject),
+            joinedload(Quiz.attempts)
+        ).filter(
+            Quiz.classroom_id.in_(class_ids),
+            Quiz.status == 'published',
+            Quiz.deleted_at.is_(None)
+        )
+
+        # Apply filters based on status
+        if status_filter == 'upcoming':
+            # Show quizzes that are not completed and not expired
+            query = query.filter(
+                or_(
+                    Quiz.due_date.is_(None),
+                    Quiz.due_date > now_utc.replace(tzinfo=None)
+                )
+            ).filter(
+                ~exists().where(and_(
+                    QuizAttempt.quiz_id == Quiz.id,
+                    QuizAttempt.student_id == current_user.student_profile.id,
+                    QuizAttempt.completed_at.isnot(None)
+                ))
+            ).order_by(Quiz.due_date.asc())
+
+        elif status_filter == 'completed':
+            # Show only completed quizzes (most recent first)
+            query = query.join(QuizAttempt).filter(
+                QuizAttempt.student_id == current_user.student_profile.id,
+                QuizAttempt.completed_at.isnot(None)
+            ).order_by(QuizAttempt.completed_at.desc()).limit(5)
+
+        elif status_filter == 'expired':
+            # Show expired quizzes (most recent due date first)
+            query = query.filter(
+                Quiz.due_date <= now_utc.replace(tzinfo=None),
+                ~exists().where(and_(
+                    QuizAttempt.quiz_id == Quiz.id,
+                    QuizAttempt.student_id == current_user.student_profile.id,
+                    QuizAttempt.completed_at.isnot(None)
+                ))
+            ).order_by(Quiz.due_date.desc()).limit(5)
+
+        if subject_id:
+            query = query.join(Classroom).filter(Classroom.subject_id == subject_id)
+
+        quizzes = query.all()
+
+        # Convert all due dates to UTC for template display
+        for quiz in quizzes:
+            if quiz.due_date and not quiz.due_date.tzinfo:
+                quiz.due_date = quiz.due_date.replace(tzinfo=timezone.utc)
+
+        subjects = Subject.query.join(Classroom).filter(
+            Classroom.id.in_(class_ids)
+        ).distinct().all()
+
+        return render_template('student/quizzes/list.html',
+                            quizzes=quizzes,
+                            subjects=subjects,
+                            status_filter=status_filter,
+                            selected_subject=subject_id,
+                            now=now_utc)
+
+    except Exception as e:
+        current_app.logger.error(f"Error loading quizzes: {str(e)}", exc_info=True)
+        flash('Error loading quizzes. Please try again.', 'danger')
+        return redirect(url_for('student_dashboard'))
+    
+
+@app.route('/student/quizzes/<int:quiz_id>')
+@login_required
+def student_view_quiz(quiz_id):
+    """Show details for a specific quiz"""
+    try:
+        quiz = Quiz.query.get_or_404(quiz_id)
+        now = datetime.now(timezone.utc)
+        
+        # Verify student is enrolled
+        enrollment = Enrollment.query.filter_by(
+            student_id=current_user.student_profile.id,
+            class_id=quiz.classroom_id,
+            is_dropped=False
+        ).first_or_404()
+
+        # Check for existing attempt
+        attempt = QuizAttempt.query.filter_by(
+            student_id=current_user.student_profile.id,
+            quiz_id=quiz.id
+        ).order_by(QuizAttempt.created_at.desc()).first()
+
+        # Ensure quiz.due_date is timezone-aware if it exists
+        if quiz.due_date and quiz.due_date.tzinfo is None:
+            quiz.due_date = quiz.due_date.replace(tzinfo=timezone.utc)
+
+        return render_template('student/quizzes/detail.html',
+                            quiz=quiz,
+                            attempt=attempt,
+                            now=now)
+
+    except Exception as e:
+        current_app.logger.error(f"Error loading quiz: {str(e)}")
+        flash('Error loading quiz details', 'danger')
+        return redirect(url_for('student_quizzes'))
+    
+
+@app.route('/student/quizzes/attempt/<int:attempt_id>/results')
+@login_required
+def student_quiz_results(attempt_id):
+    """Show quiz results"""
+    if not current_user.is_authenticated or not hasattr(current_user, 'student_profile'):
+        abort(403)
+    
+    attempt = QuizAttempt.query.options(
+        joinedload(QuizAttempt.quiz).joinedload(Quiz.questions),
+        joinedload(QuizAttempt.answers).joinedload(QuizAnswer.question)  # Ensure question is loaded for each answer
+    ).get_or_404(attempt_id)
+
+    if attempt.student_id != current_user.student_profile.id:
+        abort(403)
+
+    quiz = attempt.quiz
+    
+    # Calculate score by comparing each answer with its question's correct answer
+    correct_count = 0
+    for answer in attempt.answers:
+        question = answer.question
+        if question.question_type == 'multiple_choice':
+            answer.is_correct = (answer.selected_answer == question.correct_option)
+        elif question.question_type == 'true_false':
+            answer.is_correct = (answer.selected_answer == question.correct_option)
+        elif question.question_type == 'short_answer':
+            # For short answers, do case-insensitive comparison after stripping whitespace
+            correct_answers = [a.strip().lower() for a in question.correct_option.split('|')]
+            answer.is_correct = (answer.answer_text and 
+                                str(answer.answer_text).strip().lower() in correct_answers)
+        
+        if answer.is_correct:
+            correct_count += 1
+    
+    total_questions = len(quiz.questions)
+    percentage_score = (correct_count / total_questions * 100) if total_questions > 0 else 0
+
+    return render_template('student/quizzes/results.html',
+        attempt=attempt,
+        quiz=quiz,
+        correct_count=correct_count,
+        total_questions=total_questions,
+        percentage_score=percentage_score
+    )
+
 
 # STUDENT MESSAGE AREA
 
@@ -1015,35 +2326,6 @@ def student_messages():
         is_read=is_read
     )
 
-@app.route('/student/messages/<int:message_id>')
-@login_required
-def student_view_message(message_id):
-    if current_user.role != 'student' or not current_user.student_profile:
-        abort(403)
-
-    student = current_user.student_profile
-    message = Message.query.options(
-        joinedload(Message.sender_user),
-        joinedload(Message.classroom),
-        joinedload(Message.replies).joinedload(Message.sender_user)
-    ).get_or_404(message_id)
-    
-    # Verify access
-    if (message.recipient_id and message.recipient_id != student.id) or \
-       (message.class_id and message.class_id not in [e.class_id for e in student.enrollments]):
-        abort(403)
-    
-    # Mark as read when viewed
-    if not message.is_read and message.recipient_id == student.id:
-        message.is_read = True
-        db.session.commit()
-    
-    thread = message.get_thread()
-    
-    return render_template('student/messages/view.html',
-        message=message,
-        thread=thread
-    )
 
 @app.route('/student/messages/<int:message_id>/reply', methods=['POST'])
 @login_required
@@ -1126,7 +2408,7 @@ def student_new_message():
     classrooms = Classroom.query.filter(
         Classroom.id.in_(class_ids)
     ).options(
-        joinedload(Classroom.teacher).joinedload(Teacher.user)
+        joinedload(Classroom.teacher).joinedload(Teacher.username)
     ).all()
     
     return render_template('student/messages/new.html',
@@ -1146,15 +2428,19 @@ def teacher_dashboard():
     classes = [{
         'classroom': classroom,
         'students': Enrollment.query.filter_by(class_id=classroom.id).all(),
-        'quizzes': Quiz.query.filter_by(class_id=classroom.id).all()  # Add this line if you have quizzes
+        'quizzes': Quiz.query.filter_by(classroom_id=classroom.id).all()  # Add this line if you have quizzes
     } for classroom in classrooms]
+
+    messages = Message.query.filter_by(sender_id=current_user.id).order_by(Message.created_at.desc()).all()
 
     return render_template(
         'teacher_dashboard.html',
         username=current_user.username,
         email=current_user.email,
-        classes=classes
+        classes=classes,
+        messages=messages
     )
+
 
 @app.route('/admin_dashboard')
 @login_required
@@ -1221,200 +2507,1318 @@ def sanitize_input(input_string):
 @app.route('/video_conference')
 @login_required
 def video_conference():
-    """Video conference route."""
-    classes = Classroom.query.all()
-    return render_template('video_conference.html', classes=classes, csrf_token=session.get('_csrf_token'))
+    """Enhanced video conference management for teachers"""
+    # Check if user is a teacher
+    if current_user.role != 'teacher':
+        return render_template('error.html', 
+            message="Access Denied",
+            error_details="Only teachers can access video conference features"), 403
+    
+    try:
+        # Get all classes the teacher can access
+        classes = Classroom.query.filter_by(teacher_id=current_user.id).all()
+        
+        # Get sessions with proper timezone handling
+        sessions = OnlineSession.query.filter_by(creator_id=current_user.id)\
+            .order_by(OnlineSession.start_time.desc())\
+            .limit(20).all()  # Limit to 20 most recent sessions
+
+        now_utc = datetime.now(timezone.utc)
+        
+        # Process sessions with timezone awareness
+        processed_sessions = []
+        for session in sessions:
+            try:
+                # Ensure timezone awareness
+                if not session.start_time.tzinfo:
+                    session.start_time = session.start_time.replace(tzinfo=timezone.utc)
+                if session.end_time and not session.end_time.tzinfo:
+                    session.end_time = session.end_time.replace(tzinfo=timezone.utc)
+                
+                # Calculate local times
+                tz = ZoneInfo(session.original_timezone or current_user.timezone or 'Africa/Dar_es_Salaam')
+                session.start_local = session.start_time.astimezone(tz)
+                session.end_local = session.end_time.astimezone(tz) if session.end_time else None
+                
+                # Determine status
+                session.status = 'upcoming' if now_utc < session.start_time else \
+                               'live' if now_utc <= session.end_time else \
+                               'ended'
+                
+                processed_sessions.append(session)
+            except Exception as e:
+                current_app.logger.error(f"Error processing session {session.id}: {e}")
+                continue
+
+        # Get current times for display
+        server_time = now_utc.strftime('%b %d, %Y %H:%M:%S UTC')
+        dar_time = now_utc.astimezone(ZoneInfo("Africa/Dar_es_Salaam"))
+        dar_time_str = dar_time.strftime('%b %d, %Y %H:%M:%S EAT')
+
+        return render_template(
+            'video_conference.html',
+            classes=classes,
+            sessions=processed_sessions,
+            now_utc=now_utc,
+            server_time=server_time,
+            dar_time_str=dar_time_str,
+            csrf_token=flask_session.get('_csrf_token'),
+            user_timezone=current_user.timezone or 'Africa/Dar_es_Salaam'
+        )
+
+    except Exception as e:
+        current_app.logger.error(f"Video conference error: {e}", exc_info=True)
+        return render_template('error.html', 
+            message="Failed to load session management",
+            error_details=str(e)), 500
 
 @app.route('/start_session', methods=['POST'])
 @login_required
 def start_session():
+    """Create a new online session with robust timezone handling"""
     if current_user.role != 'teacher':
         return jsonify({'success': False, 'error': 'Only teachers can create sessions'}), 403
 
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'Missing request data'}), 400
+
     try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'success': False, 'error': 'No data provided'}), 400
-
-        # Extract and validate inputs
+        # Extract and validate data
         class_id = data.get('class_id')
-        session_name = sanitize_input(data.get('session_name', '').strip())
-        duration_hours = float(data.get('duration', 0))
-        start_time_str = data.get('start_time')
-        end_time_str = data.get('end_time')
-        user_timezone = data.get('timezone', current_user.timezone or 'UTC')
+        session_name = (data.get('session_name') or '').strip()
+        user_timezone = data.get('timezone') or current_user.timezone or 'Africa/Dar_es_Salaam'
 
-        # Validate class exists
+        # Validate class existence
         classroom = Classroom.query.get(class_id)
         if not classroom:
             return jsonify({'success': False, 'error': 'Class not found'}), 404
 
         # Validate session name
-        if not session_name or len(session_name) > 100:
-            return jsonify({'success': False, 'error': 'Session name must be 1-100 characters'}), 400
+        if not (1 <= len(session_name) <= 100):
+            return jsonify({'success': False, 'error': 'Session name must be between 1 and 100 characters'}), 400
 
         # Parse and validate times
         try:
-            timezone_obj = ZoneInfo(user_timezone)
+            tz = ZoneInfo(user_timezone)
             
-            # Parse start and end times
-            start_time = datetime.fromisoformat(start_time_str)
-            end_time = datetime.fromisoformat(end_time_str)
-            
-            # Ensure times are timezone-aware
+            # Parse start time
+            start_time = datetime.fromisoformat(data['start_time'])
             if start_time.tzinfo is None:
-                start_time = timezone_obj.localize(start_time)
+                start_time = start_time.replace(tzinfo=tz)
+            start_time_utc = start_time.astimezone(timezone.utc)
+
+            # Parse end time
+            end_time = datetime.fromisoformat(data['end_time'])
             if end_time.tzinfo is None:
-                end_time = timezone_obj.localize(end_time)
-                
-            # Convert to UTC for storage
-            start_time_utc = start_time.astimezone(ZoneInfo('UTC'))
-            end_time_utc = end_time.astimezone(ZoneInfo('UTC'))
-            
-            # Validate time range
+                end_time = end_time.replace(tzinfo=tz)
+            end_time_utc = end_time.astimezone(timezone.utc)
+
+            # Validate time logic
             if end_time_utc <= start_time_utc:
                 return jsonify({'success': False, 'error': 'End time must be after start time'}), 400
-                
-            # Calculate duration from times
-            calculated_duration = (end_time_utc - start_time_utc).total_seconds() / 3600
-            if abs(calculated_duration - duration_hours) > 0.1:
-                return jsonify({'success': False, 'error': 'Duration does not match time range'}), 400
 
-            if calculated_duration > 8:
+            duration_minutes = int((end_time_utc - start_time_utc).total_seconds() / 60)
+            if duration_minutes > 480:
                 return jsonify({'success': False, 'error': 'Session cannot exceed 8 hours'}), 400
 
         except Exception as e:
-            current_app.logger.error(f"Error occurred: {str(e)}", exc_info=True)
-            flash('An error occurred while processing your request.', 'danger')
-            return jsonify({'success': False, 'error': 'Internal server error'}), 500
-            current_app.logger.error(f"Error occurred: {str(e)}", exc_info=True)
-            flash('An error occurred while processing your request.', 'danger')
-            return jsonify({
-                'success': False, 
-                'error': f'Invalid time data: {str(e)}'
-            }), 400
+            current_app.logger.error(f"Time parsing error: {e}")
+            return jsonify({'success': False, 'error': f'Invalid time data: {str(e)}'}), 400
 
-        # Generate room ID and links
+        # Create new session
         room_id = f"class-{class_id}-{uuid.uuid4().hex[:6]}"
-        session_link = f"{request.host_url.rstrip('/')}/join/{room_id}"
-        
-        # Create session in database
-        session = OnlineSession(
+        new_session = OnlineSession(
             room_id=room_id,
             session_name=session_name,
-            session_link=session_link,
+            session_link=f"{request.host_url.rstrip('/')}/join/{room_id}",
             class_id=class_id,
             creator_id=current_user.id,
             start_time=start_time_utc,
             end_time=end_time_utc,
             original_timezone=user_timezone,
-            timezone=user_timezone,
-            duration_minutes=int(calculated_duration * 60),
+            duration_minutes=duration_minutes,
             status='scheduled',
-            video_url=session_link
+            video_url=f"{request.host_url.rstrip('/')}/join/{room_id}"
         )
 
-        db.session.add(session)
+        db.session.add(new_session)
         db.session.commit()
-
-        # Prepare response data
-        def format_datetime(dt, tz):
-            return dt.astimezone(ZoneInfo(tz)).strftime('%Y-%m-%d %H:%M:%S')
-
-        creator_time = f"{format_datetime(start_time_utc, user_timezone)} to {format_datetime(end_time_utc, user_timezone)}"
-        utc_time = f"{start_time_utc.strftime('%Y-%m-%d %H:%M:%S')} to {end_time_utc.strftime('%Y-%m-%d %H:%M:%S')}"
 
         return jsonify({
             'success': True,
-            'session': {
-                'room_id': room_id,
-                'name': session_name,
-                'link': session_link,
-                'video_url': session_link,
-                'original_timezone': user_timezone,
-                'start_utc': start_time_utc.isoformat(),
-                'end_utc': end_time_utc.isoformat(),
-                'duration': calculated_duration,
-                'class_id': class_id,
-                'time_info': {
-                    'creator': creator_time + f" ({user_timezone})",
-                    'utc': utc_time + " (UTC)"
-                }
-            }
+            'session': new_session.to_dict()
         })
 
     except Exception as e:
         db.session.rollback()
-        current_app.logger.error(f"Session creation failed: {str(e)}", exc_info=True)
-        return jsonify({
-            'success': False, 
-            'error': 'Internal server error'
-        }), 500
-    
-# Join Session Page
-@app.route('/join')
-@login_required
-def join():
-    """Redirect to student dashboard if no specific session is specified"""
-    flash('Please select a session to join', 'info')
-    return redirect(url_for('student_dashboard'))
+        current_app.logger.error(f"Session creation failed: {e}")
+        return jsonify({'success': False, 'error': 'Internal server error'}), 500
 
+
+def parse_and_localize(iso_str, tz):
+    """Parse ISO datetime string and localize if naive."""
+    dt = datetime.fromisoformat(iso_str)
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=tz)
+    return dt.astimezone(tz)
+
+# ... (other imports)
 @app.route('/student_sessions')
 @login_required
 def student_sessions():
+    """Display all upcoming and current sessions for the student"""
     if current_user.role != 'student':
         abort(403)
-    
-    # Get all sessions for classes the student is enrolled in
-    enrolled_class_ids = [e.class_id for e in current_user.student_profile.enrollments]
-    active_sessions = OnlineSession.query.filter(
-        OnlineSession.class_id.in_(enrolled_class_ids),
-        OnlineSession.end_time > datetime.now(timezone.utc)  # Only future/current sessions
-    ).join(Classroom).join(User, OnlineSession.creator_id == User.id).add_columns(
-        OnlineSession,
-        Classroom.class_name,
-        User.username.label('instructor')
-    ).order_by(OnlineSession.start_time.asc()).all()
 
-    return render_template('student_sessions.html',
-                         active_sessions=active_sessions,
-                         current_time=datetime.now(timezone.utc))
+    try:
+        current_utc = datetime.now(timezone.utc)
+        local_tz = ZoneInfo(current_user.timezone or 'Africa/Dar_es_Salaam')
+        current_local = current_utc.astimezone(local_tz)
 
-# Join Session Route for Student
+        # Get enrolled class IDs
+        enrolled_class_ids = [e.class_id for e in current_user.student_profile.enrollments] or []
+
+        if not enrolled_class_ids:
+            return render_template('student/student_sessions.html',
+                                active_sessions=[],
+                                now=current_local,
+                                timezone=str(local_tz),
+                                no_classes=True)
+
+        # Query sessions with proper validation
+        sessions = (db.session.query(OnlineSession)
+            .join(Classroom)
+            .join(User, OnlineSession.creator_id == User.id)
+            .filter(
+                OnlineSession.class_id.in_(enrolled_class_ids),
+                OnlineSession.end_time >= current_utc - timedelta(days=30)
+            )
+            .order_by(OnlineSession.start_time.asc())
+            .all())
+
+        processed_sessions = []
+        for session in sessions:
+            try:
+                start_local = session.start_time.astimezone(local_tz)
+                end_local = session.end_time.astimezone(local_tz) if session.end_time else None
+                
+                processed_sessions.append({
+                    'id': session.id,
+                    'class_name': session.classroom.class_name,
+                    'session_name': session.session_name or "Untitled Session",
+                    'instructor': session.creator.username,
+                    'start_time': start_local,
+                    'end_time': end_local,
+                    'room_id': session.room_id,
+                    'recording_url': session.recording_url,
+                    'status': session.get_status(current_utc),
+                    'is_valid': session.is_valid,
+                    'time_until': (start_local - current_local) if session.get_status() == 'upcoming' else None
+                })
+            except Exception as e:
+                current_app.logger.error(f"Error processing session {session.id}: {e}")
+                continue
+
+        return render_template('student/student_sessions.html',
+                            active_sessions=processed_sessions,
+                            now=current_local,
+                            timezone=str(local_tz),
+                            no_classes=False)
+
+    except Exception as e:
+        current_app.logger.error(f"student_sessions error: {e}")
+        return render_template('error.html', 
+                            message="Error loading sessions",
+                            error=str(e)), 500
+
+
 @app.route('/join_session/<room_id>')
 @login_required
 def join_session(room_id):
-    session = OnlineSession.query.filter_by(room_id=room_id).first_or_404()
-    
-    # Verify student is enrolled in the class
-    if current_user.role == 'student':
-        enrollment = Enrollment.query.filter_by(
-            student_id=current_user.student_profile.id,
-            class_id=session.class_id
+    """Handle student joining a session with proper timezone handling and enhanced validation"""
+    try:
+        # Get session details with proper locking to prevent race conditions
+        session = OnlineSession.query.filter_by(room_id=room_id).with_for_update().first_or_404()
+        
+        # Enhanced enrollment check for students
+        if current_user.role == 'student':
+            enrollment_check = db.session.query(
+                exists().where(
+                    and_(
+                        Enrollment.class_id == session.class_id,
+                        Enrollment.student_id == current_user.student_profile.id,
+                        Enrollment.is_dropped == False
+                    )
+                )
+            ).scalar()
+            
+            if not enrollment_check:
+                flash('You are not enrolled in this class or your enrollment is inactive', 'danger')
+                return redirect(url_for('student_dashboard'))
+
+        # Get current time in UTC (timezone-aware)
+        now_utc = datetime.now(timezone.utc)
+        
+        # Ensure session times are timezone-aware (defensive programming)
+        if session.start_time and not session.start_time.tzinfo:
+            session.start_time = session.start_time.replace(tzinfo=timezone.utc)
+        if session.end_time and not session.end_time.tzinfo:
+            session.end_time = session.end_time.replace(tzinfo=timezone.utc)
+
+        # Calculate local times for display using the session's original timezone
+        try:
+            tz = ZoneInfo(session.original_timezone or 'Africa/Dar_es_Salaam')
+        except Exception:
+            tz = ZoneInfo('Africa/Dar_es_Salaam')  # Fallback to default
+            
+        start_local = session.start_time.astimezone(tz) if session.start_time else None
+        end_local = session.end_time.astimezone(tz) if session.end_time else None
+
+        # Prepare context data with additional session information
+        context = {
+            'session': session,
+            'now_utc': now_utc,
+            'random': random.randint(1000, 9999),
+            'csrf_token': generate_csrf(),
+            'start_local': start_local,
+            'end_local': end_local,
+            'classroom': session.classroom  # Include classroom details
+        }
+
+        # Session timing validation with proper timezone comparisons
+        if session.start_time and now_utc < session.start_time:
+            flash(f'Session starts at {start_local.strftime("%b %d, %Y %I:%M %p")}', 'info')
+            return render_template('student/join_session.html', **context)
+            
+        if session.end_time and now_utc > session.end_time:
+            if session.recording_url:
+                return redirect(session.recording_url)
+            flash('This session has ended', 'info')
+            return render_template('student/join_session.html', **context)
+
+        # For active sessions, verify the teacher is present (if implemented)
+        if current_app.config.get('VERIFY_TEACHER_PRESENCE', False):
+            teacher_present = session.teacher_present if hasattr(session, 'teacher_present') else False
+            if not teacher_present:
+                flash('The teacher has not started the session yet', 'warning')
+                return render_template('student/join_session.html', **context)
+
+        # If session is active, render the joining page with auto-join parameter
+        return render_template('student/join_session.html', **context)
+
+    except Exception as e:
+        current_app.logger.error(f"Error joining session: {str(e)}", exc_info=True)
+        flash('Error joining session. Please try again.', 'danger')
+        return redirect(url_for('student_dashboard'))
+
+
+@app.route('/record_attendance', methods=['POST'])
+@login_required
+def record_attendance():
+    """Record initial student participation during session"""
+    try:
+        data = request.get_json()
+        if not data or 'session_id' not in data:
+            return jsonify({'success': False, 'error': 'Invalid request'}), 400
+
+        session = OnlineSession.query.with_for_update().get(data['session_id'])
+        if not session:
+            return jsonify({'success': False, 'error': 'Session not found'}), 404
+
+        now_utc = datetime.now(timezone.utc)
+        
+        # Only allow recording during active session
+        if session.end_time and now_utc > session.end_time.replace(tzinfo=timezone.utc):
+            return jsonify({'success': False, 'error': 'Session has ended. Attendance will be finalized shortly.'}), 400
+
+        today_utc = now_utc.date()
+        
+        # Check for existing participation record
+        existing = Attendance.query.filter(
+            Attendance.student_id == current_user.student_profile.id,
+            Attendance.session_id == session.id,
+            Attendance.date == today_utc
         ).first()
-        if not enrollment:
-            abort(403, description="You're not enrolled in this class session")
-    
-    # Verify session is active
-    now = datetime.now(timezone.utc)
-    if now < session.start_time:
-        return render_template('session_not_started.html', 
-                            session=session,
-                            time_until=(session.start_time - now))
-    
-    if now > session.end_time:
-        return render_template('session_ended.html', 
-                            session=session,
-                            recording_url=session.recording_url)
-    
-    # For teachers - verify ownership
-    if current_user.role == 'teacher' and session.creator_id != current_user.id:
+
+        if not existing:
+            # Create initial participation record
+            attendance = Attendance(
+                student_id=current_user.student_profile.id,
+                session_id=session.id,
+                joined_at=now_utc.replace(tzinfo=None),
+                date=today_utc,
+                duration=0,  # Will be updated after session ends
+                status='participating'  # Initial status
+            )
+            db.session.add(attendance)
+            db.session.commit()
+
+            # Notify teacher
+            teacher_id = session.creator_id
+            if teacher_id:
+                Notification.create_for_user(
+                    user_id=teacher_id,
+                    title="Student Participation Started",
+                    message=f"{current_user.student_profile.full_name} joined {session.session_name}",
+                    link=f"/attendance/view/{session.id}",
+                    notification_type='attendance',
+                    related_id=session.id
+                )
+
+                socketio.emit('new_attendance', {
+                    'student_name': current_user.student_profile.full_name,
+                    'session_name': session.session_name,
+                    'time': now_utc.isoformat(),
+                    'session_id': session.id,
+                    'status': 'participating'
+                }, room=f"teacher_{teacher_id}")
+
+        return jsonify({'success': True})
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Attendance error: {str(e)}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/finalize_attendance/<int:session_id>', methods=['POST'])
+@login_required
+def finalize_attendance(session_id):
+    """Finalize attendance records after session ends"""
+    try:
+        session = OnlineSession.query.get(session_id)
+        if not session:
+            return jsonify({'success': False, 'error': 'Session not found'}), 404
+
+        # Only allow teachers or admins to finalize attendance
+        if not (current_user.is_teacher or current_user.is_admin) or \
+           (current_user.is_teacher and session.creator_id != current_user.id):
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+
+        now_utc = datetime.now(timezone.utc)
+        
+        # Only allow finalizing after session ends
+        if session.end_time and now_utc < session.end_time.replace(tzinfo=timezone.utc):
+            return jsonify({'success': False, 'error': 'Session has not ended yet'}), 400
+
+        # Get all participation records for this session
+        participations = Attendance.query.filter(
+            Attendance.session_id == session_id,
+            Attendance.status == 'participating'
+        ).all()
+
+        # Calculate duration and finalize status for each student
+        for record in participations:
+            duration_minutes = 0
+            if record.joined_at:
+                end_time = session.end_time or now_utc
+                duration_minutes = (end_time - record.joined_at).total_seconds() / 60
+                
+                # Consider student attended if they participated for at least 50% of session
+                session_duration = (session.end_time - session.start_time).total_seconds() / 60
+                status = 'present' if duration_minutes >= (session_duration * 0.5) else 'absent'
+                
+                record.duration = duration_minutes
+                record.status = status
+                
+                # Notify student if they were marked present
+                if status == 'present':
+                    Notification.create_for_user(
+                        user_id=record.student.user_id,
+                        title="Attendance Recorded",
+                        message=f"You attended {session.session_name} for {int(duration_minutes)} minutes",
+                        link=f"/my-attendance",
+                        notification_type='attendance',
+                        related_id=session.id
+                    )
+
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Attendance finalized for {len(participations)} students'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Finalize attendance error: {str(e)}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def finalize_completed_sessions():
+    """Check for completed sessions and finalize attendance"""
+    with app.app_context():
+        try:
+            now_utc = datetime.now(timezone.utc)
+            completed_sessions = OnlineSession.query.filter(
+                OnlineSession.end_time < now_utc,
+                OnlineSession.attendance_finalized == False
+            ).all()
+
+            for session in completed_sessions:
+                try:
+                    # Call our finalize endpoint
+                    with app.test_client() as client:
+                        client.post(
+                            f'/finalize_attendance/{session.id}',
+                            headers={'X-CSRFToken': 'internal-call'}
+                        )
+                    
+                    session.attendance_finalized = True
+                    db.session.commit()
+                    
+                except Exception as e:
+                    db.session.rollback()
+                    current_app.logger.error(f"Error finalizing session {session.id}: {str(e)}")
+
+        except Exception as e:
+            current_app.logger.error(f"Error in finalize_completed_sessions: {str(e)}")
+
+# Initialize scheduler
+scheduler = BackgroundScheduler()
+scheduler.add_job(finalize_completed_sessions, 'interval', minutes=5)
+scheduler.start()
+# Get attendance records
+
+
+@app.route('/attendance/view')
+@app.route('/attendance/view/<int:session_id>')
+@login_required
+def view_attendance(session_id=None):
+    if current_user.role != 'teacher':
         abort(403)
     
-    return render_template('video_session.html',
-                         room_id=room_id,
-                         user_name=current_user.username,
-                         user_role=current_user.role)
+    if session_id is None:
+        # Get all sessions for the current teacher
+        sessions = OnlineSession.query\
+            .filter_by(creator_id=current_user.id)\
+            .order_by(OnlineSession.start_time.desc())\
+            .all()
+        
+        if not sessions:
+            flash("No sessions found", "warning")
+            return redirect(url_for('teacher_dashboard'))
+        
+        # Redirect to the most recent session
+        return redirect(url_for('view_attendance', session_id=sessions[0].id))
+    
+    # Get the specific session with ownership check
+    session = OnlineSession.query.filter_by(
+        id=session_id,
+        creator_id=current_user.id
+    ).first_or_404()
+    
+    # Get attendance records
+    attendance_records = Attendance.query.filter_by(session_id=session_id)\
+        .join(Student, Attendance.student_id == Student.id)\
+        .order_by(Attendance.date.desc())\
+        .all()
+    
+    # Get all teacher sessions for the filter dropdown
+    teacher_sessions = OnlineSession.query\
+        .filter_by(creator_id=current_user.id)\
+        .order_by(OnlineSession.start_time.desc())\
+        .all()
+    
+    return render_template(
+        'teacher/attendance/attendance_view.html',
+        attendance_records=attendance_records,
+        session=session,
+        teacher_sessions=teacher_sessions
+    )
+
+@app.route('/attendance/filter', methods=['POST'])
+@login_required
+def filter_attendance():
+    if current_user.role != 'teacher':
+        abort(403)
+    
+    filters = request.form
+    
+    # Base query with teacher restriction
+    query = Attendance.query\
+        .join(OnlineSession, Attendance.session_id == OnlineSession.id)\
+        .join(Student, Attendance.student_id == Student.id)\
+        .filter(OnlineSession.creator_id == current_user.id)
+    
+    # Apply filters
+    if filters.get('start_date'):
+        query = query.filter(Attendance.date >= filters['start_date'])
+    if filters.get('end_date'):
+        query = query.filter(Attendance.date <= filters['end_date'])
+    if filters.get('session_id'):
+        query = query.filter(Attendance.session_id == filters['session_id'])
+    if filters.get('status'):
+        query = query.filter(Attendance.status == filters['status'])
+    
+    records = query.order_by(Attendance.date.desc()).all()
+    
+    formatted_data = [{
+        'id': record.id,
+        'student_name': record.student.full_name,
+        'session_name': record.session.session_name,
+        'date': record.date.strftime('%Y-%m-%d'),
+        'time_in': record.joined_at.strftime('%H:%M') if record.joined_at else None,
+        'duration': record.duration,
+        'status': record.status
+    } for record in records]
+    
+    return jsonify({
+        'success': True,
+        'data': formatted_data,
+        'count': len(formatted_data)
+    })
+
+@app.route('/attendance/export/<string:format>')
+@login_required
+def export_attendance(format):
+    if current_user.role != 'teacher':
+        abort(403)
+    
+    records = Attendance.query\
+        .join(OnlineSession, Attendance.session_id == OnlineSession.id)\
+        .filter(OnlineSession.creator_id == current_user.id)\
+        .order_by(Attendance.date.desc())\
+        .all()
+    
+    filename = f"attendance_{datetime.now().strftime('%Y%m%d')}"
+    
+    if format == 'csv':
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['Student Name', 'Session', 'Date', 'Time In', 'Duration (mins)', 'Status'])
+        
+        for record in records:
+            writer.writerow([
+                record.student.full_name,
+                record.session.session_name,
+                record.date.strftime('%Y-%m-%d'),
+                record.joined_at.strftime('%H:%M') if record.joined_at else 'N/A',
+                record.duration,
+                record.status.capitalize()
+            ])
+        
+        response = make_response(output.getvalue())
+        response.headers['Content-Disposition'] = f'attachment; filename={filename}.csv'
+        response.headers['Content-type'] = 'text/csv'
+        return response
+    
+    elif format == 'excel':
+        try:
+            import pandas as pd
+            
+            data = [{
+                'Student Name': record.student.full_name,
+                'Session': record.session.session_name,
+                'Date': record.date.strftime('%Y-%m-%d'),
+                'Time In': record.joined_at.strftime('%H:%M') if record.joined_at else 'N/A',
+                'Duration (mins)': record.duration,
+                'Status': record.status.capitalize()
+            } for record in records]
+            
+            df = pd.DataFrame(data)
+            output = io.BytesIO()
+            with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                df.to_excel(writer, index=False, sheet_name='Attendance')
+                writer.save()
+            
+            response = make_response(output.getvalue())
+            response.headers['Content-Disposition'] = f'attachment; filename={filename}.xlsx'
+            response.headers['Content-type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            return response
+            
+        except ImportError:
+            return jsonify({
+                'success': False,
+                'error': 'Excel export requires pandas library'
+            }), 400
+    
+    return jsonify({
+        'success': False,
+        'error': f'Invalid export format: {format}. Supported formats: csv, excel'
+    }), 400
+
+
+@app.route('/notify_video_join', methods=['POST'])
+@login_required
+def notify_video_join():
+    """Handle student join notifications from video session"""
+    try:
+        data = request.get_json()
+        student_id = data.get('student_id')
+        student_name = data.get('student_name')
+        session_id = data.get('session_id')
+        session_name = data.get('session_name')
+        
+        if not all([student_id, student_name, session_id, session_name]):
+            return jsonify({'success': False, 'error': 'Missing parameters'}), 400
+            
+        session = OnlineSession.query.get(session_id)
+        if not session:
+            return jsonify({'success': False, 'error': 'Invalid session'}), 404
+            
+        # Create notification
+        notification = Notification.create_for_user(
+            user_id=session.teacher_id,
+            title="Student Joined Video Session",
+            message=f"{student_name} joined {session_name}",
+            link=f"/sessions/{session_id}",
+            notification_type='video_join',
+            related_id=session_id
+        )
+        
+        # Broadcast via SocketIO
+        socketio.emit('video_join_notification', {
+            'student_name': student_name,
+            'session_name': session_name,
+            'session_id': session_id,
+            'notification_id': notification.id
+        }, room=f"teacher_{session.teacher_id}")
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        current_app.logger.error(f"Video join notification error: {str(e)}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ---------- NOTIFICATION ROUTES ----------
+
+@app.route('/notifications', methods=['GET'])
+@login_required
+def notifications():
+    """Render notifications HTML page with paginated notifications"""
+    try:
+        # Validate and parse request parameters
+        page = request.args.get('page', 1, type=int)
+        if page < 1:
+            page = 1
+            
+        per_page = request.args.get('per_page', 20, type=int)
+        if per_page not in [10, 20, 50, 100]:
+            per_page = 20
+            
+        # Initialize base query
+        query = Notification.query.filter_by(user_id=current_user.id)
+        
+        # Apply filters
+        query = apply_notification_filters(query)
+        
+        # Apply sorting
+        query = apply_notification_sorting(query)
+        
+        # Paginate results
+        paginated = query.paginate(page=page, per_page=per_page, error_out=False)
+        
+        # Process notifications
+        processed_notifications = process_notifications(paginated.items)
+        
+        # Prepare context
+        context = build_notification_context(
+            notifications=processed_notifications,
+            pagination=paginated,
+            request_args=request.args
+        )
+        
+        return render_template('teacher/notifications/notification.html', **context)
+        
+    except Exception as e:
+        current_app.logger.error(f"Notifications error: {str(e)}", exc_info=True)
+        flash('Failed to load notifications. Please try again.', 'error')
+        return redirect(url_for('teacher_dashboard'))
+
+# Helper functions
+def apply_notification_filters(query):
+    """Apply filters to the notification query"""
+    # Type filter
+    if notification_type := request.args.get('type'):
+        if notification_type != 'all':
+            query = query.filter_by(notification_type=notification_type)
+    
+    # Status filter
+    if status := request.args.get('status'):
+        if status == 'unread':
+            query = query.filter_by(is_read=False)
+        elif status == 'read':
+            query = query.filter_by(is_read=True)
+    
+    # Time range filter
+    if time_range := request.args.get('time_range'):
+        now = datetime.utcnow()
+        if time_range == 'today':
+            start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            query = query.filter(Notification.created_at >= start)
+        elif time_range == 'week':
+            query = query.filter(Notification.created_at >= (now - timedelta(days=7)))
+        elif time_range == 'month':
+            query = query.filter(Notification.created_at >= (now - timedelta(days=30)))
+    
+    return query
+
+def apply_notification_sorting(query):
+    """Apply sorting to the notification query"""
+    sort_by = request.args.get('sort_by', 'newest')
+    
+    if sort_by == 'newest':
+        return query.order_by(
+            Notification.is_read,
+            Notification.created_at.desc()
+        )
+    elif sort_by == 'oldest':
+        return query.order_by(Notification.created_at.asc())
+    elif sort_by == 'priority':
+        return query.order_by(
+            Notification.priority.desc(),
+            Notification.is_read,
+            Notification.created_at.desc()
+        )
+    return query
+
+def process_notifications(notifications):
+    """Process and format notification data"""
+    processed = []
+    for notification in notifications:
+        try:
+            note = notification.to_dict()
+            
+            # Ensure proper datetime format
+            if isinstance(note.get('created_at'), str):
+                note['created_at'] = parse_iso_datetime(note['created_at'])
+            
+            # Clean message content
+            note['message'] = clean_notification_message(note.get('message', ''))
+            
+            processed.append(note)
+        except Exception as e:
+            current_app.logger.warning(f"Failed to process notification {notification.id}: {e}")
+            continue
+            
+    return processed
+
+def clean_notification_message(message):
+    """Clean up notification message content"""
+    if "bound method Student.full_name" in message:
+        try:
+            match = re.search(r"<Student (.*?) \(", message)
+            if match:
+                return message.replace(
+                    f"<bound method Student.full_name of <Student {match.group(1)}",
+                    match.group(1))
+        except Exception as e:
+            current_app.logger.warning(f"Message cleaning failed: {e}")
+    return message
+
+def parse_iso_datetime(dt_str):
+    """Parse ISO format datetime string"""
+    try:
+        return datetime.strptime(dt_str, '%Y-%m-%dT%H:%M:%S')
+    except (ValueError, TypeError):
+        return datetime.utcnow()
+
+def build_notification_context(**kwargs):
+    """Build template context dictionary"""
+    request_args = kwargs.get('request_args', {})
+    
+    return {
+        'notifications': kwargs.get('notifications', []),
+        'pagination': kwargs.get('pagination'),
+        'total_count': kwargs.get('pagination').total if kwargs.get('pagination') else 0,
+        'unread_count': Notification.query.filter_by(
+            user_id=current_user.id,
+            is_read=False
+        ).count(),
+        'current_page': kwargs.get('pagination').page if kwargs.get('pagination') else 1,
+        'current_per_page': request_args.get('per_page', 20),
+        'current_type': request_args.get('type', 'all'),
+        'current_status': request_args.get('status', 'all'),
+        'current_time_range': request_args.get('time_range', 'all'),
+        'current_sort_by': request_args.get('sort_by', 'newest'),
+        'now': datetime.utcnow()
+    }
+
+# Keep your existing API endpoint
+@app.route('/api/notifications', methods=['GET'])
+@login_required
+def api_notifications():
+    """Get all notifications for current user (API endpoint)"""
+    try:
+        # Get pagination parameters
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)
+        
+        # Base query
+        notifications_query = Notification.query.filter_by(
+            user_id=current_user.id
+        )
+        
+        # Apply filters if provided
+        notification_type = request.args.get('type')
+        if notification_type and notification_type != 'all':
+            notifications_query = notifications_query.filter_by(
+                notification_type=notification_type
+            )
+            
+        status = request.args.get('status')
+        if status == 'unread':
+            notifications_query = notifications_query.filter_by(is_read=False)
+        elif status == 'read':
+            notifications_query = notifications_query.filter_by(is_read=True)
+            
+        time_range = request.args.get('time_range')
+        if time_range:
+            now = datetime.utcnow()
+            if time_range == 'today':
+                start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+                notifications_query = notifications_query.filter(
+                    Notification.created_at >= start_date
+                )
+            elif time_range == 'week':
+                start_date = now - timedelta(days=7)
+                notifications_query = notifications_query.filter(
+                    Notification.created_at >= start_date
+                )
+            elif time_range == 'month':
+                start_date = now - timedelta(days=30)
+                notifications_query = notifications_query.filter(
+                    Notification.created_at >= start_date
+                )
+        
+        # Apply sorting
+        sort_by = request.args.get('sort_by', 'newest')
+        if sort_by == 'newest':
+            notifications_query = notifications_query.order_by(
+                Notification.is_read,
+                Notification.created_at.desc()
+            )
+        elif sort_by == 'oldest':
+            notifications_query = notifications_query.order_by(
+                Notification.created_at.asc()
+            )
+        elif sort_by == 'priority':
+            notifications_query = notifications_query.order_by(
+                Notification.priority.desc(),
+                Notification.is_read,
+                Notification.created_at.desc()
+            )
+        
+        # Paginate results
+        paginated_notifications = notifications_query.paginate(
+            page=page, 
+            per_page=per_page,
+            error_out=False
+        )
+        
+        # Clean up notification messages
+        cleaned_notifications = []
+        for notification in paginated_notifications.items:
+            notification_dict = notification.to_dict()
+            
+            # Fix the student name format if present
+            if "bound method Student.full_name" in notification_dict['message']:
+                try:
+                    # Extract student name using regex
+                    student_match = re.search(r"<Student (.*?) \(", notification_dict['message'])
+                    if student_match:
+                        student_name = student_match.group(1)
+                        notification_dict['message'] = notification_dict['message'].replace(
+                            f"<bound method Student.full_name of <Student {student_name}",
+                            student_name
+                        )
+                except Exception as e:
+                    current_app.logger.error(f"Error cleaning notification message: {str(e)}")
+                    # Keep original message if cleaning fails
+                    
+            cleaned_notifications.append(notification_dict)
+        
+        return jsonify({
+            'success': True,
+            'notifications': cleaned_notifications,
+            'total_count': notifications_query.count(),
+            'unread_count': Notification.query.filter_by(
+                user_id=current_user.id,
+                is_read=False
+            ).count(),
+            'page': paginated_notifications.page,
+            'pages': paginated_notifications.pages
+        })
+        
+    except Exception as e:
+        current_app.logger.error(f"Error fetching notifications: {str(e)}")
+        return jsonify({
+            'success': False, 
+            'message': 'Error fetching notifications',
+            'error': str(e)
+        }), 500
+    
+
+@app.route('/api/notifications/mark-read', methods=['POST'])
+@login_required
+def mark_notification_as_read():
+    """Mark a notification as read"""
+    try:
+        data = request.get_json()
+        notification_id = data.get('notification_id')
+        
+        if not notification_id:
+            return jsonify({'success': False, 'message': 'Notification ID is required'}), 400
+        
+        notification = Notification.query.filter_by(
+            id=notification_id,
+            user_id=current_user.id
+        ).first()
+        
+        if not notification:
+            return jsonify({'success': False, 'message': 'Notification not found'}), 404
+        
+        notification.is_read = True
+        notification.read_at = datetime.utcnow()
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'unread_count': Notification.query.filter_by(
+                user_id=current_user.id,
+                is_read=False
+            ).count()
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error marking notification as read: {str(e)}")
+        return jsonify({'success': False, 'message': 'Error updating notification'}), 500
+    
+@app.route('/api/notifications/mark-all-read', methods=['POST'])
+@login_required
+def mark_all_notifications_as_read():
+    """Mark all notifications as read for current user"""
+    try:
+        updated_count = Notification.query.filter_by(
+            user_id=current_user.id,
+            is_read=False
+        ).update({
+            'is_read': True,
+            'read_at': datetime.utcnow()
+        })
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'marked_read': updated_count,
+            'unread_count': 0
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error marking all notifications as read: {str(e)}")
+        return jsonify({'success': False, 'message': 'Error updating notifications'}), 500
+
+    
+
+@app.route('/api/notifications/mark-read', methods=['POST'])
+@login_required
+def mark_notification_read():
+    """Mark a notification as read"""
+    try:
+        data = request.get_json()
+        notification = Notification.query.get(data.get('notification_id'))
+        
+        if not notification or notification.user_id != current_user.id:
+            return jsonify({'success': False, 'message': 'Notification not found'}), 404
+        
+        notification.mark_as_read()
+        return jsonify({'success': True})
+    except Exception as e:
+        current_app.logger.error(f"Error marking notification read: {str(e)}")
+        return jsonify({'success': False, 'message': 'Error updating notification'}), 500
+
+
+@app.route('/api/notifications/mark-all-read', methods=['POST'])
+@login_required
+def mark_all_notifications_read():
+    """Mark all notifications as read"""
+    try:
+        Notification.query.filter_by(
+            user_id=current_user.id,
+            is_read=False
+        ).update({'is_read': True})
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        current_app.logger.error(f"Error marking all notifications read: {str(e)}")
+        return jsonify({'success': False, 'message': 'Error updating notifications'}), 500
+
+
+@app.route('/api/notifications/<int:notification_id>', methods=['DELETE'])
+@login_required
+def delete_notification(notification_id):
+    """Delete a specific notification"""
+    try:
+        notification = Notification.query.filter_by(
+            id=notification_id,
+            user_id=current_user.id
+        ).first()
+        
+        if not notification:
+            return jsonify({'success': False, 'message': 'Notification not found'}), 404
+        
+        db.session.delete(notification)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'unread_count': Notification.query.filter_by(
+                user_id=current_user.id,
+                is_read=False
+            ).count()
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting notification: {str(e)}")
+        return jsonify({'success': False, 'message': 'Error deleting notification'}), 500
+
+
+@app.route('/api/notifications/clear-all', methods=['POST'])
+@login_required
+def clear_all_notifications():
+    """Delete all notifications for current user"""
+    try:
+        deleted_count = Notification.query.filter_by(
+            user_id=current_user.id
+        ).delete()
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'deleted_count': deleted_count,
+            'unread_count': 0
+        })
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error clearing all notifications: {str(e)}")
+        return jsonify({'success': False, 'message': 'Error clearing notifications'}), 500
+
+
+@app.route('/api/notifications/unread-count', methods=['GET'])
+@login_required
+def get_unread_count():
+    """Get count of unread notifications for current user"""
+    try:
+        count = Notification.query.filter_by(
+            user_id=current_user.id,
+            is_read=False
+        ).count()
+        
+        return jsonify({
+            'success': True,
+            'count': count
+        })
+    except Exception as e:
+        current_app.logger.error(f"Error fetching unread count: {str(e)}")
+        return jsonify({'success': False, 'message': 'Error fetching unread count'}), 500
+    
+@app.route('/api/notifications/settings', methods=['GET', 'POST'])
+@login_required
+def notification_settings():
+    """Get or update notification settings for current user"""
+    try:
+        if request.method == 'GET':
+            # Return current settings
+            settings = NotificationSettings.query.filter_by(
+                user_id=current_user.id
+            ).first()
+            
+            if not settings:
+                # Return default settings if none exist
+                return jsonify({
+                    'success': True,
+                    'settings': {
+                        'email_enabled': True,
+                        'push_enabled': True,
+                        'desktop_enabled': True,
+                        'frequency': 'immediate',
+                        'types': ['assignment', 'message', 'attendance', 'system']
+                    }
+                })
+            
+            return jsonify({
+                'success': True,
+                'settings': settings.to_dict()
+            })
+            
+        elif request.method == 'POST':
+            # Update settings
+            data = request.get_json()
+            settings = NotificationSettings.query.filter_by(
+                user_id=current_user.id
+            ).first()
+            
+            if not settings:
+                settings = NotificationSettings(user_id=current_user.id)
+                db.session.add(settings)
+            
+            settings.email_enabled = data.get('email_enabled', True)
+            settings.push_enabled = data.get('push_enabled', True)
+            settings.desktop_enabled = data.get('desktop_enabled', True)
+            settings.frequency = data.get('frequency', 'immediate')
+            settings.types = data.get('types', ['assignment', 'message', 'attendance', 'system'])
+            
+            db.session.commit()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Notification settings updated'
+            })
+            
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error with notification settings: {str(e)}")
+        return jsonify({'success': False, 'message': 'Error processing notification settings'}), 500
+
+
+# ---------- STUDENT CLASSES ROUTES ----------
+@app.route('/student/classes')
+@login_required
+def student_classes():
+    """Display all classes the student is enrolled in"""
+    if current_user.role != 'student':
+        flash('Access restricted to students', 'danger')
+        return redirect(url_for('stduent_dashboard'))
+    
+    if not current_user.student_profile:
+        flash('Student profile not found', 'danger')
+        return redirect(url_for('student_dashboard'))
+    
+    enrollments = (db.session.query(Enrollment)
+        .join(Classroom)
+        .filter(
+            Enrollment.student_id == current_user.student_profile.id,
+            Enrollment.is_dropped == False
+        )
+        .order_by(Classroom.class_name)
+        .all())
+    
+    return render_template(
+        'student/student_classes.html',
+        enrollments=enrollments
+    )
+
+
+@app.route('/class/<int:class_id>/sessions')
+@login_required
+def class_sessions(class_id):
+    # Verify enrollment
+    if current_user.role == 'student':
+        if not any(e.class_id == class_id for e in current_user.student_profile.enrollments):
+            flash('You are not enrolled in this class', 'danger')
+            return redirect(url_for('student_dashboard'))
+
+    class_obj = Classroom.query.get_or_404(class_id)
+    now = datetime.now(timezone.utc)
+    
+    # Get sessions with proper timezone handling
+    sessions = (OnlineSession.query
+        .filter_by(class_id=class_id)
+        .order_by(OnlineSession.start_time.desc())
+        .all())
+    
+    enhanced_sessions = []
+    for session in sessions:
+        try:
+            start_local, end_local = session.get_local_times()
+            status = session.get_status(now)
+            
+            enhanced_sessions.append({
+                'id': session.id,
+                'session_name': session.session_name,
+                'description': session.description,
+                'start_time': start_local,
+                'end_time': end_local,
+                'time_range': session.get_local_time_range(),
+                'status': status,
+                'is_valid': session.is_valid,
+                'teacher': {
+                    'id': session.creator.id,
+                    'name': session.creator.get_full_name(),
+                    'image': session.creator.profile_image_url or url_for('static', filename='img/default-profile.png')
+                },
+                'room_id': session.room_id,
+                'recording_url': session.recording_url
+            })
+        except Exception as e:
+            current_app.logger.error(f"Error processing session {session.id}: {e}")
+            continue
+
+    return render_template(
+        'student/class_sessions.html',
+        classroom=class_obj,
+        sessions=enhanced_sessions,
+        now_utc=now
+    )
+
+
+@app.route('/api/class/<int:class_id>/sessions')
+@login_required
+def api_class_sessions(class_id):
+    """API endpoint for class sessions data"""
+    if current_user.role == 'student':
+        if not any(e.class_id == class_id for e in current_user.student_profile.enrollments):
+            return jsonify({'error': 'Not enrolled'}), 403
+
+    sessions = (OnlineSession.query
+        .filter_by(class_id=class_id)
+        .order_by(OnlineSession.start_time.desc())
+        .all())
+
+    now = datetime.now(timezone.utc)
+    enhanced_sessions = []
+    for session in sessions:
+        enhanced_sessions.append({
+            'id': session.id,
+            'name': session.session_name,
+            'start': session.start_time.isoformat(),
+            'end': session.end_time.isoformat(),
+            'status': session.get_status(now),
+            'room_id': session.room_id,
+            'recording_url': session.recording_url
+        })
+
+    return jsonify({'sessions': enhanced_sessions})
+
+
+@app.route('/server_time')
+def server_time():
+    """Display server time in UTC and local time for verification"""
+    utc_now = now_utc()
+    local_now = to_local_time(utc_now)
+    
+    return jsonify({
+        "Server Time (UTC)": format_datetime(utc_now, tz=pytz.utc),
+        "Africa/Dar_es_Salaam Time": format_datetime(utc_now),
+        "Current UTC Timestamp": utc_now.timestamp(),
+        "Current Local Timestamp": local_now.timestamp(),
+        "Timezone Info": {
+            "Server Timezone": str(utc_now.tzinfo),
+            "Local Timezone": str(local_now.tzinfo),
+            "UTC Offset": local_now.utcoffset().total_seconds()/3600
+        }
+    })
+
+def now_utc():
+    """Get current time in UTC"""
+    return datetime.now(timezone.utc)
+
+def to_local_time(utc_dt, tz=None):
+    """Convert UTC datetime to local time"""
+    if utc_dt.tzinfo is None:
+        utc_dt = pytz.utc.localize(utc_dt)
+    return utc_dt.astimezone(tz or local_tz)
+
+def format_datetime(dt, format_str='%B %d, %Y %H:%M:%S', tz=None):
+    """Format datetime in specified timezone"""
+    if not dt:
+        return "Not set"
+    if dt.tzinfo is None:
+        dt = pytz.utc.localize(dt)
+    return dt.astimezone(tz or local_tz).strftime(format_str)
 
 # ---------- USER MANAGEMENT ROUTES ----------
 
@@ -1431,7 +3835,7 @@ def add_student():
     # ======================
     if current_user.role != 'teacher':
         flash('Access denied. Only teachers can add students.', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('teacher_dashboard'))
 
     # ==============================
     # 2. Get Teacher and Department
@@ -1440,13 +3844,13 @@ def add_student():
         teacher = current_user.teacher_profile
         if not teacher or not teacher.department:
             flash('Teacher department not found', 'danger')
-            return redirect(url_for('dashboard'))
+            return redirect(url_for('teacher_dashboard'))
 
         department = teacher.department
     except Exception as e:
         flash('Error accessing teacher information', 'danger')
         app.logger.error(f"Teacher info error: {str(e)}")
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('teacher_dashboard'))
 
     # ==============================
     # 3. Prepare Data for Template
@@ -2013,7 +4417,13 @@ def subject_resources(subject_id):
 @login_required
 def list_assignments():
     """List all assignments for the current user."""
-    submissions = None
+    # Set default timezone
+    user_timezone = pytz.timezone(getattr(current_user, 'timezone', 'Africa/Dar_es_Salaam'))
+    
+    # Get current time (timezone-aware)
+    now_utc = datetime.now(pytz.utc)
+    now_user_tz = now_utc.astimezone(user_timezone)
+    
     if current_user.role == 'teacher':
         assignments = Assignment.query.filter_by(author_id=current_user.id)\
                                    .options(
@@ -2023,24 +4433,500 @@ def list_assignments():
                                    )\
                                    .order_by(Assignment.due_date.desc())\
                                    .all()
-    else:
-        enrolled_class_ids = [e.class_id for e in current_user.student_profile.enrollments]
-        assignments = Assignment.query.filter(Assignment.class_id.in_(enrolled_class_ids))\
-                                   .options(
-                                       joinedload(Assignment.subject),
-                                       joinedload(Assignment.classroom)
-                                   )\
-                                   .order_by(Assignment.due_date.desc())\
-                                   .all()
         
-        submissions = {s.assignment_id: s for s in Submission.query.filter_by(
-            student_id=current_user.id
-        ).all()}
+        # Make all due dates timezone-aware
+        for assignment in assignments:
+            if assignment.due_date:
+                if assignment.due_date.tzinfo is None:
+                    assignment.due_date = pytz.utc.localize(assignment.due_date)
+                assignment.due_date = assignment.due_date.astimezone(user_timezone)
+        
+        return render_template('teacher/assignments/list.html',
+                            assignments=assignments,
+                            now=now_user_tz,
+                            user_timezone=user_timezone.zone)
     
-    return render_template('teacher/assignments/list.html',
-                        assignments=assignments,
-                        student_submissions=submissions if current_user.role == 'student' else None,
-                        now=datetime.now(local_timezone))
+    # Similar handling for student view
+    elif current_user.role == 'student':
+        # ... [student view code] ...
+        return render_template('student/assignments/list.html',
+                            assignments=assignments,
+                            submissions={},  # Replace with an appropriate value or query
+                            now=now_user_tz,
+                            user_timezone=user_timezone.zone)
+
+@app.route('/assignment/<int:assignment_id>')
+@login_required
+def view_assignment(assignment_id):
+    """View assignment details with access control and grading."""
+    try:
+        # Load assignment with optimized queries
+        assignment = Assignment.query.options(
+            joinedload(Assignment.subject),
+            joinedload(Assignment.classroom),
+            joinedload(Assignment.author),
+            joinedload(Assignment.submissions)
+        ).get_or_404(assignment_id)
+
+        # Parse questions safely
+        questions = []
+        if assignment.questions:
+            try:
+                questions = json.loads(assignment.questions)
+            except json.JSONDecodeError:
+                current_app.logger.error(f"Invalid questions JSON for assignment {assignment_id}")
+                questions = []
+
+        # Handle timezone conversion
+        user_tz = pytz.timezone(getattr(current_user, 'timezone', 'UTC'))
+        now = datetime.now(pytz.utc).astimezone(user_tz)
+        
+        if assignment.due_date:
+            if assignment.due_date.tzinfo is None:
+                assignment.due_date = pytz.utc.localize(assignment.due_date)
+            assignment.due_date = assignment.due_date.astimezone(user_tz)
+
+        # Initialize common template variables
+        template_vars = {
+            'assignment': assignment,
+            'questions': questions,
+            'now': now,
+            'submission': None,
+            'submissions': [],
+            'graded_count': 0,
+            'total_score': 0,
+            'grade_stats': None
+        }
+
+        # Student view logic
+        if current_user.role == 'student':
+            if not hasattr(current_user, 'student_profile'):
+                flash('Student profile not found', 'danger')
+                return redirect(url_for('student_dashboard'))
+
+            enrollment = Enrollment.query.filter_by(
+                student_id=current_user.student_profile.id,
+                class_id=assignment.class_id,
+                is_dropped=False
+            ).first()
+
+            if not enrollment or not assignment.is_published:
+                flash('Access denied', 'danger')
+                return redirect(url_for('student_dashboard'))
+
+            # Find student's submission
+            submission = next(
+                (s for s in assignment.submissions 
+                 if s.student_id == current_user.student_profile.id),
+                None
+            )
+
+            if submission and submission.submitted_at:
+                if submission.submitted_at.tzinfo is None:
+                    submission.submitted_at = pytz.utc.localize(submission.submitted_at)
+                submission.submitted_at = submission.submitted_at.astimezone(user_tz)
+
+            template_vars['submission'] = submission
+            if submission and submission.score is not None:
+                template_vars['graded_count'] = 1
+                template_vars['total_score'] = submission.score
+
+        # Teacher view logic
+        elif current_user.role == 'teacher':
+            if assignment.author_id != current_user.id:
+                flash('You can only view your own assignments', 'danger')
+                return redirect(url_for('teacher_dashboard'))
+
+            # Get all enrolled students
+            students = (db.session.query(User, Student)
+                .join(Student, Student.user_id == User.id)
+                .join(Enrollment, Enrollment.student_id == Student.id)
+                .filter(
+                    Enrollment.class_id == assignment.class_id,
+                    Enrollment.is_dropped == False
+                )
+                .order_by(Student.last_name, Student.first_name)
+                .all())
+
+            grade_stats = {
+                'a_count': 0, 'b_count': 0, 'c_count': 0, 'df_count': 0,
+                'a_percent': 0, 'b_percent': 0, 'c_percent': 0, 'df_percent': 0
+            }
+
+            for user, student in students:
+                submission = next(
+                    (s for s in assignment.submissions 
+                     if s.student_id == student.id),
+                    None
+                )
+                
+                if submission and submission.submitted_at:
+                    if submission.submitted_at.tzinfo is None:
+                        submission.submitted_at = pytz.utc.localize(submission.submitted_at)
+                    submission.submitted_at = submission.submitted_at.astimezone(user_tz)
+
+                # Calculate grading statistics
+                if submission and submission.score is not None:
+                    template_vars['graded_count'] += 1
+                    template_vars['total_score'] += submission.score
+                    
+                    percent = (submission.score / assignment.max_score) * 100
+                    if percent >= 90:
+                        grade_stats['a_count'] += 1
+                    elif percent >= 80:
+                        grade_stats['b_count'] += 1
+                    elif percent >= 70:
+                        grade_stats['c_count'] += 1
+                    else:
+                        grade_stats['df_count'] += 1
+
+                template_vars['submissions'].append({
+                    'student': {
+                        'id': user.id,
+                        'name': f"{student.first_name} {student.last_name}",
+                        'email': user.email
+                    },
+                    'submission': submission
+                })
+
+            # Calculate grade distribution percentages
+            total_submissions = len([s for s in template_vars['submissions'] if s['submission']])
+            if total_submissions > 0:
+                for grade in ['a', 'b', 'c', 'df']:
+                    grade_stats[f'{grade}_percent'] = (grade_stats[f'{grade}_count'] / total_submissions) * 100
+
+            template_vars['grade_stats'] = grade_stats
+            template_vars['total_students'] = len(students)
+
+        else:
+            flash('Access denied', 'danger')
+            return redirect(url_for('teacher_dashboard'))
+
+        return render_template('teacher/assignments/assignment_details.html', **template_vars)
+
+    except Exception as e:
+        current_app.logger.error(f"Error viewing assignment {assignment_id}: {str(e)}")
+        flash('An error occurred while loading the assignment', 'danger')
+        return redirect(url_for('teacher_dashboard'))
+
+@app.route('/submission/<int:submission_id>/grade', methods=['GET', 'POST'])
+@login_required
+def grade_submission(submission_id):
+    """Grade a student submission (teacher only)."""
+    if current_user.role != 'teacher':
+        flash('Only teachers can grade assignments', 'danger')
+        return redirect(url_for('teacher_dashboard'))
+
+    # Load submission with all necessary relationships
+    submission = Submission.query.options(
+        joinedload(Submission.assignment),
+        joinedload(Submission.student).joinedload(Student.user),
+        joinedload(Submission.assignment).joinedload(Assignment.classroom)
+    ).get_or_404(submission_id)
+    
+    # Verify authorization
+    if submission.assignment.author_id != current_user.id:
+        flash('You can only grade assignments you created', 'danger')
+        return redirect(url_for('teacher_dashboard'))
+    
+    # Calculate statistics
+    average_score = db.session.query(
+        func.avg(Submission.score)
+    ).filter(
+        Submission.assignment_id == submission.assignment_id,
+        Submission.score.isnot(None)
+    ).scalar()
+    
+    # Check if submission is late
+    is_late = False
+    if submission.submitted_at and submission.assignment.due_date:
+        if submission.assignment.due_date.tzinfo is None:
+            submission.assignment.due_date = pytz.utc.localize(submission.assignment.due_date)
+        if submission.submitted_at.tzinfo is None:
+            submission.submitted_at = pytz.utc.localize(submission.submitted_at)
+        is_late = submission.submitted_at > submission.assignment.due_date
+    
+    if request.method == 'POST':
+        try:
+            score = float(request.form.get('score'))
+            feedback = request.form.get('feedback', '').strip()
+            
+            if score < 0 or score > submission.assignment.max_score:
+                flash(f'Score must be between 0 and {submission.assignment.max_score}', 'danger')
+            else:
+                submission.score = score
+                submission.feedback = feedback
+                submission.graded_at = datetime.now(timezone.utc)
+                db.session.commit()
+                
+                flash('Grade submitted successfully!', 'success')
+                return redirect(url_for('view_assignment', assignment_id=submission.assignment_id))
+        except ValueError:
+            flash('Please enter a valid score', 'danger')
+    
+    return render_template('teacher/assignments/grade.html',
+                         submission=submission,
+                         assignment=submission.assignment,
+                         student=submission.student,
+                         max_score=submission.assignment.max_score,
+                         average_score=average_score,
+                         is_late=is_late,
+                         now=datetime.now(timezone.utc))
+
+
+@app.route('/assignment/<int:assignment_id>/gradebook')
+@login_required
+def assignment_gradebook(assignment_id):
+    """View gradebook for a specific assignment with comprehensive analytics."""
+    assignment = Assignment.query.get_or_404(assignment_id)
+    
+    # Authorization checks
+    if current_user.role == 'student':
+        flash('You do not have permission to view gradebooks', 'danger')
+        return redirect(url_for('student_dashboard'))
+    
+    if current_user.role == 'teacher' and assignment.author_id != current_user.id:
+        flash('You can only view gradebooks for your own assignments', 'danger')
+        return redirect(url_for('teacher_dashboard'))
+    
+    # Get active enrollments with student and user info
+    query = (db.session.query(Enrollment, Student, User)
+            .join(Student, Enrollment.student_id == Student.id)
+            .join(User, Student.user_id == User.id)
+            .filter(Enrollment.is_dropped == False,
+                    Enrollment.class_id == assignment.class_id))
+    
+    results = query.order_by(Student.last_name, Student.first_name).all()
+    
+    # Get all submissions for this assignment
+    submissions = {s.student_id: s for s in 
+                  Submission.query.filter_by(assignment_id=assignment_id).all()}
+    
+    # Calculate performance metrics
+    scores = [s.score for s in submissions.values() if s and s.score is not None]
+    scores_sorted = sorted(scores) if scores else []
+    
+    # Build comprehensive gradebook data
+    gradebook = []
+    performance_distribution = [0, 0, 0, 0]  # For score ranges: 0-49%, 50-69%, 70-89%, 90-100%
+    late_count = 0
+
+    for enrollment, student, user in results:
+        submission = submissions.get(student.id)
+        score = submission.score if submission else None
+        percentile = None
+        is_late = False
+        
+        if submission and submission.submitted_at:
+            # Calculate if submission is late
+            is_late = submission.submitted_at > assignment.due_date
+            if is_late:
+                late_count += 1
+            
+        if score is not None:
+            # Calculate percentile
+            if scores_sorted:
+                rank = bisect.bisect_right(scores_sorted, score)
+                percentile = round((rank / len(scores_sorted)) * 100)
+            
+            # Update performance distribution
+            percent = (score / assignment.max_score) * 100
+            if percent >= 90:
+                performance_distribution[3] += 1
+            elif percent >= 70:
+                performance_distribution[2] += 1
+            elif percent >= 50:
+                performance_distribution[1] += 1
+            else:
+                performance_distribution[0] += 1
+        
+        gradebook.append({
+            'student': {
+                'id': user.id,
+                'username': user.username,
+                'first_name': student.first_name,
+                'last_name': student.last_name,
+                'full_name': f"{student.first_name} {student.last_name}",
+                'email': user.email if current_user.role == 'admin' else None
+            },
+            'enrollment': enrollment,
+            'submission': submission,
+            'score': score,
+            'percentile': percentile,
+            'submitted_at': submission.submitted_at if submission else None,
+            'is_late': is_late
+        })
+    
+    # Compile comprehensive statistics
+    stats = {
+        'average': sum(scores)/len(scores) if scores else 0,
+        'submission_rate': (len(submissions) / len(results)) * 100 if results else 0,
+        'submitted_count': len(submissions),
+        'pending_count': len(results) - len(submissions),
+        'late_count': late_count,
+        'performance_distribution': performance_distribution,
+        'high_score': max(scores) if scores else 0,
+        'low_score': min(scores) if scores else 0,
+        'median': scores_sorted[len(scores_sorted)//2] if scores_sorted else 0
+    }
+    
+    return render_template('teacher/assignments/gradebook.html',
+                         assignment=assignment,
+                         gradebook=gradebook,
+                         stats=stats,
+                         now=datetime.now(pytz.utc))
+
+
+@app.route('/submissions/<int:submission_id>')
+@login_required
+def view_submission(submission_id):
+    """View a specific submission with detailed information."""
+    # Load submission with related data
+    submission = Submission.query.options(
+        joinedload(Submission.assignment).joinedload(Assignment.author),
+        joinedload(Submission.student).joinedload(Student.user),
+        joinedload(Submission.assignment).joinedload(Assignment.classroom)
+    ).get_or_404(submission_id)
+
+    # Authorization checks
+    if current_user.role == 'student':
+        if not hasattr(current_user, 'student_profile') or submission.student.user_id != current_user.id:
+            abort(403)
+    elif current_user.role == 'teacher':
+        if submission.assignment.author_id != current_user.id:
+            abort(403)
+    else:
+        abort(403)
+
+    # Handle timezone conversion
+    user_tz = pytz.timezone(getattr(current_user, 'timezone', 'UTC'))
+    now = datetime.now(pytz.utc).astimezone(user_tz)
+    
+    if submission.submitted_at:
+        if submission.submitted_at.tzinfo is None:
+            submission.submitted_at = pytz.utc.localize(submission.submitted_at)
+        submission.submitted_at = submission.submitted_at.astimezone(user_tz)
+
+    # Check if submission is late
+    is_late = False
+    if submission.submitted_at and submission.assignment.due_date:
+        if submission.assignment.due_date.tzinfo is None:
+            submission.assignment.due_date = pytz.utc.localize(submission.assignment.due_date)
+        is_late = submission.submitted_at > submission.assignment.due_date
+
+    # Parse questions if they exist
+    questions = []
+    if submission.assignment.questions:
+        try:
+            questions = json.loads(submission.assignment.questions)
+        except json.JSONDecodeError:
+            current_app.logger.error(f"Invalid questions JSON for assignment {submission.assignment.id}")
+            questions = []
+
+    return render_template('teacher/assignments/view_submission.html',
+                         submission=submission,
+                         assignment=submission.assignment,
+                         questions=questions,
+                         is_late=is_late,
+                         now=now)
+
+@app.route('/assignment/<int:assignment_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_assignment(assignment_id):
+    """Edit an existing assignment."""
+    if current_user.role != 'teacher':
+        flash('Access denied', 'danger')
+        return redirect(url_for('teacher_dashboard'))
+    
+    assignment = Assignment.query.get_or_404(assignment_id)
+    if assignment.author_id != current_user.id:
+        flash('You do not have permission to edit this assignment', 'danger')
+        return redirect(url_for('teacher_dashboard'))
+    
+    form = AssignmentForm(obj=assignment)
+    
+    # Initialize form choices
+    teacher = current_user.teacher_profile
+    form.subject_id.choices = [
+        (str(s.id), f"{s.name} - {s.department.name}")
+        for s in teacher.get_all_subjects()
+    ]
+    
+    form.classroom_id.choices = [
+        (str(c.id), f"{c.class_name} ({c.generate_code()})")
+        for c in teacher.classrooms if c.is_active
+    ]
+    
+    if form.validate_on_submit():
+        try:
+            form.populate_obj(assignment)
+            assignment.updated_at = datetime.now(timezone.utc)
+            db.session.commit()
+            
+            flash('Assignment updated successfully!', 'success')
+            return redirect(url_for('view_assignment', assignment_id=assignment.id))
+        
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error updating assignment: {str(e)}")
+            flash('Error updating assignment', 'danger')
+    
+    return render_template('teacher/assignments/edit.html',
+                         form=form,
+                         assignment=assignment,
+                         now=datetime.now(timezone.utc))
+
+@app.route('/assignments/create', methods=['GET', 'POST'])
+@login_required
+def create_assignment():
+    """Create a new assignment."""
+    if current_user.role != 'teacher':
+        flash('Only teachers can create assignments', 'danger')
+        return redirect(url_for('index'))
+
+    form = AssignmentForm()
+    teacher = current_user.teacher_profile
+    
+    # Initialize form choices
+    form.subject_id.choices = [
+        (str(s.id), f"{s.name} - {s.department.name}")
+        for s in teacher.get_all_subjects()
+    ]
+    
+    form.classroom_id.choices = [
+        (str(c.id), f"{c.class_name} ({c.generate_code()})")
+        for c in teacher.classrooms if c.is_active
+    ]
+    
+    if form.validate_on_submit():
+        try:
+            assignment = Assignment(
+                title=form.title.data.strip(),
+                description=form.description.data.strip(),
+                questions=form.questions.data.strip(),
+                due_date=form.due_date.data.replace(tzinfo=timezone.utc),
+                max_score=form.max_score.data,
+                subject_id=form.subject_id.data,
+                class_id=form.classroom_id.data,
+                author_id=current_user.id,
+                is_published=not form.is_draft.data
+            )
+            
+            db.session.add(assignment)
+            db.session.commit()
+            
+            flash('Assignment created successfully!', 'success')
+            return redirect(url_for('view_assignment', assignment_id=assignment.id))
+        
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error creating assignment: {str(e)}")
+            flash('Error creating assignment', 'danger')
+    
+    return render_template('teacher/assignments/create.html',
+                         form=form,
+                         now=datetime.now(timezone.utc),
+                         min_date=(datetime.now(timezone.utc) + timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M'))
 
 @app.route('/download/<filename>')
 @login_required
@@ -2052,302 +4938,406 @@ def download_file(filename):
         as_attachment=True
     )
 
-@app.route('/assignments/create', methods=['GET', 'POST'])
+
+# ----------- TEACHER MESSAGES --------
+
+@app.route('/messages/send', methods=['GET', 'POST'])
 @login_required
-def create_assignment():
-    """Create a new assignment with comprehensive validation"""
-    if current_user.role != 'teacher':
-        flash('Only teachers can create assignments', 'danger')
-        return redirect(url_for('index'))
-
-    form = AssignmentForm()
-    teacher = current_user.teacher_profile
-    
+def send_class_message():
+    """Handle message sending with complete error handling and null checks"""
     try:
-        # Initialize subject choices
-        subjects = teacher.get_all_subjects()
-        
-        if not subjects:
-            flash('You need to be assigned to at least one subject before creating assignments', 'danger')
-            return redirect(url_for('teacher_dashboard'))
+        # 1. Verify user authentication and permissions with thorough checks
+        if not current_user.is_authenticated:
+            raise ValueError("Authentication required")
+        if not hasattr(current_user, 'is_active') or not current_user.is_active:
+            raise ValueError("Account is not active")
+        if not hasattr(current_user, 'role') or current_user.role != 'teacher':
+            raise ValueError("Only teachers can send messages")
+        if not hasattr(current_user, 'teacher_profile'):
+            raise ValueError("Teacher profile not found")
 
-        # Format subjects with department info
-        form.subject_id.choices = [
-            (str(s.id), f"{s.name} - {s.department.name}")  # Ensure ID is string
-            for s in sorted(subjects, key=lambda x: x.name)
-        ]
-        form.subject_id.choices.insert(0, ('', '-- Select Subject --'))
+        # 2. Initialize form and get classrooms with error handling
+        form = MessageForm()
+        try:
+            classrooms = Classroom.query.filter_by(
+                teacher_id=current_user.teacher_profile.id
+            ).order_by(Classroom.class_name).all()
+        except Exception as db_error:
+            current_app.logger.error(f"Database error fetching classrooms: {str(db_error)}")
+            raise ValueError("Could not load classroom data")
 
-        # Get all active classrooms the teacher teaches with comprehensive info
-        form.classroom_id.choices = [
-            (str(c.id), f"{c.class_name} ({c.generate_code()}) - {c.subject.name} - {c.academic_year} S{c.semester}")
-            for c in sorted(
-                [cls for cls in teacher.classrooms if cls.is_active],
-                key=lambda x: (x.academic_year, x.semester, x.class_name)
-            )
+        # 3. Set form choices safely with validation
+        form.classroom_id.choices = [(0, 'All My Classes')] + [
+            (c.id, f"{c.class_name} - {c.section}") 
+            for c in classrooms if c and hasattr(c, 'id') and hasattr(c, 'class_name') and hasattr(c, 'section')
         ]
-        form.classroom_id.choices.insert(0, ('', '-- Select Class --'))
+        form.recipient_id.choices = [('', 'Select student')]
+        form.recipient_id.coerce = lambda x: int(x) if x and x.isdigit() else None
+
+        if form.validate_on_submit():
+            try:
+                # 4. Process recipient selection with robust validation
+                recipient_id = None
+                if (form.classroom_id.data != 0 and 
+                    not form.is_announcement.data and 
+                    'recipient_id' in request.form):
+                    
+                    try:
+                        recipient_id = int(request.form['recipient_id'])
+                        recipient = User.query.get(recipient_id)
+                        if (not recipient or 
+                            not hasattr(recipient, 'is_active') or 
+                            not recipient.is_active):
+                            raise ValueError("Invalid or inactive recipient selected")
+                    except (ValueError, TypeError):
+                        raise ValueError("Invalid recipient ID format")
+
+                # 5. Determine recipients with comprehensive checks
+                selected_classrooms = []
+                if form.classroom_id.data == 0:  # All classes
+                    selected_classrooms = [c for c in classrooms if c]  # Filter any None values
+                    is_announcement = True
+                else:
+                    classroom = next((c for c in classrooms if c and c.id == form.classroom_id.data), None)
+                    if not classroom:
+                        raise ValueError("Classroom not found or inaccessible")
+                    selected_classrooms = [classroom]
+                    is_announcement = form.is_announcement.data
+
+                # 6. Create message and collect recipients with null checks
+                messages = []
+                recipients = set()
+                
+                for classroom in selected_classrooms:
+                    if not classroom or not hasattr(classroom, 'enrollments'):
+                        continue  # Skip invalid classrooms
+
+                    # Create the message with validation
+                    message = Message(
+                        title=form.title.data.strip(),
+                        content=form.content.data.strip(),
+                        sender_id=current_user.id,
+                        classroom_id=classroom.id,
+                        is_urgent=bool(form.is_urgent.data),
+                        is_announcement=is_announcement,
+                        recipient_id=recipient_id if not is_announcement else None
+                    )
+                    db.session.add(message)
+                    messages.append(message)
+
+                    # Collect recipients with comprehensive safety checks
+                    if is_announcement:
+                        for enrollment in classroom.enrollments:
+                            if (enrollment and 
+                                hasattr(enrollment, 'student') and 
+                                enrollment.student and 
+                                hasattr(enrollment.student, 'user') and 
+                                enrollment.student.user and 
+                                hasattr(enrollment.student.user, 'is_active') and 
+                                enrollment.student.user.is_active):
+                                recipients.add(enrollment.student.user)
+                    elif recipient_id:
+                        recipient = User.query.get(recipient_id)
+                        classroom_student_ids = [
+                            e.student.user_id for e in classroom.enrollments 
+                            if (e and 
+                                hasattr(e, 'student') and 
+                                e.student and 
+                                hasattr(e.student, 'user_id'))
+                        ]
+                        if (recipient and 
+                            recipient_id in classroom_student_ids and 
+                            hasattr(recipient, 'is_active') and 
+                            recipient.is_active):
+                            recipients.add(recipient)
+                        else:
+                            raise ValueError("Recipient not found in this classroom or is inactive")
+
+                # 7. Create notifications in bulk with validation
+                if recipients:
+                    notifications = []
+                    for user in recipients:
+                        if (user and 
+                            hasattr(user, 'id') and 
+                            hasattr(current_user, 'full_name')):
+                            notifications.append(Notification(
+                                user_id=user.id,
+                                title=f"New message from {current_user.full_name()}",
+                                message=form.title.data.strip(),
+                                action_url=url_for('view_message', message_id=messages[0].id),
+                                notification_type='message'
+                            ))
+                    
+                    if notifications:
+                        db.session.bulk_save_objects(notifications)
+
+                # 8. Final commit with error handling
+                try:
+                    db.session.commit()
+                except Exception as commit_error:
+                    db.session.rollback()
+                    current_app.logger.error(f"Commit failed: {str(commit_error)}")
+                    raise ValueError("Failed to save message due to database error")
+                
+                # 9. Return success response
+                success_msg = f'Message sent to {len(recipients)} recipient(s)'
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return jsonify({
+                        'success': success_msg, 
+                        'redirect': url_for('message_inbox'),
+                        'count': len(recipients)
+                    })
+                flash(success_msg, 'success')
+                return redirect(url_for('message_inbox'))
+
+            except ValueError as e:
+                db.session.rollback()
+                error_msg = str(e)
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return jsonify({'error': error_msg}), 400
+                flash(error_msg, 'error')
+
+            except Exception as e:
+                db.session.rollback()
+                current_app.logger.error(f"Message send error: {str(e)}", exc_info=True)
+                error_msg = "Failed to send message due to server error"
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return jsonify({'error': error_msg}), 500
+                flash(error_msg, 'error')
+
+        # Handle form errors with validation
+        if request.method == 'POST':
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({
+                    'error': 'Form validation failed',
+                    'errors': form.errors
+                }), 400
+            for field, errors in form.errors.items():
+                for error in errors:
+                    flash(f"{field}: {error}", 'error')
+
+        return render_template('teacher/messages/send_message.html',
+                            form=form,
+                            classrooms=[c for c in classrooms if c])  # Filter None values
 
     except Exception as e:
-        current_app.logger.error(f"Error loading form data: {str(e)}", exc_info=True)
-        flash('Error loading assignment form. Please try again.', 'danger')
+        current_app.logger.error(f"Unexpected error in send_class_message: {str(e)}", exc_info=True)
+        error_msg = "An unexpected error occurred while processing your request"
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'error': error_msg}), 500
+        flash(error_msg, 'error')
         return redirect(url_for('teacher_dashboard'))
+    
 
-    if form.validate_on_submit():
+@app.route('/messages/<int:message_id>')
+@login_required
+def view_message(message_id):
+    """View a specific message with comprehensive permission checks"""
+    try:
+        # 1. Basic validation
+        if not current_user.is_authenticated:
+            abort(401)
+        if not hasattr(current_user, 'role'):
+            abort(403)
+
+        # 2. Get message with error handling
         try:
-            # Basic validation
-            if not form.questions.data.strip():
-                raise ValueError("Assignment questions cannot be empty")
-
-            # Check for empty selections
-            if not form.classroom_id.data:
-                raise ValueError("Please select a class")
-            if not form.subject_id.data:
-                raise ValueError("Please select a subject")
-
-            # Verify classroom belongs to teacher and is active
-            classroom = Classroom.query.filter(
-                Classroom.id == int(form.classroom_id.data),  # Convert to int here
-                Classroom.teacher_id == teacher.id,
-                Classroom.is_active == True
-            ).first()
-
-            if not classroom:
-                raise ValueError("Invalid classroom selection or classroom is not active")
-
-            # Verify subject matches classroom's subject if needed
-            if int(form.subject_id.data) != classroom.subject_id:  # Convert to int here
-                raise ValueError("Selected subject doesn't match the classroom's subject")
-
-            # Create and save assignment
-            assignment = Assignment(
-                title=form.title.data.strip(),
-                description=form.description.data.strip(),
-                questions=form.questions.data.strip(),
-                due_date=form.due_date.data,
-                max_score=form.max_score.data,
-                subject_id=classroom.subject_id,  # Use classroom's subject to ensure consistency
-                class_id=classroom.id,
-                author_id=current_user.id,
-                is_published=True
-            )
-
-            db.session.add(assignment)
-            db.session.commit()
-
-            # Create activity log
-            log_activity(
-                user_id=current_user.id,
-                action="Created Assignment",
-                details=f"Assignment '{assignment.title}' for {classroom.class_name} ({classroom.generate_code()})",
-                icon="fa-tasks"
-            )
-
-            flash('Assignment created successfully!', 'success')
-            return redirect(url_for('view_assignment', assignment_id=assignment.id))
-
-        except ValueError as e:
-            db.session.rollback()
-            flash(str(e), 'danger')
+            message = Message.query.get(message_id)
+            if not message:
+                abort(404)
         except Exception as e:
-            db.session.rollback()
-            current_app.logger.error(f"Assignment creation failed: {str(e)}", exc_info=True)
-            flash('An error occurred while creating the assignment. Please try again.', 'danger')
+            current_app.logger.error(f"Error fetching message: {str(e)}")
+            abort(500)
 
-    elif form.errors:
-        current_app.logger.warning(f"Form validation errors: {form.errors}")
-        flash('Please correct the errors in the form.', 'danger')
-
-    return render_template(
-        'teacher/assignments/create.html',
-        form=form,
-        now=datetime.now(local_timezone),
-        min_date=(datetime.now(local_timezone) + timedelta(hours=1)).strftime('%Y-%m-%dT%H:%M')
-    )
-
-@app.route('/assignment/<int:assignment_id>')
-@login_required
-def view_assignment(assignment_id):
-    """View assignment details with access control and grading."""
-    # Fetch assignment with optimized queries
-    assignment = Assignment.query.options(
-        joinedload(Assignment.subject),
-        joinedload(Assignment.classroom),
-        joinedload(Assignment.author)
-    ).options(
-        load_only(Assignment.title, Assignment.description, Assignment.due_date,
-                 Assignment.created_at, Assignment.max_score, Assignment.is_published,
-                 Assignment.class_id, Assignment.author_id, Assignment.subject_id)
-    ).get_or_404(assignment_id)
-    
-    # Convert description from Markdown to HTML (with sanitization)
-    assignment.description_html = clean(
-        markdown(assignment.description),
-        tags=['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'em', 
-              'a', 'ul', 'ol', 'li', 'code', 'pre', 'blockquote'],
-        attributes={'a': ['href', 'title']}
-    )
-    
-    # Student access control
-    if current_user.role == 'student':
-        # Check enrollment and assignment visibility
-        is_enrolled = Enrollment.query.filter_by(
-            student_id=current_user.id,
-            class_id=assignment.class_id
-        ).first()
+        # 3. Permission verification
+        has_access = False
         
-        if not is_enrolled or not assignment.is_published:
-            flash('You do not have access to this assignment', 'danger')
-            return redirect(url_for('dashboard'))
-    
-    # Get student submission and grade if exists
-    student_submission = None
-    student_grade = None
-    
-    if current_user.role == 'student':
-        # Get submission without grade field
-        student_submission = Submission.query.filter_by(
-            assignment_id=assignment_id,
-            student_id=current_user.id
-        ).options(
-            load_only(Submission.id, Submission.content, Submission.submitted_at)
-        ).first()
-        
-        # Get grade information from Grades table
-        student_grade = Grade.query.filter_by(
-            student_id=current_user.id,
-            subject_id=assignment.subject_id
-        ).first()
-        
-        # Convert submission content to HTML if exists
-        if student_submission and student_submission.content:
-            student_submission.content_html = clean(
-                markdown(student_submission.content),
-                tags=['p', 'strong', 'em', 'a', 'ul', 'ol', 'li', 'code'],
-                attributes={'a': ['href']}
-            )
-    
-    # Teacher view with submissions and grades
-    submissions_with_grades = []
-    if current_user.role == 'teacher' and assignment.author_id == current_user.id:
-        # Get all submissions for this assignment
-        submissions = db.session.query(Submission, User)\
-            .join(User, Submission.student_id == User.id)\
-            .filter(Submission.assignment_id == assignment_id)\
-            .options(
-                load_only(Submission.id, Submission.content, Submission.submitted_at),
-                load_only(User.id, User.username)
-            )\
-            .order_by(Submission.submitted_at.desc())\
-            .all()
-        
-        # Get all grades for students in this subject at once (more efficient)
-        student_ids = [submission.student_id for submission, _ in submissions]
-        grades = {g.student_id: g for g in Grade.query.filter(
-            Grade.student_id.in_(student_ids),
-            Grade.subject_id == assignment.subject_id
-        ).all()}
-        
-        # Combine submissions with grade information
-        submissions_with_grades = [{
-            'submission': submission,
-            'user': user,
-            'grade': grades.get(submission.student_id)
-        } for submission, user in submissions]
-    
-    return render_template('teacher/assignments/view.html', 
-                         assignment=assignment,
-                         submissions=submissions_with_grades,
-                         student_submission=student_submission,
-                         student_grade=student_grade,
-                         now=datetime.now(local_timezone))
+        if current_user.role == 'teacher':
+            # Teachers can view messages they sent or messages in their classrooms
+            if (hasattr(message, 'sender_id') and message.sender_id == current_user.id):
+                has_access = True
+            elif (hasattr(message, 'classroom') and 
+                 message.classroom and 
+                 hasattr(message.classroom, 'teacher_id') and 
+                 message.classroom.teacher_id == current_user.id):
+                has_access = True
+        else:
+            # Students can view messages addressed to them or to their classrooms
+            if (hasattr(message, 'recipient_id') and 
+                message.recipient_id == current_user.id):
+                has_access = True
+            elif (hasattr(message, 'classroom') and 
+                  message.classroom and 
+                  hasattr(current_user, 'student_profile') and 
+                  current_user.student_profile):
+                try:
+                    # Check if student is enrolled in the classroom
+                    enrollment = Enrollment.query.filter(
+                        Enrollment.student_id == current_user.student_profile.id,
+                        Enrollment.classroom_id == message.classroom.id,
+                        Enrollment.is_dropped == False
+                    ).first()
+                    has_access = enrollment is not None
+                except Exception as e:
+                    current_app.logger.error(f"Error checking enrollment: {str(e)}")
+                    has_access = False
 
-@app.route('/assignment/<int:assignment_id>/submit', methods=['GET', 'POST'])
-@login_required
-def submit_assignment(assignment_id):
-    """Submit an assignment (student only)."""
-    if current_user.role != 'student':
-        flash('Only students can submit assignments', 'danger')
-        return redirect(url_for('index'))
+        if not has_access:
+            abort(403)
 
-    assignment = Assignment.query.get_or_404(assignment_id)
-    
-    # Check enrollment
-    is_enrolled = Enrollment.query.filter_by(
-        student_id=current_user.student_profile.id,
-        class_id=assignment.class_id
-    ).first()
-    if not is_enrolled:
-        flash('You are not enrolled in this class', 'danger')
-        return redirect(url_for('index'))
-    
-    # Check for existing submission
-    existing_submission = Submission.query.filter_by(
-        assignment_id=assignment_id,
-        student_id=current_user.student_profile.id
-    ).first()
-    if existing_submission:
-        flash('You already submitted this assignment', 'warning')
-        return redirect(url_for('view_assignment', assignment_id=assignment_id))
-    
-    form = SubmissionForm()
-    if form.validate_on_submit():
-        file_path = None
-        if form.file.data:
-            filename = secure_filename(f"{current_user.id}_{form.file.data.filename}")
-            file_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'assignments', filename)
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
-            form.file.data.save(file_path)
-        
-        submission = Submission(
-            content=form.content.data,
-            file_path=file_path,
-            assignment_id=assignment_id,
-            student_id=current_user.student_profile.id
-        )
-        db.session.add(submission)
-        db.session.commit()
-        flash('Assignment submitted successfully!', 'success')
-        return redirect(url_for('view_assignment', assignment_id=assignment_id))
-    
-    return render_template('assignments/submit.html', form=form, assignment=assignment)
-
-@app.route('/submission/<int:submission_id>/grade', methods=['GET', 'POST'])
-@login_required
-def grade_submission(submission_id):
-    """Grade a student submission (teacher only)."""
-    if current_user.role != 'teacher':
-        flash('Only teachers can grade assignments', 'danger')
-        return redirect(url_for('index'))
-
-    submission = Submission.query.get_or_404(submission_id)
-    assignment = submission.assignment
-    
-    if assignment.author_id != current_user.id:
-        flash('You can only grade assignments you created', 'danger')
-        return redirect(url_for('index'))
-    
-    if request.method == 'POST':
-        try:
-            score = float(request.form.get('score'))
-            feedback = request.form.get('feedback', '')
-            
-            if score < 0 or score > assignment.max_score:
-                flash(f'Score must be between 0 and {assignment.max_score}', 'danger')
-            else:
-                submission.score = score
-                submission.feedback = feedback
+        # 4. Mark as read if recipient
+        if (hasattr(message, 'recipient_id') and 
+            message.recipient_id == current_user.id and 
+            hasattr(message, 'is_read')):
+            try:
+                message.is_read = True
                 db.session.commit()
-                flash('Grade submitted successfully!', 'success')
-                return redirect(url_for('view_assignment', assignment_id=assignment.id))
-        except ValueError:
-            flash('Please enter a valid score', 'danger')
-    
-    return render_template('teacher/assignments/grade.html', 
-                         submission=submission,
-                         assignment=assignment,
-                         max_score=assignment.max_score)
+            except Exception as e:
+                db.session.rollback()
+                current_app.logger.error(f"Error marking message as read: {str(e)}")
 
+        return render_template('teacher/messages/view.html', message=message)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        current_app.logger.error(f"Unexpected error in view_message: {str(e)}")
+        abort(500)
+
+
+@app.route('/messages/inbox')
+@login_required
+def message_inbox():
+    """Display received messages with filtering and role-based access."""
+    try:
+        # 1. Ensure user is authenticated and has a valid role
+        if not current_user.is_authenticated:
+            abort(401)
+        if not hasattr(current_user, 'role'):
+            abort(403, description="Invalid user account")
+
+        # 2. Retrieve query parameters
+        message_type = request.args.get('type', 'all')
+        classroom_filter = request.args.get('classroom')
+
+        # 3. Build base query
+        base_query = Message.query.order_by(Message.created_at.desc())
+
+        # 4. Apply role-specific filtering
+        if current_user.role == 'teacher':
+            if not hasattr(current_user, 'id'):
+                abort(403, description="Invalid teacher account")
+
+            received_messages = base_query.filter(
+                (Message.classroom.has(teacher_id=current_user.teacher_profile.id)) |
+                (Message.recipient_id == current_user.id) |
+                (Message.sender_id == current_user.id)
+            )
+            classrooms = Classroom.query.filter_by(teacher_id=current_user.teacher_profile.id).all()
+
+        elif current_user.role == 'student':
+            if not hasattr(current_user, 'student_profile') or not current_user.student_profile:
+                abort(403, description="Student profile not found")
+
+            classroom_ids = [
+                e.classroom_id for e in current_user.student_profile.enrollments 
+                if not e.is_dropped
+            ]
+
+            received_messages = base_query.filter(
+                (Message.recipient_id == current_user.id) |
+                (Message.classroom_id.in_(classroom_ids))
+            )
+            classrooms = [
+                e.classroom for e in current_user.student_profile.enrollments 
+                if not e.is_dropped
+            ]
+
+        else:
+            abort(403, description="Unsupported user role")
+
+        # 5. Apply additional filters
+        if message_type == 'unread':
+            received_messages = received_messages.filter_by(is_read=False)
+        elif message_type == 'urgent':
+            received_messages = received_messages.filter_by(is_urgent=True)
+
+        if classroom_filter and classroom_filter != 'all':
+            received_messages = received_messages.filter_by(classroom_id=int(classroom_filter))
+
+        messages = received_messages.all()
+
+        # 6. Prepare data for template
+        unread_count = len([m for m in messages if not m.is_read])
+        urgent_count = len([m for m in messages if m.is_urgent])
+
+        return render_template(
+            'teacher/messages/inbox.html',
+            messages=messages,
+            unread_count=unread_count,
+            urgent_count=urgent_count,
+            classrooms=classrooms,
+            current_filter=message_type,
+            current_classroom=classroom_filter
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        current_app.logger.error(f"Unexpected error in message_inbox: {str(e)}", exc_info=True)
+        flash('An error occurred while loading your inbox.', 'danger')
+        return redirect(url_for('teacher_dashboard'))
+    
+
+# In your routes.py
+@app.route('/messages/delete/<int:message_id>', methods=['POST'])
+@login_required
+def delete_message(message_id):
+    """Handle message deletion with comprehensive error handling"""
+    try:
+        # 1. Get message or 404
+        message = Message.query.get(message_id)
+        if not message:
+            flash('Message not found', 'error')
+            return redirect(url_for('message_inbox'))
+        
+        # 2. Verify ownership
+        if message.sender_id != current_user.id:
+            current_app.logger.warning(
+                f"Unauthorized delete attempt by {current_user.id} on message {message_id}"
+            )
+            abort(403)
+        
+        # 3. Perform deletion
+        db.session.delete(message)
+        db.session.commit()
+        
+        # 4. Handle response
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': True, 'redirect': url_for('message_inbox')})
+        
+        flash('Message deleted successfully', 'success')
+        return redirect(url_for('message_inbox'))
+    
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        current_app.logger.error(f"Database error deleting message {message_id}: {str(e)}")
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'error': 'Database error'}), 500
+        
+        flash('Failed to delete message due to database error', 'error')
+        return redirect(url_for('view_message', message_id=message_id))
+    
+    except Exception as e:
+        current_app.logger.error(f"Unexpected error deleting message {message_id}: {str(e)}")
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'error': 'Server error'}), 500
+        
+        flash('An unexpected error occurred', 'error')
+        return redirect(url_for('message_inbox'))
+    
 # ---------- QUIZ ROUTES ----------
 
 # Helper function to calculate quiz score
@@ -2538,28 +5528,6 @@ def add_questions(quiz_id):
     # Your implementation here
     return render_template('teacher/quizzes/add_questions.html', quiz=quiz)
 
-@app.route('/teacher/quiz/<int:quiz_id>/analytics')
-@login_required
-def quiz_analytics(quiz_id):
-    """Display analytics for a quiz"""
-    # Verify user is a teacher
-    if current_user.role != 'teacher' or not hasattr(current_user, 'teacher_profile'):
-        abort(403)
-    
-    # Get the quiz
-    quiz = Quiz.query.get_or_404(quiz_id)
-    
-    # Verify quiz ownership
-    if quiz.teacher_id != current_user.teacher_profile.id:
-        abort(403)
-    
-    # Calculate analytics data
-    attempts = QuizAttempt.query.filter_by(quiz_id=quiz_id).all()
-    # Add your analytics calculations here
-    
-    return render_template('teacher/quizzes/analytics.html',
-                         quiz=quiz,
-                         attempts=attempts)
 
 @app.route('/quizzes/create', methods=['GET', 'POST'])
 @login_required
@@ -2781,6 +5749,13 @@ def publish_quiz(quiz_id):
 
             # 6. Notifications
             try:
+                # Placeholder for send_quiz_notifications function
+                # Define or import this function to handle quiz notifications
+                def send_quiz_notifications(quiz):
+                    """Send notifications to students about the quiz."""
+                    # Implement notification logic here
+                    pass
+
                 send_quiz_notifications(quiz)
             except Exception as e:
                 current_app.logger.error(f"Notification failed: {str(e)}")
@@ -2881,8 +5856,8 @@ def delete_quiz(quiz_id):
 @app.route('/quizzes/edit/<int:quiz_id>', methods=['GET', 'POST'])
 @login_required
 def edit_quiz(quiz_id):
-    """Edit an existing quiz"""
-    if current_user.role != 'teacher':
+    # Authorization check
+    if not (current_user.role == 'teacher' and hasattr(current_user, 'teacher_profile')):
         flash('Access denied. Only teachers can edit quizzes.', 'danger')
         return redirect(url_for('index'))
 
@@ -2892,105 +5867,222 @@ def edit_quiz(quiz_id):
 
     form = QuizEditForm(obj=quiz)
     teacher = current_user.teacher_profile
-    
-    # Set choices for dropdowns
     form.subject_id.choices = [(s.id, s.name) for s in teacher.subjects]
     form.classroom_id.choices = [(c.id, c.class_name) for c in teacher.classrooms]
-    
-    # Initialize questions
-    if request.method == 'GET':
-        for question in quiz.questions:
-            question_form = QuestionForm()
-            question_form.id.data = question.id
-            question_form.text.data = question.text
-            question_form.options.data = ', '.join(question.options)
-            question_form.correct_option.choices = [(i, f"{chr(65 + i)}: {opt}") 
-                                                 for i, opt in enumerate(question.options)]
-            question_form.correct_option.data = question.correct_option
-            question_form.points.data = question.points
-            question_form.time_limit.data = question.time_limit
-            form.questions.append_entry(question_form)
 
-    if request.method == 'POST':
+    if request.method == 'GET':
+        # Clear existing entries
+        while form.questions.data:
+            form.questions.pop_entry()
+            
+        # Populate questions
+        for question in quiz.questions:
+            qf = QuestionForm()
+            qf.id.data = question.id
+            qf.text.data = question.text
+            qf.question_type.data = question.question_type
+            qf.options.data = ', '.join(question.options)
+            qf.correct_option.choices = [
+                (i, f"{chr(65 + i)}: {opt}") 
+                for i, opt in enumerate(question.options)
+            ]
+            qf.correct_option.data = question.correct_option
+            qf.points.data = question.points
+            qf.time_limit.data = question.time_limit
+            form.questions.append_entry(qf)
+
+    if request.method == 'POST' and form.validate():
         action = request.form.get('action', 'save_draft')
         form.is_published.data = (action == 'save_publish')
         
-        if form.validate():
-            try:
-                # Update quiz basic info
-                quiz.title = form.title.data
-                quiz.description = form.description.data
-                quiz.subject_id = form.subject_id.data
-                quiz.classroom_id = form.classroom_id.data
-                quiz.due_date = form.due_date.data
-                quiz.time_limit = form.time_limit.data
-                
-                # Handle deleted questions
-                deleted_ids = request.form.getlist('deleted_questions')
-                if deleted_ids:
-                    Question.query.filter(
-                        Question.id.in_(deleted_ids),
-                        Question.quiz_id == quiz.id
-                    ).delete(synchronize_session=False)
-                
-                # Update or add questions
-                for q_form in form.questions:
-                    if q_form.id.data:  # Existing question
-                        question = Question.query.get(q_form.id.data)
-                        if question and question.quiz_id == quiz.id:
-                            question.text = q_form.text.data
-                            question.options = [opt.strip() for opt in q_form.options.data.split(',')]
-                            question.correct_option = int(q_form.correct_option.data)
-                            question.points = q_form.points.data
-                            question.time_limit = q_form.time_limit.data
-                    else:  # New question
-                        options = [opt.strip() for opt in q_form.options.data.split(',')]
-                        quiz.questions.append(Question(
-                            text=q_form.text.data,
-                            options=options,
-                            correct_option=int(q_form.correct_option.data),
-                            points=q_form.points.data,
-                            time_limit=q_form.time_limit.data
-                        ))
-                
-                # Handle publishing
-                if form.is_published.data and not quiz.is_published:
-                    quiz.is_published = True
-                    quiz.published_at = datetime.now(local_timezone)
-                    if form.notify_students.data:
-                        pass  # Add notification logic here
-                
-                # Recalculate total points
-                quiz.total_points = sum(q.points for q in quiz.questions)
-                
-                db.session.commit()
-                
-                flash('Quiz updated successfully!', 'success')
-                return redirect(url_for('view_quiz', quiz_id=quiz.id))
-                
-            except Exception as e:
-                db.session.rollback()
-                flash(f'Error updating quiz: {str(e)}', 'danger')
-                app.logger.error(f"Quiz update error: {str(e)}", exc_info=True)
-    
-    return render_template('teacher/quizzes/edit.html',
-                         form=form,
-                         quiz=quiz)
+        try:
+            # Update quiz metadata
+            quiz.title = form.title.data
+            quiz.description = form.description.data
+            quiz.subject_id = form.subject_id.data
+            quiz.classroom_id = form.classroom_id.data
+            quiz.due_date = form.due_date.data
+            quiz.time_limit = form.time_limit.data
+
+            # Handle deleted questions
+            deleted_ids = request.form.getlist('deleted_questions')
+            if deleted_ids:
+                Question.query.filter(
+                    Question.id.in_(deleted_ids),
+                    Question.quiz_id == quiz.id
+                ).delete(synchronize_session=False)
+
+            # Process questions
+            for q_form in form.questions:
+                if q_form.id.data:  # Existing question
+                    question = Question.query.get(q_form.id.data)
+                    if question:
+                        question.text = q_form.text.data
+                        question.question_type = q_form.question_type.data
+                        question.options = [opt.strip() for opt in q_form.options.data.split(',')]
+                        question.correct_option = int(q_form.correct_option.data)
+                        question.points = q_form.points.data
+                        question.time_limit = q_form.time_limit.data
+                else:  # New question
+                    options = [opt.strip() for opt in q_form.options.data.split(',')]
+                    quiz.questions.append(Question(
+                        text=q_form.text.data,
+                        question_type=q_form.question_type.data,
+                        options=options,
+                        correct_option=int(q_form.correct_option.data),
+                        points=q_form.points.data,
+                        time_limit=q_form.time_limit.data
+                    ))
+
+            # Handle publishing
+            if form.is_published.data and not quiz.is_published:
+                quiz.is_published = True
+                quiz.published_at = datetime.now(local_timezone)
+                if form.notify_students.data:
+                    pass  # Notification logic here
+
+            quiz.total_points = sum(q.points for q in quiz.questions)
+            db.session.commit()
+            flash('Quiz updated successfully!', 'success')
+            return redirect(url_for('view_quiz', quiz_id=quiz.id))
+
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error updating quiz: {str(e)}', 'danger')
+            app.logger.error(f"Quiz update error: {str(e)}", exc_info=True)
+
+    return render_template('teacher/quizzes/edit.html', form=form, quiz=quiz)
 
 @app.route('/get_new_question_form')
 @login_required
 def get_new_question_form():
-    """Endpoint to fetch a new empty question form (AJAX)"""
+    """Return HTML for a new question form"""
     if current_user.role != 'teacher':
         abort(403)
-        
+    
     index = request.args.get('index', 1)
     form = QuizEditForm()
     question_form = QuestionForm()
-    
-    return render_template('partials/question_form.html',
-                         question=question_form,
+    return render_template('partials/question_form.html', 
+                         question_form=question_form,
                          index=index)
+
+@app.route('/teacher/quiz/<int:quiz_id>/results')
+@login_required
+def students_quiz_results(quiz_id):  # Note singular "student"
+    """View results for all students who took a quiz"""
+    # Verify user is a teacher with profile
+    if current_user.role != 'teacher' or not hasattr(current_user, 'teacher_profile'):
+        abort(403)
+    
+    quiz = Quiz.query.get_or_404(quiz_id)
+    if quiz.teacher_id != current_user.teacher_profile.id:
+        abort(403)
+    
+    attempts = (QuizAttempt.query
+               .filter_by(quiz_id=quiz_id)
+               .order_by(QuizAttempt.score.desc())
+               .all())
+    
+    return render_template('teacher/quizzes/results.html',
+                         quiz=quiz,
+                         attempts=attempts)
+
+
+@app.route('/teacher/quiz/attempt/<int:attempt_id>')
+@login_required
+def view_quiz_attempt(attempt_id):
+    """View detailed results of a specific quiz attempt"""
+    # Verify user is a teacher
+    if current_user.role != 'teacher' or not hasattr(current_user, 'teacher_profile'):
+        abort(403)
+    
+    # Get the attempt with related data
+    attempt = QuizAttempt.query.options(
+        joinedload(QuizAttempt.quiz),
+        joinedload(QuizAttempt.student).joinedload(Student.user),
+        joinedload(QuizAttempt.answers).joinedload(QuizAnswer.question)
+    ).get_or_404(attempt_id)
+    
+    # Verify quiz ownership
+    if attempt.quiz.teacher_id != current_user.teacher_profile.id:
+        abort(403)
+    
+    # Calculate score breakdown
+    correct_count = sum(1 for answer in attempt.answers if answer.is_correct)
+    total_questions = len(attempt.quiz.questions)
+    percentage_score = (correct_count / total_questions * 100) if total_questions > 0 else 0
+    
+    return render_template('teacher/quizzes/attempt_detail.html',
+                         attempt=attempt,
+                         quiz=attempt.quiz,
+                         student=attempt.student,
+                         correct_count=correct_count,
+                         total_questions=total_questions,
+                         percentage_score=percentage_score)
+
+@app.route('/teacher/analytics/quizzes')
+@login_required
+def teacher_quiz_analytics():
+    """Display overall analytics for all quizzes"""
+    # Verify user is a teacher
+    if current_user.role != 'teacher' or not hasattr(current_user, 'teacher_profile'):
+        abort(403)
+    
+    teacher_id = current_user.teacher_profile.id
+    
+    # Get all quizzes for this teacher
+    quizzes = Quiz.query.filter_by(
+        teacher_id=teacher_id,
+        deleted_at=None
+    ).options(
+        joinedload(Quiz.attempts),
+        joinedload(Quiz.classroom).joinedload(Classroom.subject)
+    ).all()
+    
+    # Calculate overall statistics
+    total_quizzes = len(quizzes)
+    total_attempts = sum(len(quiz.attempts) for quiz in quizzes)
+    avg_score = 0
+    quiz_data = []
+    
+    if total_attempts > 0:
+        # Calculate average score across all quizzes
+        total_score = 0
+        valid_attempts = 0  # Track attempts with valid scores
+        
+        for quiz in quizzes:
+            quiz_attempts = len(quiz.attempts)
+            if quiz_attempts > 0:
+                # Filter out None scores and calculate average
+                valid_scores = [attempt.score for attempt in quiz.attempts if attempt.score is not None]
+                valid_count = len(valid_scores)
+                
+                if valid_count > 0:
+                    quiz_avg = sum(valid_scores) / valid_count
+                    quiz_highest = max(valid_scores)
+                    
+                    quiz_data.append({
+                        'id': quiz.id,
+                        'title': quiz.title,
+                        'subject': quiz.classroom.subject.name,
+                        'attempts': quiz_attempts,
+                        'avg_score': quiz_avg,
+                        'highest_score': quiz_highest
+                    })
+                    
+                    total_score += sum(valid_scores)
+                    valid_attempts += valid_count
+        
+        if valid_attempts > 0:
+            avg_score = total_score / valid_attempts
+    
+    return render_template('teacher/analytics/quizzes.html',
+                         quizzes=quizzes,
+                         quiz_data=quiz_data,
+                         total_quizzes=total_quizzes,
+                         total_attempts=total_attempts,
+                         avg_score=avg_score)
 
 # ======================
 # SUBJECT API
@@ -3164,6 +6256,49 @@ def get_classroom_details(classroom_id):
             'details': str(e)
         }), 500
 
+
+@app.route('/api/classrooms/<int:classroom_id>/students')
+@login_required
+def get_classroom_students(classroom_id):
+    if current_user.role != 'teacher':
+        return jsonify([])
+    
+    classroom = Classroom.query.filter_by(
+        id=classroom_id,
+        teacher_id=current_user.teacher_profile.id
+    ).first()
+    
+    if not classroom:
+        return jsonify([])
+    
+    search_term = request.args.get('search', '').lower()
+    
+    students = []
+    for enrollment in classroom.enrollments:
+        # Skip if enrollment doesn't have a student or user
+        if not enrollment.student or not enrollment.student.user:
+            continue
+            
+        student_user = enrollment.student.user
+        
+        # Safely get full name (handle potential None values)
+        full_name = student_user.full_name() if hasattr(student_user, 'full_name') else ""
+        username = student_user.username or ""
+        student_id = str(student_user.id) if student_user.id else ""
+        
+        # Check if student matches search term
+        if (search_term in full_name.lower() or 
+            search_term in username.lower() or
+            search_term in student_id):
+            students.append({
+                'id': student_user.id,
+                'name': full_name,
+                'username': username,
+                'student_id': username  # or actual student ID field if different
+            })
+    
+    return jsonify(students)
+
 # ---------- RESOURCES MANAGEMENT ROUTES ----------
 
 def allowed_file(filename, resource_type):
@@ -3289,6 +6424,7 @@ def upload_resource():
                          classrooms=classrooms,
                          resources=recent_resources)
 
+
 @app.route('/resources/download/<int:resource_id>')
 @login_required
 def download_resource(resource_id):
@@ -3355,6 +6491,79 @@ def view_resource(resource_id):
     
     return render_template('teacher/resources/view_resource.html', resource=resource)
 
+@app.route('/resources/approve/<int:resource_id>', methods=['POST'])
+@login_required
+def approve_resource(resource_id):
+    resource = Resource.query.get_or_404(resource_id)
+    
+    # Check if current user is the resource owner (teacher) or admin
+    if not (current_user.role == 'admin' or 
+           (current_user.role == 'teacher' and resource.teacher_id == current_user.id)):
+        abort(403)
+    
+    resource.is_approved = True
+    db.session.commit()
+    
+    flash('Resource has been approved and is now public', 'success')
+    return redirect(url_for('view_resource', resource_id=resource_id))
+
+@app.route('/resources/unapprove/<int:resource_id>', methods=['POST'])
+@login_required
+def unapprove_resource(resource_id):
+    resource = Resource.query.get_or_404(resource_id)
+    
+    # Check if current user is the resource owner (teacher) or admin
+    if not (current_user.role == 'admin' or 
+           (current_user.role == 'teacher' and resource.teacher_id == current_user.id)):
+        abort(403)
+    
+    resource.is_approved = False
+    db.session.commit()
+    
+    flash('Resource has been unapproved and is no longer public', 'warning')
+    return redirect(url_for('view_resource', resource_id=resource_id))
+
+@app.route('/resources/<int:resource_id>/comments', methods=['POST'])
+@login_required
+def add_comment(resource_id):
+    resource = Resource.query.get_or_404(resource_id)
+    
+    # Check if user has access to this resource
+    if not resource.is_approved and not (current_user.role == 'teacher' and resource.teacher_id == current_user.id):
+        abort(403)
+    
+    comment_content = request.form.get('comment')
+    if not comment_content:
+        flash('Comment cannot be empty', 'error')
+        return redirect(url_for('view_resource', resource_id=resource_id))
+    
+    new_comment = ResourceComment(
+        content=comment_content,
+        user_id=current_user.id,
+        resource_id=resource_id
+    )
+    
+    db.session.add(new_comment)
+    db.session.commit()
+    
+    flash('Comment added successfully', 'success')
+    return redirect(url_for('view_resource', resource_id=resource_id))
+
+
+@app.route('/teacher/resources/pending')
+@login_required
+def teacher_pending_resources():
+    if current_user.role != 'teacher':
+        abort(403)
+    
+    pending = Resource.query.filter_by(
+        is_approved=False,
+        teacher_id=current_user.id
+    ).all()
+    
+    return render_template('teacher/resources/pending_resources.html', resources=pending)
+
+
 @app.route('/resources/delete/<int:resource_id>', methods=['POST'])
 @login_required
 def delete_resource(resource_id):
@@ -3388,11 +6597,14 @@ def delete_resource(resource_id):
 @app.route('/resources/<int:resource_id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_resource(resource_id):
+    """Edit a resource with proper authorization and file handling"""
+    # Get resource with relationships
     resource = Resource.query.options(
         joinedload(Resource.classroom),
         joinedload(Resource.subject)
     ).get_or_404(resource_id)
     
+    # Verify teacher ownership
     if current_user.role != 'teacher' or resource.teacher_id != current_user.id:
         abort(403)
     
@@ -3408,46 +6620,64 @@ def edit_resource(resource_id):
             if 'file' in request.files and request.files['file'].filename:
                 file = request.files['file']
                 
+                # Validate file
                 if not allowed_file(file.filename, resource.resource_type):
                     allowed = ', '.join(ALLOWED_EXTENSIONS.get(resource.resource_type, []))
                     flash(f'Invalid file type. Allowed types: {allowed}', 'error')
                     return redirect(request.url)
                 
-                # Delete old file
-                old_file_path = os.path.join(
-                    current_app.root_path,
+                # Check file size
+                if file.content_length > current_app.config['MAX_CONTENT_LENGTH']:
+                    flash('File size exceeds maximum allowed (50MB)', 'error')
+                    return redirect(request.url)
+                
+                # Delete old file if exists
+                if resource.file_path:
+                    old_file_path = os.path.join(
+                        current_app.config['UPLOAD_FOLDER'],
+                        resource.file_path
+                    )
+                    try:
+                        if os.path.exists(old_file_path):
+                            os.remove(old_file_path)
+                    except Exception as e:
+                        current_app.logger.error(f"Error deleting old file: {str(e)}")
+                
+                # Generate secure filename
+                filename = secure_filename(file.filename)
+                file_ext = filename.rsplit('.', 1)[1].lower()
+                unique_filename = f"{uuid.uuid4().hex}.{file_ext}"
+                save_folder = os.path.join(
                     current_app.config['UPLOAD_FOLDER'],
-                    resource.file_path
+                    f"{resource.resource_type}s"
                 )
-                if os.path.exists(old_file_path):
-                    os.remove(old_file_path)
+                os.makedirs(save_folder, exist_ok=True)
+                save_path = os.path.join(save_folder, unique_filename)
                 
                 # Save new file
-                filename = secure_filename(file.filename)
-                unique_filename = f"{datetime.now().timestamp()}_{filename}"
-                save_folder = get_resource_folder(resource.resource_type)
-                save_path = os.path.join(save_folder, unique_filename)
                 file.save(save_path)
                 
-                # Update file info
+                # Update resource file info
                 resource.file_path = os.path.join(f"{resource.resource_type}s", unique_filename)
                 resource.file_name = filename
                 resource.file_size = os.path.getsize(save_path)
-                resource.file_type = filename.rsplit('.', 1)[1].lower()
+                resource.file_type = file_ext
+                resource.modified_at = datetime.utcnow()
             
             db.session.commit()
             flash('Resource updated successfully!', 'success')
             return redirect(url_for('view_resource', resource_id=resource.id))
+            
         except Exception as e:
             db.session.rollback()
+            current_app.logger.error(f"Error updating resource {resource_id}: {str(e)}")
             flash(f'Error updating resource: {str(e)}', 'error')
             return redirect(request.url)
     
-    # GET request - show form
+    # GET request - show edit form
     subjects = Subject.query.order_by(Subject.name).all()
-    # Get the teacher profile first
     teacher = current_user.teacher_profile
-
+    
     if not teacher:
         classrooms = []
         flash("No teacher profile found", "error")
@@ -3462,69 +6692,3 @@ def edit_resource(resource_id):
                          resource=resource,
                          subjects=subjects,
                          classrooms=classrooms)
-
-# ---------- MISCELLANEOUS ROUTES ----------
-
-@app.route('/grades')
-def grades():
-    """View grades."""
-    grades = Grade.query.all()
-    if not grades:
-        flash('No grades available at the moment.', 'info')
-    return render_template('grades.html', grades=grades)
-
-# ---------- STUDY RESOURCES ROUTES ----------
-@app.route('/study-resources')
-@login_required
-def study_resources():
-    if current_user.role != 'student':
-        flash('Access denied', 'error')
-        return redirect(url_for('student_dashboard'))
-    
-    try:
-        student = Student.query.filter_by(user_id=current_user.id).first_or_404()
-        
-        # Get enrolled class IDs safely
-        enrolled_class_ids = [enrollment.class_id for enrollment in student.enrollments] if student.enrollments else []
-        
-        notes = Resource.query.filter(
-            Resource.classroom_id.in_(enrolled_class_ids),
-            Resource.is_approved == True
-        ).join(Subject).join(User).join(Teacher).order_by(Resource.upload_date.desc()).all()
-        
-        # Get unique subjects for the student
-        subjects = Subject.query.join(Classroom).join(Enrollment).filter(
-            Enrollment.student_id == student.id
-        ).distinct().all()
-        
-        return render_template('study_resources.html', 
-                            notes=notes, 
-                            subjects=subjects,
-                            current_user=current_user)
-                            
-    except Exception as e:
-        app.logger.error(f"Error in study_resources: {str(e)}", exc_info=True)
-        flash('An error occurred while loading resources', 'error')
-        return redirect(url_for('student_dashboard'))
-    
-# ---------- STUDENT NOTE DOWNLOAD ROUTE ----------
-@app.route('/download-note/<int:note_id>')
-@login_required
-def student_download_notes(note_id):
-    note = Resource.query.get_or_404(note_id)
-    
-    # Verify student is enrolled in the class
-    student = Student.query.filter_by(user_id=current_user.id).first()
-    if not any(enrollment.class_id == note.classroom_id for enrollment in student.enrollments):
-        abort(403)
-    
-    # Increment download count
-    note.download_count += 1
-    db.session.commit()
-    
-    return send_from_directory(
-        os.path.join(current_app.root_path, 'uploads/notes'),
-        note.file_path,
-        as_attachment=True,
-        download_name=note.file_name
-    )

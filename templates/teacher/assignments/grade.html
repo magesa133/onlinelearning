@@ -1,0 +1,156 @@
+{% extends "teacher_dashboard.html" %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    .grade-container {
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    .submission-content {
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .grade-form {
+        background-color: white;
+        border-radius: 5px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .stats-card {
+        border-left: 4px solid #4e73df;
+    }
+    .late-badge {
+        background-color: #dc3545;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4 grade-container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 font-weight-bold text-primary">
+                <i class="fas fa-graduation-cap me-2"></i>Grade Submission
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('teacher_dashboard') }}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('view_assignment', assignment_id=submission.assignment_id) }}">Assignment</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Grade</li>
+                </ol>
+            </nav>
+        </div>
+        {% if is_late %}
+        <span class="badge late-badge">
+            <i class="fas fa-exclamation-triangle me-1"></i>Late Submission
+        </span>
+        {% endif %}
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Student Submission</h5>
+                <span class="badge bg-white text-primary">
+                    Submitted {{ submission.submitted_at.strftime('%b %d, %Y at %I:%M %p') }}
+                </span>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="submission-content mb-4">
+                <h5 class="mb-3">
+                    {{ student.user.first_name }} {{ student.user.last_name }}
+                    <small class="text-muted">({{ student.user.email }})</small>
+                </h5>
+                
+                {% if submission.content %}
+                <div class="mb-3">
+                    <h6>Response:</h6>
+                    <div class="p-3 bg-white rounded border">
+                        {{ submission.content|safe }}
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if submission.file_path %}
+                <div class="mb-3">
+                    <h6>Attached File:</h6>
+                    <a href="{{ url_for('download_submission', submission_id=submission.id) }}" 
+                       class="btn btn-outline-primary">
+                        <i class="fas fa-download me-2"></i>
+                        {{ submission.file_path.split('/')[-1] }}
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="grade-form">
+                <form method="POST" action="{{ url_for('grade_submission', submission_id=submission.id) }}">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="score" class="form-label">Score</label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="score" name="score" 
+                                       min="0" max="{{ assignment.max_score }}" step="0.1"
+                                       value="{{ submission.score if submission.score is not none else '' }}"
+                                       required>
+                                <span class="input-group-text">/ {{ assignment.max_score }}</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Class Statistics</label>
+                            <div class="p-2 stats-card">
+                                <small class="text-muted">
+                                    Average: {{ average_score|round(1) if average_score else 'N/A' }} / {{ assignment.max_score }}
+                                </small>
+                                <div class="progress mt-1" style="height: 5px;">
+                                    <div class="progress-bar bg-info" 
+                                         style="width: {{ (average_score/assignment.max_score*100) if average_score else 0 }}%">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="feedback" class="form-label">Feedback</label>
+                        <textarea class="form-control" id="feedback" name="feedback" 
+                                  rows="4">{{ submission.feedback if submission.feedback else '' }}</textarea>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('view_assignment', assignment_id=assignment.id) }}" 
+                           class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Assignment
+                        </a>
+                        <div>
+                            <button type="submit" class="btn btn-primary me-2">
+                                <i class="fas fa-save me-2"></i>Save Grade
+                            </button>
+                            <a href="{{ url_for('view_submission', submission_id=submission.id) }}" 
+                               class="btn btn-outline-info">
+                                <i class="fas fa-eye me-2"></i>View Full Submission
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    // Initialize rich text editor for feedback if needed
+    $('#feedback').on('focus', function() {
+        $(this).height(150);
+    });
+});
+</script>
+{% endblock %}

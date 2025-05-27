@@ -40,9 +40,9 @@
                 </div>
             </div>
 
-            <form method="POST" action="{{ url_for('student_start_quiz', quiz_id=quiz.id) }}">
+            <form method="POST">
                 <div class="d-flex justify-content-between">
-                    <a href="{{ url_for('student_view_quiz', quiz_id=quiz.id) }}" class="btn btn-secondary">
+                    <a href="{{ url_for('student_start_quiz', quiz_id=quiz.id) }}" class="btn btn-secondary">
                         <i class="fas fa-arrow-left me-2"></i> Back to Quiz
                     </a>
                     <button type="submit" class="btn btn-primary">

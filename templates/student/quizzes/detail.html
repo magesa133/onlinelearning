@@ -1,0 +1,157 @@
+{% extends "student_dashboard.html" %}
+{% block content %}
+<div class="container py-4">
+    <!-- Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0"><i class="fas fa-tasks me-2 text-primary"></i>{{ quiz.title }}</h1>
+        <div class="btn-group">
+            <a href="{{ url_for('student_quizzes') }}" class="btn btn-sm btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>Back to Quizzes
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Left Column - Quiz Details -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Quiz Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6>Description</h6>
+                        <p>{{ quiz.description or "No description provided" }}</p>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Due Date</h6>
+                            <p>
+                                {% if quiz.due_date %}
+                                    {{ quiz.due_date.astimezone().strftime('%B %d, %Y at %I:%M %p %Z') }}
+                                {% else %}
+                                    No due date
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Time Limit</h6>
+                            <p>{{ quiz.time_limit }} minutes</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Attempt Information Section -->
+            {% if attempt %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Your Attempt</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Status</h6>
+                            <span class="badge bg-{% if attempt.status == 'completed' %}success{% else %}warning{% endif %}">
+                                {{ attempt.status|title }}
+                            </span>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Started At</h6>
+                            <p>{{ attempt.created_at.astimezone().strftime('%B %d, %Y at %I:%M %p %Z') }}</p>
+                        </div>
+                    </div>
+                    
+                    {% if attempt.status != 'completed' %}
+                    <a href="{{ url_for('student_start_quiz', quiz_id=quiz.id) }}" 
+                       class="btn btn-primary start-quiz-btn"
+                       data-quiz-title="{{ quiz.title }}"
+                       data-time-limit="{{ quiz.time_limit }} minutes">
+                        <i class="fas fa-play me-1"></i> Continue Quiz
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Right Column - Quiz Actions -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Quiz Actions</h5>
+                </div>
+                <div class="card-body">
+                    {% if not attempt %}
+                        {% if quiz.due_date and now > quiz.due_date %}
+                            <button class="btn btn-secondary w-100 mb-2" disabled>
+                                <i class="fas fa-ban me-1"></i> Quiz Expired
+                            </button>
+                        {% else %}
+                            <a href="{{ url_for('student_start_quiz', quiz_id=quiz.id) }}" 
+                               class="btn btn-primary w-100 mb-2 start-quiz-btn"
+                               data-quiz-title="{{ quiz.title }}"
+                               data-time-limit="{{ quiz.time_limit }} minutes">
+                                <i class="fas fa-play me-1"></i> Start Quiz
+                            </a>
+                        {% endif %}
+                    {% elif attempt.status == 'completed' %}
+                        <button class="btn btn-secondary w-100 mb-2" disabled>
+                            <i class="fas fa-check-circle me-1"></i> Completed
+                        </button>
+                        <a href="{{ url_for('student_quiz_results', quiz_id=quiz.id) }}" class="btn btn-outline-primary w-100">
+                            <i class="fas fa-chart-bar me-1"></i> View Results
+                        </a>
+                    {% else %}
+                        <a href="{{ url_for('student_start_quiz', quiz_id=quiz.id) }}" 
+                           class="btn btn-primary w-100 mb-2 start-quiz-btn"
+                           data-quiz-title="{{ quiz.title }}"
+                           data-time-limit="{{ quiz.time_limit }} minutes">
+                            <i class="fas fa-play me-1"></i> Continue Quiz
+                        </a>
+                        <a href="{{ url_for('cancel_quiz_attempt', attempt_id=attempt.id) }}" 
+                           class="btn btn-outline-danger w-100 cancel-attempt-btn">
+                            <i class="fas fa-trash-alt me-1"></i> Cancel Attempt
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Quiz Instructions -->
+            {% if quiz.instructions %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Instructions</h5>
+                </div>
+                <div class="card-body">
+                    {{ quiz.instructions|safe }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Confirm before starting quiz
+    document.querySelectorAll('.start-quiz-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            if (!confirm(`Start "${this.dataset.quizTitle}"?\nTime limit: ${this.dataset.timeLimit}\n\nYou must complete this quiz in one session.`)) {
+                e.preventDefault();
+            }
+        });
+    });
+
+    // Confirm before canceling attempt
+    document.querySelectorAll('.cancel-attempt-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            if (!confirm('Are you sure you want to cancel this quiz attempt?\n\nAll your progress will be lost.')) {
+                e.preventDefault();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Student Dashboard for managing courses, assignments, and grades">
+    <meta name="description" content="Comprehensive Student Dashboard for academic management and performance tracking">
     <title>Student Dashboard | Welcome {{ username }}</title>
     
     <!-- Preload critical resources -->
@@ -20,6 +20,7 @@
     
     <style>
         :root {
+            /* Light Theme Colors */
             --primary: #4361ee;
             --primary-light: #4895ef;
             --primary-lighter: rgba(67, 97, 238, 0.1);
@@ -37,18 +38,42 @@
             --medium-gray: #adb5bd;
             --light-gray: #f8f9fa;
             --white: #ffffff;
+            
+            /* Layout Variables */
             --sidebar-width: 280px;
             --header-height: 80px;
             --transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.1);
             --radius: 12px;
+            --radius-lg: 16px;
             --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
             --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
             --shadow-lg: 0 15px 30px rgba(0,0,0,0.12);
+            
+            /* Gradients */
             --gradient-primary: linear-gradient(135deg, var(--primary), var(--secondary));
             --gradient-accent: linear-gradient(135deg, var(--accent), #b5179e);
             --gradient-success: linear-gradient(135deg, var(--success), #4895ef);
             --gradient-warning: linear-gradient(135deg, var(--warning), #f3722c);
             --gradient-danger: linear-gradient(135deg, var(--danger), #d90429);
+        }
+
+        /* Dark Theme Variables */
+        [data-theme="dark"] {
+            --dark: #f8f9fa;
+            --dark-gray: #e9ecef;
+            --medium-gray: #6c757d;
+            --light-gray: #212529;
+            --white: #2b3035;
+            
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.25);
+            --shadow-lg: 0 15px 30px rgba(0,0,0,0.3);
+            
+            --primary-lighter: rgba(67, 97, 238, 0.2);
+            --accent-light: rgba(247, 37, 133, 0.2);
+            --success-light: rgba(76, 201, 240, 0.2);
+            --warning-light: rgba(248, 150, 30, 0.2);
+            --danger-light: rgba(239, 35, 60, 0.2);
         }
 
         * {
@@ -63,8 +88,10 @@
             color: var(--dark);
             line-height: 1.6;
             overflow-x: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
+        /* Dashboard Layout */
         .dashboard-container {
             display: grid;
             grid-template-areas:
@@ -88,6 +115,11 @@
             transition: var(--transition);
             overflow-y: auto;
             box-shadow: 2px 0 15px rgba(0, 0, 0, 0.03);
+        }
+
+        [data-theme="dark"] .sidebar {
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 2px 0 15px rgba(0, 0, 0, 0.3);
         }
 
         .sidebar-header {
@@ -175,7 +207,13 @@
             z-index: 90;
             height: var(--header-height);
             backdrop-filter: blur(5px);
-            background-color: rgba(255, 255, 255, 0.8);
+            background-color: rgba(var(--white), 0.8);
+            transition: background-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        [data-theme="dark"] .dashboard-header {
+            background-color: rgba(43, 48, 53, 0.8);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .header-left {
@@ -203,6 +241,10 @@
         .toggle-btn:hover {
             background-color: rgba(0, 0, 0, 0.05);
             color: var(--primary);
+        }
+
+        [data-theme="dark"] .toggle-btn:hover {
+            background-color: rgba(255, 255, 255, 0.1);
         }
 
         .header-title h1 {
@@ -240,6 +282,10 @@
             color: var(--primary);
         }
 
+        [data-theme="dark"] .action-btn:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
         .notification-btn {
             position: relative;
         }
@@ -275,6 +321,10 @@
 
         .user-profile:hover {
             background-color: rgba(0, 0, 0, 0.05);
+        }
+
+        [data-theme="dark"] .user-profile:hover {
+            background-color: rgba(255, 255, 255, 0.1);
         }
 
         .user-avatar {
@@ -325,6 +375,11 @@
             border: 1px solid rgba(0, 0, 0, 0.05);
         }
 
+        [data-theme="dark"] .user-dropdown {
+            background: #343a40;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
         .user-dropdown.active {
             opacity: 1;
             visibility: visible;
@@ -337,6 +392,10 @@
             display: flex;
             align-items: center;
             gap: 0.75rem;
+        }
+
+        [data-theme="dark"] .dropdown-header {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .dropdown-avatar {
@@ -395,6 +454,10 @@
             margin: 0.5rem 0;
         }
 
+        [data-theme="dark"] .dropdown-divider {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
         /* Main Content Styles */
         .dashboard-main {
             grid-area: main;
@@ -404,6 +467,11 @@
             min-height: calc(100vh - var(--header-height));
             background-image: radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.03) 1px, transparent 0);
             background-size: 20px 20px;
+            transition: background-color 0.3s ease;
+        }
+
+        [data-theme="dark"] .dashboard-main {
+            background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.03) 1px, transparent 0);
         }
 
         .page-header {
@@ -440,23 +508,32 @@
             font-weight: 400;
         }
 
-        /* Cards Grid */
+        /* Enhanced Cards Grid */
         .cards-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 1.5rem;
             margin-bottom: 2rem;
         }
 
+        /* Modern Card Design */
         .card {
             background: var(--white);
-            border-radius: var(--radius);
+            border-radius: var(--radius-lg);
             padding: 1.75rem;
             box-shadow: var(--shadow-sm);
             transition: var(--transition);
             position: relative;
             overflow: hidden;
-            border: 1px solid rgba(0, 0, 0, 0.03);
+            border: none;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        [data-theme="dark"] .card {
+            background: var(--white);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
         }
 
         .card::before {
@@ -471,26 +548,33 @@
 
         .card:hover {
             transform: translateY(-5px);
-            box-shadow: var(--shadow-md);
-            border-color: rgba(67, 97, 238, 0.1);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 1.5rem;
         }
 
         .card-icon {
-            width: 60px;
-            height: 60px;
-            border-radius: 15px;
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 1.5rem;
-            margin-bottom: 1.5rem;
             color: var(--white);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             transition: var(--transition);
+            flex-shrink: 0;
+            margin-right: 1rem;
         }
 
         .card:hover .card-icon {
-            transform: rotate(10deg) scale(1.1);
+            transform: scale(1.1);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
         }
 
         .card-icon.assignments {
@@ -513,10 +597,27 @@
             background: var(--gradient-warning);
         }
 
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            color: var(--dark);
+        }
+
+        .card-subtitle {
+            font-size: 0.85rem;
+            color: var(--medium-gray);
+            font-weight: 400;
+        }
+
+        .card-body {
+            flex: 1;
+        }
+
         .card h3 {
             font-size: 1.3rem;
             font-weight: 600;
-            margin-bottom: 0.75rem;
+            margin-bottom: 1rem;
             color: var(--dark);
             position: relative;
             display: inline-block;
@@ -538,6 +639,16 @@
             margin-bottom: 1.5rem;
             font-size: 0.95rem;
             line-height: 1.6;
+        }
+
+        .card-footer {
+            margin-top: auto;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        [data-theme="dark"] .card-footer {
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .card-link {
@@ -580,9 +691,11 @@
             transform: translateX(3px);
         }
 
-        /* Assignment List Styles */
+        /* Enhanced Assignment List */
         .assignment-list {
             list-style: none;
+            margin: 0;
+            padding: 0;
         }
 
         .assignment-item {
@@ -591,29 +704,35 @@
         }
 
         .assignment-item:hover {
-            transform: translateX(5px);
+            transform: translateY(-2px);
         }
 
         .assignment-link {
             display: flex;
             flex-direction: column;
-            padding: 1rem;
+            padding: 1.25rem;
             border-radius: var(--radius);
             background-color: var(--white);
             text-decoration: none;
             transition: var(--transition);
             border: 1px solid rgba(0, 0, 0, 0.03);
             box-shadow: var(--shadow-sm);
+            position: relative;
+            overflow: hidden;
+        }
+
+        [data-theme="dark"] .assignment-link {
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .assignment-link:hover {
             background-color: var(--primary-lighter);
             border-color: rgba(67, 97, 238, 0.1);
-            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
         }
 
         .assignment-title {
-            font-weight: 500;
+            font-weight: 600;
             color: var(--dark);
             margin-bottom: 0.5rem;
             display: flex;
@@ -659,246 +778,361 @@
             color: var(--success);
         }
 
-        /* Quiz List Styles */
-        .quiz-list {
-            list-style: none;
+        .progress-container {
+            width: 100%;
+            height: 6px;
+            background-color: var(--light-gray);
+            border-radius: 3px;
+            margin-top: 1rem;
+            overflow: hidden;
         }
 
-        .quiz-item {
-            margin-bottom: 0.75rem;
-            transition: var(--transition);
+        .progress-bar {
+            height: 100%;
+            border-radius: 3px;
+            background: var(--gradient-primary);
+            transition: width 0.5s ease;
         }
 
-        .quiz-item:hover {
-            transform: translateX(5px);
-        }
-
-        .quiz-link {
-            display: flex;
-            flex-direction: column;
-            padding: 1rem;
-            border-radius: var(--radius);
-            background-color: var(--white);
-            text-decoration: none;
-            transition: var(--transition);
-            border: 1px solid rgba(0, 0, 0, 0.03);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .quiz-link:hover {
-            background-color: rgba(76, 201, 240, 0.1);
-            border-color: rgba(76, 201, 240, 0.1);
-        }
-
-        .quiz-title {
-            font-weight: 500;
-            color: var(--dark);
-            margin-bottom: 0.5rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .quiz-title i {
-            color: var(--success);
-            font-size: 0.9rem;
-        }
-
-        .quiz-due, .quiz-meta {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.85rem;
-            color: var(--medium-gray);
-        }
-
-        /* Grades Summary Styles */
-        .grades-summary {
-            display: flex;
-            flex-direction: column;
+        /* Enhanced Quiz Cards */
+        .quiz-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
             gap: 1.5rem;
+            margin-top: 1rem;
         }
 
-        .gpa-display {
+        .quiz-card {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition);
+            border: none;
+            display: flex;
+            flex-direction: column;
+        }
+
+        [data-theme="dark"] .quiz-card {
+            background: var(--white);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .quiz-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .quiz-card-header {
+            background: var(--gradient-warning);
+            color: white;
+            padding: 1.25rem 1.5rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            background: var(--gradient-primary);
-            padding: 1.5rem;
-            border-radius: var(--radius);
-            color: var(--white);
-            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.3);
             position: relative;
             overflow: hidden;
         }
 
-        .gpa-display::before {
+        .quiz-card-header::before {
             content: '';
             position: absolute;
             top: -50%;
             right: -50%;
             width: 100%;
             height: 200%;
-            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 70%);
+            background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%);
             transform: rotate(30deg);
         }
 
-        .gpa-label {
-            font-size: 0.95rem;
-            opacity: 0.9;
-        }
-
-        .gpa-value {
-            font-size: 2.5rem;
-            font-weight: 700;
+        .quiz-card-header h5 {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin: 0;
             position: relative;
-        }
-
-        .gpa-value::after {
-            content: '';
-            position: absolute;
-            bottom: -5px;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background: rgba(255,255,255,0.5);
-        }
-
-        .grade-distribution {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-
-        .grade-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 1rem;
-            position: relative;
-        }
-
-        .grade-bar::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            right: 0;
-            height: 8px;
-            background-color: var(--light-gray);
-            border-radius: 4px;
             z-index: 1;
         }
 
-        .grade-bar::after {
-            content: '';
-            position: absolute;
-            left: 0;
-            height: 8px;
-            width: calc(var(--percentage) * 1%);
-            background: var(--gradient-primary);
-            border-radius: 4px;
-            z-index: 2;
+        .quiz-card-body {
+            padding: 1.5rem;
+            background: var(--white);
+            flex: 1;
         }
 
-        .grade-letter {
-            font-weight: 600;
-            color: var(--dark);
-            z-index: 3;
-            min-width: 20px;
+        [data-theme="dark"] .quiz-card-body {
+            background: var(--white);
         }
 
-        .grade-percent {
-            font-size: 0.85rem;
-            color: var(--medium-gray);
-            z-index: 3;
-        }
-
-        /* Session Table Styles */
-        .session-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .session-table th {
-            text-align: left;
-            padding: 0.75rem 1rem;
-            background-color: var(--light-gray);
-            font-weight: 600;
+        .quiz-card-body p {
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
             color: var(--dark-gray);
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            font-size: 0.9rem;
         }
 
-        .session-table td {
-            padding: 1rem;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-            vertical-align: middle;
+        .quiz-card-body i {
+            margin-right: 0.75rem;
+            width: 20px;
+            text-align: center;
+            color: var(--medium-gray);
         }
 
-        .session-table tr:last-child td {
-            border-bottom: none;
+        .quiz-card-footer {
+            padding: 1rem 1.5rem;
+            background-color: var(--light-gray);
+            text-align: right;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
-        .session-table tr:hover td {
-            background-color: rgba(67, 97, 238, 0.03);
+        [data-theme="dark"] .quiz-card-footer {
+            background-color: rgba(0, 0, 0, 0.05);
         }
 
-        .session-status {
+        .time-remaining {
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--medium-gray);
+            display: flex;
+            align-items: center;
+        }
+
+        .time-remaining i {
+            margin-right: 0.5rem;
+        }
+
+        .quiz-status {
             display: inline-block;
-            padding: 0.5rem 1rem;
-            border-radius: var(--radius);
-            font-size: 0.85rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 50px;
+            font-size: 0.8rem;
             font-weight: 500;
         }
 
-        .live {
+        .quiz-status.available {
             background-color: var(--success-light);
             color: var(--success);
-            animation: pulse 2s infinite;
         }
 
-        .upcoming {
+        .quiz-status.upcoming {
             background-color: var(--warning-light);
             color: var(--warning);
         }
 
-        .ended {
+        .quiz-status.expired {
+            background-color: var(--danger-light);
+            color: var(--danger);
+        }
+
+        /* Enhanced Classes Card */
+        .classes-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .class-card {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition);
+            border: none;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .class-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .class-card-header {
+            padding: 1.25rem 1.5rem;
+            background: var(--gradient-primary);
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .class-card-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%);
+            transform: rotate(30deg);
+        }
+
+        .class-card-header h5 {
+            font-weight: 600;
+            margin: 0;
+            position: relative;
+            z-index: 1;
+        }
+
+        .class-card-body {
+            padding: 1.5rem;
+            flex: 1;
+        }
+
+        .class-card-body p {
+            color: var(--medium-gray);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+
+        .class-meta {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 0.85rem;
+            color: var(--medium-gray);
+            margin-bottom: 1rem;
+        }
+
+        .class-meta i {
+            margin-right: 0.25rem;
+        }
+
+        .class-card-footer {
+            padding: 0 1.5rem 1.5rem;
+        }
+
+        /* Enhanced Resources Card */
+        .resources-card {
+            background: var(--white);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            transition: var(--transition);
+            border: none;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .resources-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .resources-card-header {
+            padding: 1.25rem 1.5rem;
+            background: var(--gradient-success);
+            color: white;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .resources-card-header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%);
+            transform: rotate(30deg);
+        }
+
+        .resources-card-header h5 {
+            font-weight: 600;
+            margin: 0;
+            position: relative;
+            z-index: 1;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .resources-card-header h5 i {
+            font-size: 1.5rem;
+        }
+
+        .resources-card-body {
+            padding: 1.5rem;
+            flex: 1;
+        }
+
+        .resource-types {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .resource-type {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.5rem 0.75rem;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 500;
             background-color: var(--light-gray);
+            color: var(--dark-gray);
+        }
+
+        .resource-type i {
+            margin-right: 0.5rem;
+        }
+
+        .resource-type.pdf {
+            background-color: var(--danger-light);
+            color: var(--danger);
+        }
+
+        .resource-type.video {
+            background-color: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .resource-type.slide {
+            background-color: var(--warning-light);
+            color: var(--warning);
+        }
+
+        .resource-type.test {
+            background-color: var(--success-light);
+            color: var(--success);
+        }
+
+        .resource-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: auto;
+        }
+
+        .resource-count {
+            font-size: 0.9rem;
             color: var(--medium-gray);
         }
 
-        .join-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1.25rem;
-            background: var(--gradient-primary);
-            color: var(--white);
-            border-radius: var(--radius);
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 0.9rem;
-            transition: var(--transition);
-            box-shadow: 0 4px 8px rgba(67, 97, 238, 0.2);
-            border: none;
-            cursor: pointer;
-        }
-
-        .join-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(67, 97, 238, 0.3);
-            background: var(--gradient-accent);
+        .resource-count span {
+            font-weight: 600;
+            color: var(--dark);
+            font-size: 1.1rem;
         }
 
         /* Recent Activity */
         .recent-activity {
             background: var(--white);
-            border-radius: var(--radius);
+            border-radius: var(--radius-lg);
             padding: 1.75rem;
             box-shadow: var(--shadow-sm);
             margin-top: 2rem;
-            border: 1px solid rgba(0, 0, 0, 0.03);
+            border: none;
             position: relative;
             overflow: hidden;
+        }
+
+        [data-theme="dark"] .recent-activity {
+            background: var(--white);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
         }
 
         .recent-activity::before {
@@ -956,6 +1190,8 @@
 
         .activity-list {
             list-style: none;
+            padding: 0;
+            margin: 0;
         }
 
         .activity-item {
@@ -963,6 +1199,10 @@
             padding: 1rem 0;
             border-bottom: 1px solid rgba(0, 0, 0, 0.05);
             transition: var(--transition);
+        }
+
+        [data-theme="dark"] .activity-item {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .activity-item:hover {
@@ -1025,6 +1265,11 @@
             margin-top: 2rem;
             background-color: var(--white);
             border-top: 1px solid rgba(0, 0, 0, 0.05);
+            transition: background-color 0.3s ease;
+        }
+
+        [data-theme="dark"] .dashboard-footer {
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         /* Badges */
@@ -1056,23 +1301,6 @@
             color: var(--danger);
         }
 
-        /* Progress bars */
-        .progress-container {
-            width: 100%;
-            height: 8px;
-            background-color: var(--light-gray);
-            border-radius: 4px;
-            margin-top: 0.5rem;
-            overflow: hidden;
-        }
-
-        .progress-bar {
-            height: 100%;
-            border-radius: 4px;
-            background: var(--gradient-primary);
-            transition: width 0.5s ease;
-        }
-
         /* Responsive Design */
         @media (max-width: 992px) {
             .dashboard-container {
@@ -1092,6 +1320,10 @@
                 box-shadow: 5px 0 15px rgba(0, 0, 0, 0.1);
             }
 
+            [data-theme="dark"] .sidebar.active {
+                box-shadow: 5px 0 15px rgba(0, 0, 0, 0.3);
+            }
+
             .toggle-btn {
                 display: flex;
             }
@@ -1107,7 +1339,7 @@
             }
 
             .cards-grid {
-                grid-template-columns: 1fr 1fr;
+                grid-template-columns: 1fr;
             }
 
             .page-header {
@@ -1122,10 +1354,6 @@
         }
 
         @media (max-width: 576px) {
-            .cards-grid {
-                grid-template-columns: 1fr;
-            }
-
             .dashboard-header {
                 padding: 0 1rem;
             }
@@ -1175,130 +1403,15 @@
             }
         }
 
-        /* Quiz Card Styles */
-        .quiz-card {
-            border: none;
-            border-radius: var(--radius);
-            overflow: hidden;
-            box-shadow: var(--shadow-sm);
-            transition: var(--transition);
+        /* Pulse animation for live sessions */
+        @keyframes pulseLive {
+            0% { box-shadow: 0 0 0 0 rgba(76, 201, 240, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(76, 201, 240, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(76, 201, 240, 0); }
         }
 
-        .quiz-card:hover {
-            transform: translateY(-5px);
-            box-shadow: var(--shadow-md);
-        }
-
-        .quiz-card-header {
-            background: var(--gradient-warning);
-            color: white;
-            padding: 1rem 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .quiz-card-header h3 {
-            margin: 0;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .quiz-card-body {
-            padding: 1.5rem;
-            background: var(--white);
-        }
-
-        .quiz-list-group {
-            border-radius: var(--radius);
-            overflow: hidden;
-        }
-
-        .quiz-list-item {
-            border-left: none;
-            border-right: none;
-            padding: 1rem;
-            transition: var(--transition);
-        }
-
-        .quiz-list-item:hover {
-            background-color: rgba(248, 150, 30, 0.05);
-        }
-
-        .quiz-list-item:first-child {
-            border-top: none;
-        }
-
-        .quiz-list-item:last-child {
-            border-bottom: none;
-        }
-
-        .quiz-empty-state {
-            padding: 2rem;
-            text-align: center;
-            color: var(--medium-gray);
-        }
-
-        .quiz-empty-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            color: var(--warning-light);
-        }
-
-        /* Text utilities */
-        .text-muted {
-            color: var(--medium-gray) !important;
-        }
-
-        /* Button styles */
-        .btn {
-            transition: var(--transition);
-            font-weight: 500;
-        }
-
-        .btn-primary {
-            background: var(--gradient-primary);
-            border: none;
-        }
-
-        .btn-primary:hover {
-            background: var(--gradient-accent);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        }
-
-        .btn-light {
-            background: var(--white);
-            border: 1px solid rgba(0, 0, 0, 0.05);
-        }
-
-        .btn-light:hover {
-            background: var(--light-gray);
-        }
-
-        .btn-sm {
-            padding: 0.35rem 0.75rem;
-            font-size: 0.85rem;
-        }
-
-        /* Alert styles */
-        .alert {
-            border-radius: var(--radius);
-            padding: 0.75rem 1.25rem;
-            font-size: 0.9rem;
-        }
-
-        .alert-info {
-            background-color: rgba(76, 201, 240, 0.1);
-            border-color: rgba(76, 201, 240, 0.2);
-            color: var(--dark-gray);
-        }
-
-        /* Small text utility */
-        .small {
-            font-size: 0.85rem;
+        .pulse-live {
+            animation: pulseLive 2s infinite;
         }
     </style>
 </head>
@@ -1307,7 +1420,9 @@
         <!-- Sidebar -->
         <nav class="sidebar">
             <div class="sidebar-header">
-                <div class="logo">E</div>
+                <div class="logo">
+                    <i class="fas fa-graduation-cap"></i>
+                </div>
                 <h3>EduConnect</h3>
             </div>
             <ul class="sidebar-menu">
@@ -1317,7 +1432,7 @@
                     </a>
                 </li>
                 <li>
-                    <a href="#">
+                    <a href="{{ url_for('student_classes') }}">
                         <i class="fas fa-book-open"></i> My Courses
                     </a>
                 </li>
@@ -1327,7 +1442,7 @@
                     </a>
                 </li>
                 <li>
-                    <a href="#">
+                    <a href="{{ url_for('view_grades') }}">
                         <i class="fas fa-chart-line"></i> Grades
                     </a>
                 </li>
@@ -1360,6 +1475,9 @@
                 </div>
             </div>
             <div class="header-actions">
+                <button class="action-btn theme-toggle">
+                    <i class="fas fa-moon"></i>
+                </button>
                 <button class="action-btn notification-btn">
                     <i class="fas fa-bell"></i>
                     <span class="notification-badge"></span>
@@ -1414,7 +1532,6 @@
 
         <!-- Main Content -->
         <main class="dashboard-main">
-
             <div class="page-header">
                 <div class="page-title">
                     <h2>Welcome back, {{ username }}</h2>
@@ -1426,277 +1543,115 @@
                     </button>
                 </div>
             </div>
+            
             {% block content %}
-
             <div class="cards-grid">
                 <!-- Assignments Card -->
                 <div class="card" data-aos="fade-up" data-aos-delay="100">
-                    <div class="card-icon assignments">
-                        <i class="fas fa-tasks"></i>
-                    </div>
-                    <h3>Upcoming Assignments</h3>
-                    <div class="card-body">
-                        {% if upcoming_assignments %}
-                            <ul class="assignment-list">
-                                {% for assignment in upcoming_assignments %}
-                                <li class="assignment-item">
-                                    <a href="{{ url_for('view_assignment', assignment_id=assignment.id) }}" class="assignment-link">
-                                        <span class="assignment-title">
-                                            <i class="fas fa-file-alt"></i>
-                                            {{ assignment.title }} ({{ assignment.subject.name }})
-                                        </span>
-                                        <span class="assignment-due">
-                                            <i class="far fa-calendar-alt"></i>
-                                            Due: {{ assignment.due_date.strftime('%b %d, %Y %I:%M %p') }}
-                                        </span>
-                                        {% if assignment.priority == 'high' %}
-                                        <span class="assignment-priority high">High Priority</span>
-                                        {% elif assignment.priority == 'medium' %}
-                                        <span class="assignment-priority medium">Medium Priority</span>
-                                        {% else %}
-                                        <span class="assignment-priority low">Low Priority</span>
-                                        {% endif %}
-                                        <div class="progress-container">
-                                            <div class="progress-bar" style="width: {{ assignment.progress }}%"></div>
-                                        </div>
-                                    </a>
-                                </li>
-                                {% endfor %}
-                            </ul>
-                        {% else %}
-                            <p>No upcoming assignments</p>
-                        {% endif %}
-                    </div>
-                    <a href="{{ url_for('student_assignments') }}" class="card-link">
-                        View all assignments <i class="fas fa-arrow-right"></i>
-                    </a>
-                </div>
-
-                <!-- Grades Card -->
-                <div class="card" data-aos="fade-up" data-aos-delay="200">
-                    <div class="card-icon grades">
-                        <i class="fas fa-chart-line"></i>
-                    </div>
-                    <h3>Grades Overview</h3>
-                    <div class="card-body">
-                        {% if grades_summary %}
-                        <div class="grades-summary">
-                            <div class="gpa-display">
-                                <span class="gpa-label">Current GPA</span>
-                                <span class="gpa-value">{{ grades_summary.gpa }}</span>
-                            </div>
-                            <div class="grade-distribution">
-                                {% for grade in grades_summary.distribution %}
-                                <div class="grade-bar" style="--percentage: {{ grade.percentage }}%">
-                                    <span class="grade-letter">{{ grade.letter }}</span>
-                                    <span class="grade-percent">{{ grade.percentage }}%</span>
-                                </div>
-                                {% endfor %}
-                            </div>
+                    <div class="card-header">
+                        <div class="card-icon assignments">
+                            <i class="fas fa-tasks"></i>
                         </div>
-                        {% else %}
-                            <p>No grade data available</p>
-                        {% endif %}
-                    </div>
-                    <a href="#" class="card-link">
-                        View grade details <i class="fas fa-arrow-right"></i>
-                    </a>
-                </div>
-
-<!-- Quizzes Section -->
-<div class="dashboard-section">
-    <h3><i class="fas fa-tasks"></i> Upcoming Quizzes</h3>
-    
-    {% if quizzes %}
-        <div class="quiz-cards">
-            {% for item in quizzes %}
-                {% if item.quiz %}  <!-- Add this check -->
-                <div class="quiz-card">
-                    <div class="quiz-card-header">
-                        <h5>{{ item.quiz.title }}</h5>
-                        {% if item.due_date_local %}
-                        <span class="badge {{ 'badge-primary' if item.time_remaining.days > 1 else 'badge-warning' }}">
-                            Due {{ item.due_date_local|format_datetime('%b %d at %H:%M') }}
-                        </span>
-                        {% endif %}
-                    </div>
-                    
-                    <div class="quiz-card-body">
-                        {% if item.quiz.classroom and item.quiz.classroom.subject %}
-                        <p><i class="fas fa-book"></i> {{ item.quiz.classroom.subject.name }}</p>
-                        {% endif %}
-                        {% if item.quiz.teacher and item.quiz.teacher.user %}
-                        <p><i class="fas fa-user-tie"></i> {{ item.quiz.teacher.user.full_name }}</p>
-                        {% endif %}
-                        
-                        {% if item.time_remaining %}
-                        <div class="time-remaining">
-                            <i class="fas fa-clock"></i> 
-                            {{ item.time_remaining|humanize_time }} remaining
+                        <div>
+                            <h3 class="card-title">Upcoming Assignments</h3>
+                            <p class="card-subtitle">{{ upcoming_assignments|length }} pending</p>
                         </div>
-                        {% endif %}
                     </div>
-                    
-                    <div class="quiz-card-footer">
-                        {% if item.quiz.status == QuizStatus.PUBLISHED.value %}
-                        <a href="{{ url_for('student_start_quiz', quiz_id=item.quiz.id) }}" 
-                           class="btn btn-primary btn-sm">
-                            <i class="fas fa-play"></i> Start Quiz
+                    <div class="card-footer">
+                        <a href="{{ url_for('student_assignments') }}" class="card-link">
+                            View all assignments <i class="fas fa-arrow-right"></i>
                         </a>
-                        {% else %}
-                        <span class="badge bg-secondary">Not Available</span>
-                        {% endif %}
                     </div>
                 </div>
-                {% endif %}
-            {% endfor %}
-        </div>
-    {% else %}
-        <div class="alert alert-info">No upcoming quizzes</div>
-    {% endif %}
-</div>
 
-<style>
-    .quiz-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 1.5rem;
-    margin-top: 1rem;
-}
-
-.quiz-card {
-    border: 1px solid #dee2e6;
-    border-radius: 0.5rem;
-    overflow: hidden;
-    transition: transform 0.2s;
-}
-
-.quiz-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
-
-.quiz-card-header {
-    padding: 1rem;
-    background-color: #f8f9fa;
-    border-bottom: 1px solid #dee2e6;
-}
-
-.quiz-card-body {
-    padding: 1rem;
-}
-
-.quiz-card-footer {
-    padding: 1rem;
-    background-color: #f8f9fa;
-    border-top: 1px solid #dee2e6;
-    text-align: right;
-}
-
-.time-remaining {
-    margin-top: 0.5rem;
-    font-size: 0.9rem;
-    color: #6c757d;
-}
-</style>
-                <!-- Sessions Card -->
-                <div class="card" data-aos="fade-up" data-aos-delay="400">
-                    <div class="card-icon sessions">
-                        <i class="fas fa-video"></i>
+                <!-- Quizzes Card -->
+                <div class="card" data-aos="fade-up" data-aos-delay="200">
+                    <div class="card-header">
+                        <div class="card-icon quizzes">
+                            <i class="fas fa-question-circle"></i>
+                        </div>
+                        <div>
+                            <h3 class="card-title">Upcoming Quizzes</h3>
+                            <p class="card-subtitle">{{ quizzes|length }} scheduled</p>
+                        </div>
                     </div>
-                    <h3>Class Sessions</h3>
-                    <div class="card-body">
-                        {% if active_sessions %}
-                            <div class="table-responsive">
-                                <table class="session-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Class</th>
-                                            <th>Time</th>
-                                            <th>Status</th>
-                                            <th>Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for session in active_sessions %}
-                                        <tr>
-                                            <td>{{ session.class_name }}</td>
-                                            <td>
-                                                {% if session.start_time %}
-                                                    {{ session.start_time.astimezone().strftime('%b %d, %I:%M %p') }}
-                                                    {% if session.end_time %}
-                                                    - {{ session.end_time.astimezone().strftime('%I:%M %p') }}
-                                                    {% endif %}
-                                                {% else %}
-                                                    Time not set
-                                                {% endif %}
-                                            </td>
-                                            <td>
-                                                {% if now >= session.start_time and now <= session.end_time %}
-                                                    <span class="session-status live">Live Now</span>
-                                                {% elif now < session.start_time %}
-                                                    <span class="session-status upcoming">Upcoming</span>
-                                                {% else %}
-                                                    <span class="session-status ended">Ended</span>
-                                                {% endif %}
-                                            </td>
-                                            <td>
-                                                {% if now >= session.start_time and now <= session.end_time %}
-                                                    <a href="{{ url_for('join_session', room_id=session.room_id) }}" 
-                                                       class="join-btn"
-                                                       target="_blank">
-                                                        <i class="fas fa-video"></i> Join
-                                                    </a>
-                                                {% elif now < session.start_time %}
-                                                    <button class="btn btn-outline-secondary" disabled>
-                                                        <i class="fas fa-clock"></i> Upcoming
-                                                    </button>
-                                                {% else %}
-                                                    {% if session.recording_url %}
-                                                    <a href="{{ session.recording_url }}" 
-                                                       class="btn btn-outline-dark"
-                                                       target="_blank">
-                                                        <i class="fas fa-play-circle"></i> Recording
-                                                    </a>
-                                                    {% else %}
-                                                    <button class="btn btn-outline-dark" disabled>
-                                                        <i class="fas fa-check-circle"></i> Ended
-                                                    </button>
-                                                    {% endif %}
-                                                {% endif %}
-                                            </td>
-                                        </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                        {% else %}
-                            <p>No upcoming sessions</p>
-                        {% endif %}
+
+                    <div class="card-footer">
+                        <a href="{{ url_for('student_quizzes') }}" class="card-link">
+                            View all quizzes <i class="fas fa-arrow-right"></i>
+                        </a>
                     </div>
-                    <a href="#" class="card-link">
-                        View all sessions <i class="fas fa-arrow-right"></i>
-                    </a>
+                </div>
+
+                <!-- Classes Card -->
+                <div class="card" data-aos="fade-up" data-aos-delay="300">
+                    <div class="card-header">
+                        <div class="card-icon sessions">
+                            <i class="fas fa-chalkboard-teacher"></i>
+                        </div>
+                        <div>
+                            <h3 class="card-title">My Classes</h3>
+                            <p class="card-subtitle">{{ enrollments|length }} enrolled</p>
+                        </div>
+                    </div>
+                    
+                    <div class="card-footer">
+                        <a href="{{ url_for('student_classes') }}" class="card-link">
+                            View all classes <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </div>
                 </div>
 
                 <!-- Resources Card -->
-                <div class="card" data-aos="fade-up" data-aos-delay="500">
-                    <div class="card-icon resources">
-                        <i class="fas fa-book"></i>
-                    </div>
-                    <h3>Study Resources</h3>
-                    <p>Access your course materials, lecture notes, and study guides.</p>
-                    <div class="card-body">
-                        <div class="d-flex flex-wrap gap-2">
-                            <span class="badge badge-primary">PDF Notes</span>
-                            <span class="badge badge-success">Videos</span>
-                            <span class="badge badge-warning">Slides</span>
-                            <span class="badge badge-danger">Practice Tests</span>
+                <div class="card" data-aos="fade-up" data-aos-delay="400">
+                    <div class="card-header">
+                        <div class="card-icon resources">
+                            <i class="fas fa-book-open"></i>
+                        </div>
+                        <div>
+                            <h3 class="card-title">Study Resources</h3>
+                            <p class="card-subtitle">24 available</p>
                         </div>
                     </div>
-                    <a href="{{ url_for('study_resources')}}" class="card-link">
-                        View resources <i class="fas fa-arrow-right"></i>
-                    </a>
+                    <!-- <div class="card-body">
+                        <div class="resources-card">
+                            <div class="resources-card-header">
+                                <h5><i class="fas fa-book"></i> Learning Materials</h5>
+                            </div>
+                            <div class="resources-card-body">
+                                <p>Browse lecture notes, video tutorials, slides, and practice materials for your courses.</p>
+                                
+                                <div class="resource-types">
+                                    <span class="resource-type pdf">
+                                        <i class="fas fa-file-pdf"></i> PDF Notes
+                                    </span>
+                                    <span class="resource-type video">
+                                        <i class="fas fa-video"></i> Videos
+                                    </span>
+                                    <span class="resource-type slide">
+                                        <i class="fas fa-presentation"></i> Slides
+                                    </span>
+                                    <span class="resource-type test">
+                                        <i class="fas fa-clipboard-check"></i> Practice Tests
+                                    </span>
+                                </div>
+                                
+                                <div class="resource-stats">
+                                    <div class="resource-count">
+                                        <span>24</span> resources available
+                                    </div>
+                                    <a href="{{ url_for('study_resources') }}" class="btn btn-primary btn-sm">
+                                        Explore
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div> -->
+                    <div class="card-footer">
+                        <a href="{{ url_for('study_resources') }}" class="card-link">
+                            Browse all resources <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </div>
                 </div>
             </div>
 
@@ -1710,64 +1665,86 @@
                     {% for submission in recent_submissions %}
                     <li class="activity-item">
                         <div class="activity-icon">
-                            <i class="fas fa-check-circle"></i>
+                            <i class="fas fa-check-circle text-success"></i>
                         </div>
                         <div class="activity-content">
-                            <div class="activity-title">
-                                Assignment submitted: {{ submission.assignment.title }}
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="activity-title font-weight-bold">
+                                    <i class="fas fa-file-alt mr-2"></i>
+                                    {{ submission.assignment.title }}
+                                </span>
                                 {% if submission.score is not none %}
-                                <span class="badge badge-success" style="margin-left: auto;">
-                                    Graded: {{ submission.score }}/{{ submission.assignment.max_score }}
+                                <span class="badge badge-pill badge-success ml-2">
+                                    {{ submission.score }}/{{ submission.assignment.max_score }}
+                                    {% if submission.score == submission.assignment.max_score %}
+                                        <i class="fas fa-star ml-1"></i>
+                                    {% elif submission.score >= submission.assignment.max_score * 0.8 %}
+                                        <i class="fas fa-thumbs-up ml-1"></i>
+                                    {% endif %}
                                 </span>
                                 {% endif %}
                             </div>
-                            <div class="activity-meta">
-                                <i class="fas fa-clock"></i> 
-                                {{ humanize.naturaltime(now - submission.submitted_at) }} • 
-                                {{ submission.assignment.subject.name }}
+                            
+                            <!-- In your activity items -->
+                            <div class="activity-meta text-muted small">
+                                <div class="d-flex flex-wrap">
+                                    <span class="mr-3">
+                                        <i class="fas fa-clock mr-1"></i>
+                                        {% if submission.submitted_at_aware %}
+                                            {{ humanize.naturaltime(now - submission.submitted_at_aware) }}
+                                        {% else %}
+                                            {{ submission.submitted_at_local.strftime('%b %d, %Y') if submission.submitted_at_local else 'Not submitted' }}
+                                        {% endif %}
+                                    </span>
+                                    
+                                    {% if submission.last_modified_local %}
+                                    <span>
+                                        <i class="fas fa-edit mr-1"></i>
+                                        Edited {{ humanize.naturaltime(now - submission.last_modified_aware) if submission.last_modified_aware else submission.last_modified_local.strftime('%b %d, %Y') }}
+                                    </span>
+                                    {% endif %}
+                                </div>
                             </div>
                         </div>
                     </li>
                     {% endfor %}
                     
                     <!-- Quiz Attempts -->
-<!-- In the Recent Activity section -->
-{% for attempt in recent_quiz_attempts %}
-{% if attempt.quiz and attempt.quiz.subject %}
-<li class="activity-item">
-    <div class="activity-icon">
-        <i class="fas fa-poll"></i>
-    </div>
-    <div class="activity-content">
-        <div class="activity-title">
-            Quiz {% if attempt.completed_at %}completed{% else %}attempted{% endif %}: 
-            {{ attempt.quiz.title if attempt.quiz.title else "Untitled Quiz" }}
-            <span class="badge badge-primary" style="margin-left: auto;">
-                Score: {{ attempt.score }}/{{ attempt.quiz.total_points if attempt.quiz.total_points else 0 }}
-            </span>
-        </div>
-        <div class="activity-meta">
-            <i class="fas fa-clock"></i> 
-            {% if attempt.completed_at %}
-                {{ humanize.naturaltime(now - attempt.completed_at_local) }} •
-            {% else %}
-                In progress •
-            {% endif %}
-            {{ attempt.quiz.subject.name if attempt.quiz.subject else "No Subject" }}
-        </div>
-    </div>
-</li>
-{% endif %}
-{% endfor %}
+                    {% for attempt in recent_quiz_attempts %}
+                    {% if attempt.quiz and attempt.quiz.subject %}
+                    <li class="activity-item">
+                        <div class="activity-icon">
+                            <i class="fas fa-poll"></i>
+                        </div>
+                        <div class="activity-content">
+                            <div class="activity-title">
+                                Quiz {% if attempt.completed_at %}completed{% else %}attempted{% endif %}: 
+                                {{ attempt.quiz.title if attempt.quiz.title else "Untitled Quiz" }}
+                                <span class="badge badge-primary" style="margin-left: auto;">
+                                    Score: {{ attempt.score }}/{{ attempt.quiz.total_points if attempt.quiz.total_points else 0 }}
+                                </span>
+                            </div>
+                            <div class="activity-meta">
+                                <i class="fas fa-clock"></i> 
+                                {% if attempt.completed_at %}
+                                    {{ humanize.naturaltime(now - attempt.completed_at_local) if attempt.completed_at_local else "Not completed" }} •
+                                {% else %}
+                                    In progress •
+                                {% endif %}
+                                    {{ attempt.quiz.subject.name if attempt.quiz.subject else "No Subject" }}
+                            </div>
+                        </div>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
                 </ul>
             </div>
-
             {% endblock %}
         </main>
     </div>
 
     <footer class="dashboard-footer">
-        <p>&copy; 2023 EduConnect Student Dashboard. All rights reserved.</p>
+        <p>&copy; 2025 <i class="fas fa-graduation-cap"></i> EduConnect Student Dashboard. All rights reserved.</p>
     </footer>
 
     <!-- Bootstrap 5 JS Bundle with Popper -->
@@ -1807,66 +1784,46 @@
             }
         });
 
-        // Student-specific countdown timer
-        document.addEventListener('DOMContentLoaded', function() {
-            function updateCountdowns() {
-                document.querySelectorAll('.countdown').forEach(element => {
-                    const endTime = new Date(element.dataset.endTime);
-                    const now = new Date();
-                    const diffMs = endTime - now;
-                    
-                    if (diffMs <= 0) {
-                        element.textContent = 'Session ended';
-                        return;
-                    }
-
-                    const hours = Math.floor(diffMs / (1000 * 60 * 60));
-                    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-                    
-                    element.textContent = `${hours}h ${minutes}m remaining`;
-                });
-            }
-
-            updateCountdowns();
-            setInterval(updateCountdowns, 60000);
-        });
-
-        // Theme switcher
-        const themeToggle = document.createElement('button');
-        themeToggle.className = 'action-btn theme-toggle';
-        themeToggle.innerHTML = '<i class="fas fa-moon"></i>';
-        themeToggle.title = 'Toggle Dark Mode';
+        // Theme switcher functionality
+        const themeToggle = document.querySelector('.theme-toggle');
         
+        // Check for saved theme preference or use system preference
+        function initializeTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            
+            if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
+                document.documentElement.setAttribute('data-theme', 'dark');
+                themeToggle.innerHTML = '<i class="fas fa-sun"></i>';
+            } else {
+                document.documentElement.setAttribute('data-theme', 'light');
+                themeToggle.innerHTML = '<i class="fas fa-moon"></i>';
+            }
+        }
+        
+        // Toggle theme
         themeToggle.addEventListener('click', () => {
-            document.documentElement.setAttribute('data-theme', 
-                document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
             
             const icon = themeToggle.querySelector('i');
-            if (document.documentElement.getAttribute('data-theme') === 'dark') {
+            if (newTheme === 'dark') {
                 icon.classList.remove('fa-moon');
                 icon.classList.add('fa-sun');
-                localStorage.setItem('theme', 'dark');
             } else {
                 icon.classList.remove('fa-sun');
                 icon.classList.add('fa-moon');
-                localStorage.setItem('theme', 'light');
             }
         });
-
-        // Check for saved theme preference
-        if (localStorage.getItem('theme') === 'dark' || 
-            (window.matchMedia('(prefers-color-scheme: dark)').matches && !localStorage.getItem('theme'))) {
-            document.documentElement.setAttribute('data-theme', 'dark');
-            const icon = themeToggle.querySelector('i');
-            icon.classList.remove('fa-moon');
-            icon.classList.add('fa-sun');
-        }
-
-        // Insert theme toggle button
-        document.querySelector('.header-actions').insertBefore(themeToggle, document.querySelector('.notification-btn'));
+        
+        // Initialize theme on page load
+        initializeTheme();
 
         // Add ripple effect to buttons
-        document.querySelectorAll('.btn, .action-btn, .card, .assignment-link, .quiz-link').forEach(button => {
+        document.querySelectorAll('.btn, .action-btn, .card, .assignment-link, .quiz-link, .join-session-btn').forEach(button => {
             button.addEventListener('click', function(e) {
                 const x = e.clientX - e.target.getBoundingClientRect().left;
                 const y = e.clientY - e.target.getBoundingClientRect().top;
@@ -1915,6 +1872,35 @@
         // Initialize and update every minute
         updateDueDates();
         setInterval(updateDueDates, 60000);
+
+        // Update session status in real-time
+        function updateSessionStatus() {
+            const now = new Date();
+            document.querySelectorAll('.session-item').forEach(item => {
+                const startTime = new Date(item.dataset.startTime);
+                const endTime = new Date(item.dataset.endTime);
+                
+                if (now < startTime) {
+                    // Session is upcoming
+                    item.querySelector('.join-session-btn').classList.remove('pulse-live');
+                    item.querySelector('.join-session-btn').textContent = 'Session starts soon';
+                    item.querySelector('.join-session-btn').style.backgroundColor = '#adb5bd';
+                } else if (now >= startTime && now <= endTime) {
+                    // Session is live
+                    item.querySelector('.join-session-btn').classList.add('pulse-live');
+                    item.querySelector('.join-session-btn').innerHTML = '<i class="fas fa-video"></i> Join Live Session';
+                } else {
+                    // Session has ended
+                    item.querySelector('.join-session-btn').classList.remove('pulse-live');
+                    item.querySelector('.join-session-btn').textContent = 'View Recording';
+                    item.querySelector('.join-session-btn').style.backgroundColor = '#6c757d';
+                }
+            });
+        }
+
+        // Initialize and update every minute
+        updateSessionStatus();
+        setInterval(updateSessionStatus, 60000);
     </script>
 </body>
 </html>

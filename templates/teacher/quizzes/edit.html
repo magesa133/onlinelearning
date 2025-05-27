@@ -3,215 +3,633 @@
 {% block content %}
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h2 font-weight-bold text-primary">
-            <i class="fas fa-edit me-2"></i>Edit Quiz: {{ quiz.title }}
-        </h1>
+        <h2 class="mb-0">
+            <i class="fas fa-edit me-2 text-primary"></i>Edit Quiz: {{ quiz.title }}
+        </h2>
         <div>
-            <a href="{{ url_for('preview_quiz', quiz_id=quiz.id) }}" class="btn btn-outline-info">
-                <i class="fas fa-eye me-2"></i>Preview
+            <a href="{{ url_for('preview_quiz', quiz_id=quiz.id) }}" class="btn btn-outline-info me-2">
+                <i class="fas fa-eye me-1"></i>Preview
             </a>
             <a href="{{ url_for('list_quizzes') }}" class="btn btn-outline-secondary">
-                <i class="fas fa-arrow-left me-2"></i>Back to List
+                <i class="fas fa-arrow-left me-1"></i>Back to List
             </a>
         </div>
     </div>
-
-    <form method="POST" id="quizEditForm" enctype="multipart/form-data">
+    
+    <form method="POST" id="quizEditForm" enctype="multipart/form-data" novalidate>
         {{ form.hidden_tag() }}
         
-        <!-- Basic Quiz Info Card -->
+        <!-- Basic Information Card -->
         <div class="card mb-4 shadow-sm">
-            <div class="card-header bg-light">
-                <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Basic Information</h5>
+            <div class="card-header bg-primary text-white">
+                <i class="fas fa-info-circle me-2"></i>Basic Information
             </div>
             <div class="card-body">
                 <div class="row g-3">
-                    <div class="col-md-8">
-                        {{ form.title.label(class="form-label") }}
-                        {{ form.title(class="form-control") }}
-                        {% for error in form.title.errors %}
-                            <div class="invalid-feedback d-block">{{ error }}</div>
-                        {% endfor %}
-                        
-                        {{ form.description.label(class="form-label mt-3") }}
-                        {{ form.description(class="form-control", rows=3) }}
-                        {% for error in form.description.errors %}
-                            <div class="invalid-feedback d-block">{{ error }}</div>
-                        {% endfor %}
+                    <!-- Quiz Title -->
+                    <div class="col-md-12">
+                        <div class="form-floating">
+                            {{ form.title(class="form-control", id="quiz-title", placeholder="Enter quiz title") }}
+                            {{ form.title.label(class="form-label") }}
+                            {% for error in form.title.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        </div>
                     </div>
                     
-                    <div class="col-md-4">
-                        <div class="mb-3">
+                    <!-- Quiz Description -->
+                    <div class="col-md-12">
+                        <div class="form-floating">
+                            {{ form.description(class="form-control", id="quiz-description", placeholder="Enter description", style="height: 100px") }}
+                            {{ form.description.label(class="form-label") }}
+                        </div>
+                    </div>
+                    
+                    <!-- Subject and Classroom -->
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            {{ form.subject_id(class="form-select", id="quiz-subject") }}
                             {{ form.subject_id.label(class="form-label") }}
-                            {{ form.subject_id(class="form-select") }}
                             {% for error in form.subject_id.errors %}
                                 <div class="invalid-feedback d-block">{{ error }}</div>
                             {% endfor %}
+                            <div id="subject-info" class="small text-muted mt-1"></div>
                         </div>
-                        
-                        <div class="mb-3">
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            {{ form.classroom_id(class="form-select", id="quiz-classroom") }}
                             {{ form.classroom_id.label(class="form-label") }}
-                            {{ form.classroom_id(class="form-select") }}
                             {% for error in form.classroom_id.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                            <div id="classroom-info" class="small text-muted mt-1">
+                                <div><strong>Code:</strong> <span id="class-code"></span></div>
+                                <div><strong>Students:</strong> <span id="class-students"></span></div>
+                                <div><strong>Schedule:</strong> <span id="class-schedule"></span></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Due Date and Time Limit -->
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            {{ form.due_date(class="form-control", id="quiz-due-date", placeholder="Select due date") }}
+                            {{ form.due_date.label(class="form-label") }}
+                            {% for error in form.due_date.errors %}
                                 <div class="invalid-feedback d-block">{{ error }}</div>
                             {% endfor %}
                         </div>
                     </div>
-                </div>
-                
-                <div class="row g-3 mt-2">
-                    <div class="col-md-6">
-                        {{ form.due_date.label(class="form-label") }}
-                        {{ form.due_date(class="form-control") }}
-                        {% for error in form.due_date.errors %}
-                            <div class="invalid-feedback d-block">{{ error }}</div>
-                        {% endfor %}
-                    </div>
                     
                     <div class="col-md-6">
-                        {{ form.time_limit.label(class="form-label") }}
-                        <div class="input-group">
-                            {{ form.time_limit(class="form-control") }}
-                            <span class="input-group-text">minutes</span>
+                        <div class="form-floating">
+                            <div class="input-group">
+                                {{ form.time_limit(class="form-control", id="quiz-time-limit", placeholder="Enter time limit") }}
+                                <span class="input-group-text">minutes</span>
+                                {{ form.time_limit.label(class="form-label") }}
+                            </div>
+                            {% for error in form.time_limit.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
                         </div>
-                        {% for error in form.time_limit.errors %}
-                            <div class="invalid-feedback d-block">{{ error }}</div>
-                        {% endfor %}
                     </div>
-                </div>
-                
-                {% if quiz.is_published %}
-                <div class="row mt-3">
-                    <div class="col">
+                    
+                    <!-- Publish and Notification Toggles -->
+                    {% if quiz.is_published %}
+                    <div class="col-md-12 mt-3">
                         <div class="form-check form-switch">
+                            {{ form.is_published(class="form-check-input") }}
+                            {{ form.is_published.label(class="form-check-label") }}
+                            <small class="text-muted d-block">Uncheck to unpublish this quiz</small>
+                        </div>
+                        
+                        <div class="form-check form-switch mt-2">
                             {{ form.notify_students(class="form-check-input") }}
                             {{ form.notify_students.label(class="form-check-label") }}
                             <small class="text-muted d-block">Email students about these changes</small>
                         </div>
                     </div>
+                    {% endif %}
                 </div>
-                {% endif %}
             </div>
         </div>
-
+        
         <!-- Questions Card -->
         <div class="card mb-4 shadow-sm">
-            <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>Questions</h5>
-                <span class="badge bg-primary">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-question-circle me-2"></i>Questions</span>
+                <span class="badge bg-light text-dark">
                     {{ quiz.questions|length }} Question{{ 's' if quiz.questions|length != 1 }}
                 </span>
             </div>
-            <div class="card-body">
-                <div id="questions-container">
-                    {% for question in form.questions %}
-                    <div class="question-group mb-4 p-3 border rounded" data-question-id="{{ question.id.data }}">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <h6 class="mb-0">Question #{{ loop.index }}</h6>
-                            <button type="button" class="btn btn-sm btn-outline-danger remove-question">
-                                <i class="fas fa-trash"></i> Remove
-                            </button>
-                        </div>
-                        
-                        {{ question.hidden_tag() }}
-                        {{ question.id }}
-                        
-                        <div class="mb-3">
-                            {{ question.text.label(class="form-label") }}
-                            {{ question.text(class="form-control", rows=3) }}
-                            {% for error in question.text.errors %}
+            
+            <div class="card-body" id="questions-container">
+                {% for question in form.questions %}
+                <div class="question-group mb-4 p-3 border rounded bg-light" data-question-id="{{ question.id.data }}">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0 question-number">Question #{{ loop.index }}</h5>
+                        <button type="button" class="btn btn-sm btn-danger remove-question">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                    
+                    {{ question.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        {{ question.text.label(class="form-label") }}
+                        {{ question.text(class="form-control question-text", rows=3) }}
+                        {% for error in question.text.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        {{ question.options.label(class="form-label") }}
+                        {{ question.options(class="form-control options-input") }}
+                        <small class="text-muted">Separate options with commas</small>
+                        {% for error in question.options.errors %}
+                            <div class="invalid-feedback d-block">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            {{ question.correct_option.label(class="form-label") }}
+                            {{ question.correct_option(class="form-select correct-answer") }}
+                            {% for error in question.correct_option.errors %}
                                 <div class="invalid-feedback d-block">{{ error }}</div>
                             {% endfor %}
                         </div>
                         
-                        <div class="mb-3">
-                            {{ question.options.label(class="form-label") }}
-                            {{ question.options(class="form-control") }}
-                            <small class="text-muted">Separate options with commas</small>
-                            {% for error in question.options.errors %}
+                        <div class="col-md-3">
+                            {{ question.points.label(class="form-label") }}
+                            {{ question.points(class="form-control question-points") }}
+                            {% for error in question.points.errors %}
                                 <div class="invalid-feedback d-block">{{ error }}</div>
                             {% endfor %}
                         </div>
                         
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                {{ question.correct_option.label(class="form-label") }}
-                                {{ question.correct_option(class="form-select") }}
-                                {% for error in question.correct_option.errors %}
-                                    <div class="invalid-feedback d-block">{{ error }}</div>
-                                {% endfor %}
+                        <div class="col-md-3">
+                            {{ question.time_limit.label(class="form-label") }}
+                            <div class="input-group">
+                                {{ question.time_limit(class="form-control") }}
+                                <span class="input-group-text">sec</span>
                             </div>
-                            <div class="col-md-3">
-                                {{ question.points.label(class="form-label") }}
-                                {{ question.points(class="form-control") }}
-                                {% for error in question.points.errors %}
-                                    <div class="invalid-feedback d-block">{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                            <div class="col-md-3">
-                                {{ question.time_limit.label(class="form-label") }}
-                                <div class="input-group">
-                                    {{ question.time_limit(class="form-control") }}
-                                    <span class="input-group-text">sec</span>
-                                </div>
-                                {% for error in question.time_limit.errors %}
-                                    <div class="invalid-feedback d-block">{{ error }}</div>
-                                {% endfor %}
-                            </div>
+                            {% for error in question.time_limit.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
                         </div>
                     </div>
-                    {% endfor %}
                 </div>
-                
-                <button type="button" id="add-question" class="btn btn-outline-primary mt-3">
-                    <i class="fas fa-plus me-2"></i>Add New Question
+                {% endfor %}
+            </div>
+            
+            <div class="card-footer bg-transparent">
+                <button type="button" id="add-question" class="btn btn-outline-primary">
+                    <i class="fas fa-plus me-1"></i>Add New Question
                 </button>
             </div>
         </div>
-
-        <!-- Publish & Save Controls -->
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-light">
-                <h5 class="mb-0"><i class="fas fa-save me-2"></i>Save Changes</h5>
-            </div>
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div class="form-check form-switch">
-                        {{ form.is_published(class="form-check-input") }}
-                        {{ form.is_published.label(class="form-check-label") }}
-                        <small class="text-muted d-block">
-                            {% if quiz.is_published %}
-                                Uncheck to unpublish this quiz
-                            {% else %}
-                                Check to publish immediately
-                            {% endif %}
-                        </small>
-                    </div>
-                    
-                    <div class="d-flex gap-2">
-                        <button type="submit" name="action" value="save_draft" class="btn btn-primary">
-                            <i class="fas fa-save me-2"></i>Save Draft
-                        </button>
-                        <button type="submit" name="action" value="save_publish" class="btn btn-success">
-                            <i class="fas fa-check-circle me-2"></i>Save & Publish
-                        </button>
-                    </div>
-                </div>
-            </div>
+        
+        <!-- Form Actions -->
+        <div class="d-flex justify-content-between">
+            <button type="submit" name="action" value="save_draft" class="btn btn-primary">
+                <i class="fas fa-save me-1"></i>Save Draft
+            </button>
+            <button type="submit" name="action" value="save_publish" class="btn btn-success">
+                <i class="fas fa-check-circle me-1"></i>Save & Publish
+            </button>
         </div>
     </form>
 </div>
-{% endblock %}
 
-{% block styles %}
-{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // DOM Elements
+    const container = document.getElementById('questions-container');
+    const addBtn = document.getElementById('add-question');
+    const quizForm = document.getElementById('quizEditForm');
+    const subjectSelect = document.getElementById('quiz-subject');
+    const classroomSelect = document.getElementById('quiz-classroom');
+    const subjectInfo = document.getElementById('subject-info');
+    const classCode = document.getElementById('class-code');
+    const classStudents = document.getElementById('class-students');
+    const classSchedule = document.getElementById('class-schedule');
+    const publishToggle = document.querySelector('#is_published');
+    
+    // Classroom data cache
+    let classroomData = {};
+    
+    // Initialize form with existing questions
+    function initQuestions() {
+        container.querySelectorAll('.question-group').forEach(group => {
+            const optionsInput = group.querySelector('.options-input');
+            const correctSelect = group.querySelector('.correct-answer');
+            
+            // Initialize correct answer dropdown
+            updateCorrectAnswerSelect(optionsInput, correctSelect);
+            
+            // Set up event listeners
+            optionsInput.addEventListener('input', function() {
+                updateCorrectAnswerSelect(optionsInput, correctSelect);
+            });
+        });
+    }
+    
+    // Add new question
+    function addQuestion() {
+        const count = container.querySelectorAll('.question-group').length + 1;
+        
+        fetch("{{ url_for('get_new_question_form') }}?index=" + count)
+            .then(response => response.text())
+            .then(html => {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = html;
+                const newQuestion = tempDiv.firstChild;
+                container.appendChild(newQuestion);
+                
+                // Initialize the new question's select options
+                const optionsInput = newQuestion.querySelector('.options-input');
+                const correctSelect = newQuestion.querySelector('.correct-answer');
+                
+                optionsInput.addEventListener('input', function() {
+                    updateCorrectAnswerSelect(optionsInput, correctSelect);
+                });
+                
+                // Trigger initial update
+                optionsInput.dispatchEvent(new Event('input'));
+            })
+            .catch(error => {
+                console.error('Error adding question:', error);
+                showToast('Error adding new question', 'danger');
+            });
+    }
+    
+    // Remove question
+    function removeQuestion(questionElement) {
+        if (container.querySelectorAll('.question-group').length > 1) {
+            const questionId = questionElement.dataset.questionId;
+            
+            if (questionId && questionId !== 'None') {
+                // Create hidden input to mark question for deletion
+                const hiddenInput = document.createElement('input');
+                hiddenInput.type = 'hidden';
+                hiddenInput.name = 'deleted_questions';
+                hiddenInput.value = questionId;
+                quizForm.appendChild(hiddenInput);
+            }
+            
+            questionElement.remove();
+            updateQuestionNumbers();
+        } else {
+            showToast('A quiz must have at least one question', 'warning');
+        }
+    }
+    
+    // Update question numbers
+    function updateQuestionNumbers() {
+        container.querySelectorAll('.question-group').forEach((item, index) => {
+            item.querySelector('.question-number').textContent = `Question ${index + 1}`;
+        });
+    }
+    
+    // Update correct answer dropdown
+    function updateCorrectAnswerSelect(inputElement, selectElement) {
+        const options = inputElement.value.split(',').map(opt => opt.trim()).filter(opt => opt !== '');
+        selectElement.innerHTML = '';
+        
+        if (options.length >= 2) {
+            options.forEach((option, index) => {
+                const optElement = document.createElement('option');
+                optElement.value = index;
+                optElement.textContent = `${String.fromCharCode(65 + index)}: ${option}`;
+                selectElement.appendChild(optElement);
+            });
+            selectElement.disabled = false;
+        } else {
+            selectElement.innerHTML = '<option value="" disabled>Add at least 2 options</option>';
+            selectElement.disabled = true;
+        }
+    }
+    
+    // Fetch classroom details with error handling
+    async function fetchClassroomDetails(classroomId) {
+        if (!classroomId) return null;
+        
+        if (classroomData[classroomId]) {
+            return classroomData[classroomId];
+        }
+        
+        try {
+            const response = await fetch(`/api/classrooms/${classroomId}`);
+            if (!response.ok) throw new Error('Failed to fetch classroom');
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Unknown error');
+            }
+            
+            classroomData[classroomId] = data.classroom;
+            return data.classroom;
+        } catch (error) {
+            console.error('Error fetching classroom:', error);
+            showToast('Error loading classroom details', 'danger');
+            return null;
+        }
+    }
+    
+    // Update classroom info display
+    async function updateClassroomInfo(classroomId) {
+        if (!classroomId) {
+            resetClassroomInfo();
+            return;
+        }
+        
+        try {
+            const classroom = await fetchClassroomDetails(classroomId);
+            if (!classroom) throw new Error('Classroom not found');
+            
+            classCode.textContent = classroom.code || 'N/A';
+            classStudents.textContent = `${classroom.current_student_count || 0}/${classroom.max_students || 30}`;
+            
+            if (classroom.schedule_days && classroom.schedule_time) {
+                classSchedule.textContent = `${classroom.schedule_days} at ${classroom.schedule_time}`;
+            } else {
+                classSchedule.textContent = 'Not scheduled';
+            }
+            
+            if (classroom.location) {
+                classSchedule.textContent += ` (${classroom.location})`;
+            }
+        } catch (error) {
+            console.error('Error updating classroom info:', error);
+            resetClassroomInfo();
+            classCode.textContent = 'Error loading details';
+            showToast('Error loading classroom information', 'danger');
+        }
+    }
+    
+    // Reset classroom info display
+    function resetClassroomInfo() {
+        classCode.textContent = '';
+        classStudents.textContent = '';
+        classSchedule.textContent = '';
+    }
+    
+    // Update subject info display
+    async function updateSubjectInfo(subjectId) {
+        if (!subjectId) {
+            subjectInfo.textContent = '';
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/subjects/${subjectId}`);
+            if (!response.ok) throw new Error('Failed to fetch subject');
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Unknown error');
+            }
+            
+            subjectInfo.textContent = data.subject.description || 'No additional information';
+        } catch (error) {
+            console.error('Error updating subject info:', error);
+            subjectInfo.textContent = 'Error loading subject information';
+            showToast('Error loading subject information', 'danger');
+        }
+    }
+    
+    // Show toast notification
+    function showToast(message, type = 'success') {
+        // Remove existing toasts
+        document.querySelectorAll('.toast').forEach(toast => toast.remove());
+        
+        const toast = document.createElement('div');
+        toast.className = `toast show align-items-center text-white bg-${type} border-0 position-fixed bottom-0 end-0 m-3`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        toast.style.zIndex = '1100';
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        `;
+        document.body.appendChild(toast);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
+
+    // Initialize character counters
+    function setupCharacterCounters() {
+        const setupCounter = (element, maxLength) => {
+            const counter = document.createElement('small');
+            counter.className = 'text-muted float-end character-counter';
+            element.parentNode.appendChild(counter);
+            
+            element.addEventListener('input', function() {
+                const remaining = maxLength - this.value.length;
+                counter.textContent = `${remaining} characters remaining`;
+                counter.classList.toggle('text-danger', remaining < 0);
+            });
+            
+            // Trigger initial count
+            element.dispatchEvent(new Event('input'));
+        };
+        
+        // Quiz title counter
+        setupCounter(document.getElementById('quiz-title'), 150);
+        
+        // Quiz description counter
+        setupCounter(document.getElementById('quiz-description'), 2000);
+        
+        // Question text counters
+        container.querySelectorAll('.question-text').forEach(textarea => {
+            setupCounter(textarea, 1000);
+        });
+    }
+
+    // Initialize all event listeners
+    function initEventListeners() {
+        // Subject change handler
+        subjectSelect.addEventListener('change', async function() {
+            const subjectId = this.value;
+            await updateSubjectInfo(subjectId);
+        });
+        
+        // Classroom change handler
+        classroomSelect.addEventListener('change', function() {
+            updateClassroomInfo(this.value);
+        });
+        
+        // Add Question Button
+        addBtn.addEventListener('click', addQuestion);
+        
+        // Remove Question Button
+        container.addEventListener('click', function(e) {
+            if (e.target.closest('.remove-question')) {
+                if (confirm('Are you sure you want to remove this question?')) {
+                    removeQuestion(e.target.closest('.question-group'));
+                }
+            }
+        });
+        
+        // Publish toggle confirmation
+        if (publishToggle) {
+            publishToggle.addEventListener('change', function() {
+                if (this.checked && !confirm('Publishing will make this quiz available to students. Continue?')) {
+                    this.checked = false;
+                }
+            });
+        }
+        
+        // Form submission validation
+        quizForm.addEventListener('submit', function(e) {
+            let isValid = true;
+            
+            // Validate basic fields
+            const requiredFields = [
+                'quiz-title', 'quiz-subject', 'quiz-classroom',
+                'quiz-due-date', 'quiz-time-limit'
+            ];
+            
+            requiredFields.forEach(id => {
+                const field = document.getElementById(id);
+                if (!field.value.trim()) {
+                    showError(field, 'This field is required');
+                    isValid = false;
+                } else {
+                    clearError(field);
+                }
+            });
+            
+            // Validate questions
+            container.querySelectorAll('.question-group').forEach(question => {
+                const textarea = question.querySelector('.question-text');
+                const optionsInput = question.querySelector('.options-input');
+                const correctSelect = question.querySelector('.correct-answer');
+                const pointsInput = question.querySelector('.question-points');
+                
+                // Validate question text
+                if (!textarea.value.trim()) {
+                    showError(textarea, 'Question text is required');
+                    isValid = false;
+                } else if (textarea.value.trim().length < 10) {
+                    showError(textarea, 'Question should be at least 10 characters');
+                    isValid = false;
+                } else {
+                    clearError(textarea);
+                }
+                
+                // Validate options
+                const options = optionsInput.value.split(',').map(opt => opt.trim()).filter(opt => opt !== '');
+                if (options.length < 2) {
+                    showError(optionsInput, 'At least two options required');
+                    isValid = false;
+                } else if (options.length !== new Set(options).size) {
+                    showError(optionsInput, 'Options must be unique');
+                    isValid = false;
+                } else {
+                    clearError(optionsInput);
+                }
+                
+                // Validate correct answer
+                if (!correctSelect.value) {
+                    showError(correctSelect, 'Please select correct answer');
+                    isValid = false;
+                } else {
+                    clearError(correctSelect);
+                }
+                
+                // Validate points
+                if (!pointsInput.value || parseInt(pointsInput.value) < 1) {
+                    showError(pointsInput, 'Points must be at least 1');
+                    isValid = false;
+                } else {
+                    clearError(pointsInput);
+                }
+            });
+            
+            if (!isValid) {
+                e.preventDefault();
+                scrollToFirstError();
+                showToast('Please fix the errors in the form', 'danger');
+            }
+        });
+    }
+    
+    // Show error message
+    function showError(element, message) {
+        element.classList.add('is-invalid');
+        let feedback = element.nextElementSibling;
+        
+        while (feedback && !feedback.classList.contains('invalid-feedback')) {
+            feedback = feedback.nextElementSibling;
+        }
+        
+        if (feedback && feedback.classList.contains('invalid-feedback')) {
+            feedback.textContent = message;
+        } else {
+            const div = document.createElement('div');
+            div.className = 'invalid-feedback d-block';
+            div.textContent = message;
+            element.parentNode.appendChild(div);
+        }
+    }
+    
+    // Clear error message
+    function clearError(element) {
+        element.classList.remove('is-invalid');
+        let feedback = element.nextElementSibling;
+        
+        while (feedback && !feedback.classList.contains('invalid-feedback')) {
+            feedback = feedback.nextElementSibling;
+        }
+        
+        if (feedback && feedback.classList.contains('invalid-feedback')) {
+            feedback.textContent = '';
+        }
+    }
+    
+    // Scroll to first error
+    function scrollToFirstError() {
+        const firstError = document.querySelector('.is-invalid');
+        if (firstError) {
+            firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    }
+
+    // Initialize the form
+    initQuestions();
+    setupCharacterCounters();
+    initEventListeners();
+    
+    // Load initial classroom and subject info
+    if (subjectSelect.value) {
+        updateSubjectInfo(subjectSelect.value);
+    }
+    if (classroomSelect.value) {
+        updateClassroomInfo(classroomSelect.value);
+    }
+});
+</script>
+
 <style>
+    .character-counter {
+        font-size: 0.8rem;
+    }
     .question-group {
-        background-color: #f8f9fa;
         transition: all 0.3s ease;
     }
     .question-group:hover {
-        background-color: #e9ecef;
+        background-color: #f5f5f5;
     }
     .remove-question {
         transition: all 0.2s ease;
@@ -223,122 +641,8 @@
         background-color: #198754;
         border-color: #198754;
     }
+    .toast {
+        max-width: 350px;
+    }
 </style>
-{% endblock %}
-
-{% block scripts %}
-{{ super() }}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize options for existing questions
-    document.querySelectorAll('.question-group').forEach(group => {
-        const optionsInput = group.querySelector('.options-input');
-        const correctSelect = group.querySelector('.correct-answer');
-        updateOptionsSelect(optionsInput, correctSelect);
-        
-        // Add event listener for options changes
-        optionsInput.addEventListener('input', function() {
-            updateOptionsSelect(optionsInput, correctSelect);
-        });
-    });
-    
-    // Add new question button
-    document.getElementById('add-question').addEventListener('click', function() {
-        const container = document.getElementById('questions-container');
-        const questionCount = container.querySelectorAll('.question-group').length;
-        const newIndex = questionCount + 1;
-        
-        fetch("{{ url_for('get_new_question_form') }}?index=" + newIndex)
-            .then(response => response.text())
-            .then(html => {
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = html;
-                const newQuestion = tempDiv.firstChild;
-                container.appendChild(newQuestion);
-                
-                // Initialize the new question's select options
-                const optionsInput = newQuestion.querySelector('.options-input');
-                const correctSelect = newQuestion.querySelector('.correct-answer');
-                optionsInput.addEventListener('input', function() {
-                    updateOptionsSelect(optionsInput, correctSelect);
-                });
-            });
-    });
-    
-    // Remove question button
-    document.addEventListener('click', function(e) {
-        if (e.target.classList.contains('remove-question') || 
-            e.target.closest('.remove-question')) {
-            const btn = e.target.classList.contains('remove-question') ? 
-                e.target : e.target.closest('.remove-question');
-            const group = btn.closest('.question-group');
-            
-            if (confirm('Are you sure you want to remove this question?')) {
-                // If this is an existing question (has ID), mark for deletion
-                const questionId = group.dataset.questionId;
-                if (questionId && questionId !== 'None') {
-                    const hiddenInput = document.createElement('input');
-                    hiddenInput.type = 'hidden';
-                    hiddenInput.name = 'deleted_questions';
-                    hiddenInput.value = questionId;
-                    document.getElementById('quizEditForm').appendChild(hiddenInput);
-                }
-                
-                group.remove();
-                renumberQuestions();
-            }
-        }
-    });
-    
-    // Form submission confirmation for published quizzes
-    const publishToggle = document.querySelector('#is_published');
-    if (publishToggle) {
-        publishToggle.addEventListener('change', function() {
-            if (this.checked && !confirm('Publishing will make this quiz available to students. Continue?')) {
-                this.checked = false;
-            }
-        });
-    }
-    
-    // Helper function to update correct answer select options
-    function updateOptionsSelect(optionsInput, correctSelect) {
-        const options = optionsInput.value.split(',').map(opt => opt.trim()).filter(opt => opt);
-        
-        // Clear existing options
-        correctSelect.innerHTML = '';
-        
-        if (options.length > 0) {
-            // Add new options
-            options.forEach((opt, index) => {
-                const option = document.createElement('option');
-                option.value = index;
-                option.textContent = `${String.fromCharCode(65 + index)}: ${opt}`;
-                correctSelect.appendChild(option);
-            });
-            
-            // Enable the select
-            correctSelect.disabled = false;
-        } else {
-            // Add disabled placeholder
-            const option = document.createElement('option');
-            option.value = '';
-            option.textContent = 'Enter options first';
-            option.disabled = true;
-            option.selected = true;
-            correctSelect.appendChild(option);
-            correctSelect.disabled = true;
-        }
-    }
-    
-    // Helper function to renumber questions after deletion
-    function renumberQuestions() {
-        document.querySelectorAll('.question-group').forEach((group, index) => {
-            const title = group.querySelector('h6');
-            if (title) {
-                title.textContent = `Question #${index + 1}`;
-            }
-        });
-    }
-});
-</script>
 {% endblock %}

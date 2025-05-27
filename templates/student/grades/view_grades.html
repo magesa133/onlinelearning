@@ -1,0 +1,208 @@
+{% extends "student_dashboard.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Grades Overview Cards -->
+    <div class="row mb-4">
+        <!-- Assignments Card -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-tasks me-2"></i>Assignment Grades
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h6 class="mb-0">Overall Average</h6>
+                            <span class="display-4 text-primary">
+                                {{ assignment_stats.average|round(1) }}%
+                            </span>
+                        </div>
+                        <div class="text-end">
+                            <small class="text-muted">
+                                {{ assignment_stats.completed }} of {{ assignment_stats.total }} graded
+                            </small>
+                            <div class="progress mt-2" style="height: 8px;">
+                                <div class="progress-bar bg-primary" style="width: {{ (assignment_stats.completed/assignment_stats.total)*100 }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quizzes Card -->
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-question-circle me-2"></i>Quiz Grades
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h6 class="mb-0">Overall Average</h6>
+                            <span class="display-4 text-info">
+                                {{ quiz_stats.average|round(1) }}%
+                            </span>
+                        </div>
+                        <div class="text-end">
+                            <small class="text-muted">
+                                {{ quiz_stats.completed }} of {{ quiz_stats.total }} completed
+                            </small>
+                            <div class="progress mt-2" style="height: 8px;">
+                                <div class="progress-bar bg-info" style="width: {{ (quiz_stats.completed/quiz_stats.total)*100 }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assignment Grades Table -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">
+                <i class="fas fa-tasks me-2"></i>Assignment Details
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th>Assignment</th>
+                            <th>Subject</th>
+                            <th>Class</th>
+                            <th>Score</th>
+                            <th>Feedback</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for assignment in assignments %}
+                        {% set submission = assignment.submissions[0] %}
+                        <tr>
+                            <td>{{ assignment.title }}</td>
+                            <td>{{ assignment.subject.name }}</td>
+                            <td>{{ assignment.classroom.class_name }}</td>
+                            <td>
+                                {% if submission.score is not none %}
+                                <span class="badge bg-{{ 'success' if submission.score >= assignment.max_score*0.7 else 'warning' if submission.score >= assignment.max_score*0.5 else 'danger' }}">
+                                    {{ submission.score }}/{{ assignment.max_score }}
+                                </span>
+                                {% else %}
+                                <span class="badge bg-secondary">Pending</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if submission.feedback %}
+                                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#feedbackModal{{ assignment.id }}">
+                                    View
+                                </button>
+                                {% else %}
+                                <span class="text-muted">None</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if submission.submitted_at %}
+                                <span class="badge bg-{{ 'danger' if submission.is_late else 'success' }}">
+                                    {{ 'Late' if submission.is_late else 'Submitted' }}
+                                </span>
+                                {% else %}
+                                <span class="badge bg-warning">Not Submitted</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quiz Grades Table -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">
+                <i class="fas fa-question-circle me-2"></i>Quiz Results
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th>Quiz</th>
+                            <th>Subject</th>
+                            <th>Score</th>
+                            <th>Correct</th>
+                            <th>Date Taken</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for attempt in quiz_attempts %}
+                        <tr>
+                            <td>{{ attempt.quiz.title }}</td>
+                            <td>{{ attempt.quiz.subject.name }}</td>
+                            <td>
+                                {% if attempt.score is not none %}
+                                <span class="badge bg-{{ 'success' if attempt.score >= 70 else 'warning' if attempt.score >= 50 else 'danger' }}">
+                                    {{ attempt.score }}%
+                                </span>
+                                {% else %}
+                                <span class="badge bg-secondary">Not Graded</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ attempt.correct_answers }}/{{ attempt.total_questions }}</td>
+                            <td>{{ attempt.completed_at.strftime('%b %d, %Y') if attempt.completed_at else 'Incomplete' }}</td>
+                            <td>
+                                <a href="{{ url_for('quiz_results', attempt_id=attempt.id) }}" class="btn btn-sm btn-outline-primary">
+                                    Review
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Feedback Modals -->
+{% for assignment in assignments %}
+{% if assignment.submissions[0].feedback %}
+<div class="modal fade" id="feedbackModal{{ assignment.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Feedback for {{ assignment.title }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <h6>Your Score:</h6>
+                    <p>{{ assignment.submissions[0].score }}/{{ assignment.max_score }}</p>
+                </div>
+                <div>
+                    <h6>Teacher's Comments:</h6>
+                    <div class="p-3 bg-light rounded">
+                        {{ assignment.submissions[0].feedback|markdown|safe }}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+{% endblock %}

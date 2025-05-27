@@ -1,0 +1,530 @@
+{% extends "teacher_dashboard.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-2 text-gray-800">
+                <i class="fas fa-bell text-primary me-2"></i>Notifications
+            </h1>
+            <p class="mb-0">Manage your notification preferences and history</p>
+        </div>
+        <div class="d-flex">
+            <div class="me-3">
+                <span class="badge bg-primary rounded-pill" id="unreadCountBadge">
+                    {{ unread_count }} unread
+                </span>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-sm btn-outline-success" id="markAllReadBtn">
+                    <i class="fas fa-check-circle me-1"></i> Mark all read
+                </button>
+                <button class="btn btn-sm btn-outline-danger" id="clearAllBtn">
+                    <i class="fas fa-trash-alt me-1"></i> Clear all
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filter Controls -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Filter Notifications</h6>
+            <div class="dropdown no-arrow">
+                <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" 
+                   data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end shadow animated--fade-in">
+                    <li><a class="dropdown-item" href="#" id="refreshNotifications">
+                        <i class="fas fa-sync-alt fa-fw me-2"></i>Refresh
+                    </a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="#" data-bs-toggle="modal" 
+                           data-bs-target="#notificationSettingsModal">
+                        <i class="fas fa-cog fa-fw me-2"></i>Notification Settings
+                    </a></li>
+                </ul>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Type</label>
+                    <select class="form-select" id="typeFilter">
+                        <option value="all">All Types</option>
+                        <option value="assignment">Assignments</option>
+                        <option value="attendance">Attendance</option>
+                        <option value="message">Messages</option>
+                        <option value="announcement">Announcements</option>
+                        <option value="system">System</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" id="statusFilter">
+                        <option value="all">All Statuses</option>
+                        <option value="unread">Unread Only</option>
+                        <option value="read">Read Only</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Time Range</label>
+                    <select class="form-select" id="timeFilter">
+                        <option value="all">All Time</option>
+                        <option value="today">Today</option>
+                        <option value="week">This Week</option>
+                        <option value="month">This Month</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Sort By</label>
+                    <select class="form-select" id="sortFilter">
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                        <option value="priority">Priority</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications List -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">Your Notifications</h6>
+            <div class="small text-muted" id="notificationCountText">
+                Showing {{ notifications|length }} of {{ total_count }} notifications
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="list-group list-group-flush" id="notificationsContainer">
+                {% for notification in notifications %}
+                <div class="list-group-item list-group-item-action py-3 {% if not notification.is_read %}bg-light{% endif %}" 
+                     data-id="{{ notification.id }}" 
+                     data-type="{{ notification.notification_type }}"
+                     data-status="{% if notification.is_read %}read{% else %}unread{% endif %}"
+                     data-date="{{ notification.created_at.date().isoformat() }}"
+                     data-priority="{{ notification.priority or 'medium' }}">
+                    <div class="d-flex w-100 justify-content-between">
+                        <div class="d-flex align-items-start">
+                            <div class="me-3">
+                                {% if not notification.is_read %}
+                                <span class="badge bg-primary rounded-circle p-2 me-2" 
+                                      title="Unread"></span>
+                                {% else %}
+                                <span class="badge bg-light rounded-circle p-2 me-2" 
+                                      title="Read"></span>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <h6 class="mb-1">
+                                    <a href="{{ notification.link or '#' }}" 
+                                       class="text-decoration-none {% if not notification.is_read %}text-dark fw-bold{% else %}text-dark{% endif %}">
+                                        {{ notification.title }}
+                                    </a>
+                                </h6>
+                                <p class="mb-1 text-muted">{{ notification.message }}</p>
+                                <small class="text-muted">
+                                    <i class="fas fa-clock me-1"></i>
+                                    {{ notification.created_at|humanize }}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                    type="button" data-bs-toggle="dropdown" 
+                                    aria-expanded="false">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                {% if not notification.is_read %}
+                                <li>
+                                    <a class="dropdown-item mark-as-read" href="#" 
+                                       data-id="{{ notification.id }}">
+                                        <i class="fas fa-check me-2"></i>Mark as read
+                                    </a>
+                                </li>
+                                {% endif %}
+                                <li>
+                                    <a class="dropdown-item" href="{{ notification.link or '#' }}">
+                                        <i class="fas fa-external-link-alt me-2"></i>View details
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <a class="dropdown-item text-danger delete-notification" href="#" 
+                                       data-id="{{ notification.id }}">
+                                        <i class="fas fa-trash-alt me-2"></i>Delete
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-bell-slash fa-4x text-gray-300 mb-3"></i>
+                    <h5 class="text-gray-500">No notifications found</h5>
+                    <p class="text-gray-500">Your notifications will appear here when available</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% if pagination and pagination.pages > 1 %}
+        <div class="card-footer d-flex justify-content-center">
+            <nav aria-label="Notifications pagination">
+                <ul class="pagination">
+                    {% if pagination.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('teacher.notifications', page=pagination.prev_num) }}">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for page in pagination.iter_pages() %}
+                        {% if page %}
+                            <li class="page-item {% if page == pagination.page %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('teacher.notifications', page=page) }}">{{ page }}</a>
+                            </li>
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if pagination.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('teacher.notifications', page=pagination.next_num) }}">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Notification Settings Modal -->
+<div class="modal fade" id="notificationSettingsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-cog me-2"></i>Notification Settings
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="notificationSettingsForm">
+                    <div class="mb-4">
+                        <h6 class="mb-3">Notification Preferences</h6>
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="emailNotifications" checked>
+                            <label class="form-check-label" for="emailNotifications">
+                                Email notifications
+                            </label>
+                        </div>
+                        <div class="form-check form-switch mb-2">
+                            <input class="form-check-input" type="checkbox" id="pushNotifications" checked>
+                            <label class="form-check-label" for="pushNotifications">
+                                Push notifications
+                            </label>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="desktopNotifications" checked>
+                            <label class="form-check-label" for="desktopNotifications">
+                                Desktop notifications
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <h6 class="mb-3">Notification Types</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="assignmentNotifications" checked>
+                                    <label class="form-check-label" for="assignmentNotifications">
+                                        Assignment submissions
+                                    </label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="messageNotifications" checked>
+                                    <label class="form-check-label" for="messageNotifications">
+                                        Messages
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="attendanceNotifications" checked>
+                                    <label class="form-check-label" for="attendanceNotifications">
+                                        Attendance alerts
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="systemNotifications" checked>
+                                    <label class="form-check-label" for="systemNotifications">
+                                        System updates
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <h6 class="mb-3">Notification Frequency</h6>
+                        <select class="form-select" id="notificationFrequency">
+                            <option value="immediate">Immediately</option>
+                            <option value="hourly">Hourly digest</option>
+                            <option value="daily">Daily digest</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveNotificationSettings">
+                    <i class="fas fa-save me-1"></i>Save Settings
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .list-group-item.unread {
+        border-left: 3px solid var(--bs-primary);
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+    
+    .list-group-item:hover {
+        background-color: rgba(0, 0, 0, 0.03);
+    }
+    
+    .notification-priority-high {
+        border-left: 3px solid var(--bs-danger);
+    }
+    
+    .notification-priority-medium {
+        border-left: 3px solid var(--bs-warning);
+    }
+    
+    .notification-priority-low {
+        border-left: 3px solid var(--bs-success);
+    }
+    
+    .dropdown-menu .dropdown-item {
+        padding: 0.5rem 1.25rem;
+    }
+    
+    #unreadCountBadge {
+        font-size: 0.9rem;
+        padding: 0.35rem 0.65rem;
+    }
+</style>
+
+<script>
+    $(document).ready(function() {
+        // Initialize tooltips
+        $('[data-bs-toggle="tooltip"]').tooltip();
+        
+        // Filter notifications
+        function applyFilters() {
+            const type = $('#typeFilter').val();
+            const status = $('#statusFilter').val();
+            const timeRange = $('#timeFilter').val();
+            const today = new Date().toISOString().slice(0, 10);
+            
+            let visibleCount = 0;
+            
+            $('#notificationsContainer .list-group-item').each(function() {
+                const $item = $(this);
+                const itemType = $item.data('type');
+                const itemStatus = $item.data('status');
+                const itemDate = $item.data('date');
+                
+                // Type filter
+                const typeMatch = type === 'all' || itemType === type;
+                
+                // Status filter
+                const statusMatch = status === 'all' || itemStatus === status;
+                
+                // Time range filter
+                let dateMatch = true;
+                if (timeRange !== 'all') {
+                    const itemDateObj = new Date(itemDate);
+                    const now = new Date();
+                    
+                    if (timeRange === 'today') {
+                        dateMatch = itemDate === today;
+                    } else if (timeRange === 'week') {
+                        const weekAgo = new Date(now.setDate(now.getDate() - 7)).toISOString().slice(0, 10);
+                        dateMatch = itemDate >= weekAgo;
+                    } else if (timeRange === 'month') {
+                        const monthAgo = new Date(now.setMonth(now.getMonth() - 1)).toISOString().slice(0, 10);
+                        dateMatch = itemDate >= monthAgo;
+                    }
+                }
+                
+                if (typeMatch && statusMatch && dateMatch) {
+                    $item.show();
+                    visibleCount++;
+                } else {
+                    $item.hide();
+                }
+            });
+            
+            // Update count text
+            $('#notificationCountText').text(`Showing ${visibleCount} of {{ total_count }} notifications`);
+        }
+        
+        // Apply filters when any filter changes
+        $('#typeFilter, #statusFilter, #timeFilter, #sortFilter').change(applyFilters);
+        
+        // Mark notification as read
+        $(document).on('click', '.mark-as-read', function(e) {
+            e.preventDefault();
+            const notificationId = $(this).data('id');
+            const $item = $(this).closest('.list-group-item');
+            
+            $.ajax({
+                url: '/api/notifications/mark-read',
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ notification_id: notificationId }),
+                success: function(response) {
+                    if (response.success) {
+                        $item.removeClass('bg-light');
+                        $item.find('.badge').removeClass('bg-primary').addClass('bg-light');
+                        $item.data('status', 'read');
+                        updateUnreadCount();
+                    }
+                }
+            });
+        });
+        
+        // Mark all notifications as read
+        $('#markAllReadBtn').click(function() {
+            const $btn = $(this);
+            $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+            
+            $.ajax({
+                url: '/api/notifications/mark-all-read',
+                method: 'POST',
+                success: function(response) {
+                    if (response.success) {
+                        $('.list-group-item').removeClass('bg-light');
+                        $('.badge.bg-primary').removeClass('bg-primary').addClass('bg-light');
+                        $('.list-group-item').data('status', 'read');
+                        updateUnreadCount();
+                    }
+                    $btn.prop('disabled', false).html('<i class="fas fa-check-circle me-1"></i> Mark all read');
+                }
+            });
+        });
+        
+        // Delete notification
+        $(document).on('click', '.delete-notification', function(e) {
+            e.preventDefault();
+            const notificationId = $(this).data('id');
+            const $item = $(this).closest('.list-group-item');
+            
+            if (confirm('Are you sure you want to delete this notification?')) {
+                $.ajax({
+                    url: `/api/notifications/${notificationId}`,
+                    method: 'DELETE',
+                    success: function(response) {
+                        if (response.success) {
+                            $item.fadeOut(300, function() {
+                                $(this).remove();
+                                updateUnreadCount();
+                                applyFilters();
+                            });
+                        }
+                    }
+                });
+            }
+        });
+        
+        // Clear all notifications
+        $('#clearAllBtn').click(function() {
+            if (confirm('Are you sure you want to delete ALL notifications? This action cannot be undone.')) {
+                const $btn = $(this);
+                $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i> Processing...');
+                
+                $.ajax({
+                    url: '/api/notifications/clear-all',
+                    method: 'POST',
+                    success: function(response) {
+                        if (response.success) {
+                            $('#notificationsContainer').html(`
+                                <div class="text-center py-5">
+                                    <i class="fas fa-bell-slash fa-4x text-gray-300 mb-3"></i>
+                                    <h5 class="text-gray-500">No notifications found</h5>
+                                    <p class="text-gray-500">Your notifications will appear here when available</p>
+                                </div>
+                            `);
+                            updateUnreadCount();
+                        }
+                        $btn.prop('disabled', false).html('<i class="fas fa-trash-alt me-1"></i> Clear all');
+                    }
+                });
+            }
+        });
+        
+        // Refresh notifications
+        $('#refreshNotifications').click(function(e) {
+            e.preventDefault();
+            window.location.reload();
+        });
+        
+        // Save notification settings
+        $('#saveNotificationSettings').click(function() {
+            const $btn = $(this);
+            $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin me-1"></i> Saving...');
+            
+            // Simulate save action
+            setTimeout(function() {
+                $('#notificationSettingsModal').modal('hide');
+                $btn.prop('disabled', false).html('<i class="fas fa-save me-1"></i> Save Settings');
+                showToast('Notification settings saved successfully', 'success');
+            }, 1000);
+        });
+        
+        // Update unread count badge
+        function updateUnreadCount() {
+            $.get('/api/notifications/unread-count', function(response) {
+                if (response.success) {
+                    $('#unreadCountBadge').text(response.count + ' unread');
+                    
+                    // Update navbar badge if exists
+                    const $navBadge = $('#navbarNotificationBadge');
+                    if ($navBadge.length) {
+                        $navBadge.text(response.count);
+                        $navBadge.toggle(response.count > 0);
+                    }
+                }
+            });
+        }
+        
+        // Helper function to show toast messages
+        function showToast(message, type = 'success') {
+            const toast = `<div class="toast align-items-center text-white bg-${type} border-0 position-fixed bottom-0 end-0 m-3" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>`;
+            
+            $(toast).appendTo('body').toast({ autohide: true, delay: 3000 }).toast('show');
+        }
+    });
+</script>
+{% endblock %}

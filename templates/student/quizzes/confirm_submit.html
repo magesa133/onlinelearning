@@ -1,43 +1,117 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="card border-warning">
-        <div class="card-header bg-warning text-white">
-            <h4><i class="bi bi-exclamation-triangle-fill me-2"></i>Submit Quiz Confirmation</h4>
-        </div>
-        <div class="card-body">
-            <h5 class="card-title">Are you sure you want to submit your quiz?</h5>
-            
-            {% if unanswered %}
-            <div class="alert alert-warning mt-3">
-                <h6><i class="bi bi-question-circle-fill me-2"></i>Unanswered Questions</h6>
-                <p>You have {{ unanswered|length }} unanswered question(s):</p>
-                <ul class="list-group list-group-flush">
-                    {% for question in unanswered %}
-                    <li class="list-group-item">
-                        <strong>Question {{ loop.index }}:</strong> 
-                        {{ question.text|truncate(100) }}
-                    </li>
-                    {% endfor %}
-                </ul>
+
+<style>
+    /* Add these styles to your CSS */
+.animate-pulse {
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+.text-warning {
+    color: #ffc107 !important;
+}
+
+.text-danger {
+    color: #dc3545 !important;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+.fw-bold {
+    font-weight: 700 !important;
+}
+</style>
+
+
+<!-- Update the submit modal with this: -->
+<div class="modal fade" id="submitModal" tabindex="-1" aria-labelledby="submitModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h2 class="modal-title h5" id="submitModalLabel">
+                    <i class="bi bi-question-circle me-2"></i>
+                    Submit Quiz Confirmation
+                </h2>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            {% endif %}
-            
-            <div class="d-flex justify-content-between mt-4">
-                <form method="POST" action="{{ url_for('student_take_quiz', attempt_id=attempt.id, q=current_index) }}" class="d-inline">
-                    <input type="hidden" name="confirm" value="true">
-                    <button type="submit" class="btn btn-danger">
-                        <i class="bi bi-check-circle-fill me-2"></i>Submit Anyway
-                    </button>
-                </form>
+            <div class="modal-body">
+                <p class="lead mb-4">Are you sure you want to submit your quiz?</p>
                 
-                <a href="{{ url_for('student_take_quiz', attempt_id=attempt.id, q=current_index) }}" 
-                   class="btn btn-primary">
-                    <i class="bi bi-arrow-left-circle-fill me-2"></i>Continue Quiz
-                </a>
+                {% if unanswered_count > 0 %}
+                <div class="alert alert-warning d-flex align-items-start" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill fs-5 me-2" aria-hidden="true"></i>
+                    <div>
+                        <h3 class="alert-heading h6 mb-2">You have {{ unanswered_count }} unanswered question(s)</h3>
+                        <p>You can review these questions before submitting:</p>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for q in unanswered_questions %}
+                            <a href="{{ url_for('student_take_quiz', attempt_id=attempt.id, q=q.position) }}"
+                               class="btn btn-sm btn-outline-warning"
+                               data-bs-dismiss="modal">
+                                Question {{ q.position + 1 }}
+                            </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="alert alert-success d-flex align-items-center" role="alert">
+                    <i class="bi bi-check-circle-fill fs-5 me-2" aria-hidden="true"></i>
+                    <div>All questions have been answered!</div>
+                </div>
+                {% endif %}
+                
+                <div class="d-flex align-items-center mt-3 text-muted">
+                    <i class="bi bi-clock-history me-2" aria-hidden="true"></i>
+                    <small>Time remaining: <span id="modal-time-remaining" class="fw-bold"></span></small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-arrow-left me-1"></i> Continue Quiz
+                </button>
+                <button type="button" class="btn btn-primary" id="confirm-submit-btn">
+                    <i class="bi bi-send-check me-1"></i> Submit Quiz
+                </button>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+    // Handle the submission confirmation
+document.getElementById('confirm-submit-btn').addEventListener('click', function() {
+    const btn = this;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Submitting...';
+    btn.disabled = true;
+    
+    // Submit the form
+    document.getElementById('quiz-form').submit();
+});
+
+// Highlight unanswered questions when clicking the warning link
+function highlightUnanswered() {
+    const navButtons = document.querySelectorAll('.question-navigation .btn');
+    navButtons.forEach(btn => {
+        if (btn.classList.contains('btn-outline-secondary')) {
+            btn.classList.add('animate-pulse', 'border-warning');
+            setTimeout(() => {
+                btn.classList.remove('animate-pulse', 'border-warning');
+            }, 3000);
+        }
+    });
+}
+</script>
 {% endblock %}

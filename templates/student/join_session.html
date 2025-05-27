@@ -1,0 +1,875 @@
+{% extends 'student_dashboard.html' %}
+
+{% block content %}
+<title>Join Online Session - {{ session.session_name }}</title>
+
+<style>
+    /* Base Styles */
+    :root {
+        --primary-color: #3498db;
+        --primary-hover: #2980b9;
+        --secondary-color: #95a5a6;
+        --secondary-hover: #7f8c8d;
+        --success-color: #2ecc71;
+        --warning-color: #f39c12;
+        --danger-color: #e74c3c;
+        --inactive-color: #95a5a6;
+        --text-dark: #2c3e50;
+        --text-medium: #555;
+        --text-light: #ecf0f1;
+        --bg-light: #f8f9fa;
+        --shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        --border-radius: 10px;
+        --transition: all 0.3s ease;
+    }
+
+    /* Main container styling */
+    .session-container {
+        max-width: 1200px;
+        margin: 20px auto;
+        padding: 25px;
+        background-color: #fff;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow);
+    }
+
+    /* Session header */
+    .session-header {
+        margin-bottom: 25px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #eee;
+    }
+
+    .session-title {
+        font-size: clamp(1.5rem, 2.5vw, 2rem);
+        color: var(--text-dark);
+        margin-bottom: 10px;
+        word-wrap: break-word;
+    }
+
+    .session-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px 20px;
+        margin-bottom: 15px;
+    }
+
+    .meta-item {
+        display: flex;
+        align-items: center;
+        font-size: clamp(0.875rem, 1.5vw, 1rem);
+        color: var(--text-medium);
+        flex-shrink: 0;
+    }
+
+    .meta-item i {
+        margin-right: 8px;
+        color: var(--primary-color);
+        flex-shrink: 0;
+    }
+
+    /* Status indicators */
+    .status-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-weight: 600;
+        font-size: 14px;
+        display: inline-block;
+    }
+
+    .status-upcoming {
+        background-color: var(--warning-color);
+        color: white;
+    }
+
+    .status-active {
+        background-color: var(--success-color);
+        color: white;
+    }
+
+    .status-ended {
+        background-color: var(--inactive-color);
+        color: white;
+    }
+
+    /* Video container */
+    #video-container {
+        width: 100%;
+        height: 0;
+        padding-bottom: 56.25%; /* 16:9 aspect ratio */
+        background-color: #000;
+        border-radius: 8px;
+        overflow: hidden;
+        position: relative;
+        margin-bottom: 20px;
+    }
+
+    #root {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+    }
+
+    /* Controls */
+    .controls {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 25px;
+        flex-wrap: wrap;
+    }
+
+    .btn {
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        color: white;
+        font-weight: 600;
+        cursor: pointer;
+        transition: var(--transition);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-size: clamp(0.875rem, 1.5vw, 1rem);
+        flex-grow: 1;
+    }
+
+    .btn i {
+        font-size: 1.1em;
+    }
+
+    .btn-primary {
+        background-color: var(--primary-color);
+    }
+
+    .btn-primary:hover {
+        background-color: var(--primary-hover);
+    }
+
+    .btn-secondary {
+        background-color: var(--secondary-color);
+    }
+
+    .btn-secondary:hover {
+        background-color: var(--secondary-hover);
+    }
+
+    .btn-danger {
+        background-color: var(--danger-color);
+    }
+
+    .btn-danger:hover {
+        background-color: #c0392b;
+    }
+
+    /* Session details */
+    .session-details {
+        background-color: var(--bg-light);
+        padding: 20px;
+        border-radius: var(--border-radius);
+        margin-top: 25px;
+    }
+
+    .details-title {
+        font-size: clamp(1.2rem, 1.8vw, 1.5rem);
+        margin-bottom: 15px;
+        color: var(--text-dark);
+    }
+
+    .session-details p {
+        font-size: clamp(0.875rem, 1.5vw, 1rem);
+        line-height: 1.6;
+    }
+
+    /* Messages */
+    .message-box {
+        padding: 15px 20px;
+        border-radius: var(--border-radius);
+        margin-bottom: 25px;
+        text-align: center;
+        font-size: clamp(0.875rem, 1.5vw, 1rem);
+        display: none;
+    }
+
+    .message-info {
+        background-color: #d1ecf1;
+        color: #0c5460;
+    }
+
+    .message-warning {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    .message-error {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    /* Loading indicator */
+    .loading-spinner {
+        display: none;
+        width: 40px;
+        height: 40px;
+        margin: 20px auto;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid var(--primary-color);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    /* Time remaining indicator */
+    .time-remaining {
+        background-color: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 4px;
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        z-index: 10;
+        font-size: 12px;
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 992px) {
+        .session-container {
+            padding: 20px;
+        }
+        
+        .controls {
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 8px 15px;
+        }
+    }
+
+    @media (max-width: 768px) {
+        .session-container {
+            padding: 15px;
+            margin: 10px auto;
+        }
+        
+        .session-meta {
+            gap: 10px;
+        }
+        
+        .meta-item {
+            flex-basis: calc(50% - 10px);
+        }
+        
+        .controls {
+            flex-direction: column;
+        }
+        
+        .btn {
+            width: 100%;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .session-container {
+            padding: 12px;
+        }
+        
+        .meta-item {
+            flex-basis: 100%;
+        }
+        
+        .session-details {
+            padding: 15px;
+        }
+        
+        #video-container {
+            margin-bottom: 15px;
+        }
+    }
+
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+        .session-container {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+        }
+        
+        .session-title, .details-title {
+            color: #ecf0f1;
+        }
+        
+        .meta-item {
+            color: #bdc3c7;
+        }
+        
+        .session-details {
+            background-color: #34495e;
+        }
+        
+        .message-info {
+            background-color: #0c5460;
+            color: #d1ecf1;
+        }
+        
+        .message-warning {
+            background-color: #856404;
+            color: #fff3cd;
+        }
+        
+        .message-error {
+            background-color: #721c24;
+            color: #f8d7da;
+        }
+    }
+</style>
+
+<div class="session-container">
+    <div class="session-header">
+        <h1 class="session-title">{{ session.session_name }}</h1>
+        
+        <div class="session-meta">
+            <div class="meta-item">
+                <i class="bi bi-calendar-event"></i>
+                <span id="session-time-display">
+                    {% if start_local %}
+                        {{ start_local.strftime('%b %d, %Y %I:%M %p') }} - 
+                        {{ end_local.strftime('%I:%M %p') }}
+                    {% else %}
+                        Time not available
+                    {% endif %}
+                </span>
+            </div>
+            <div class="meta-item">
+                <i class="bi bi-clock-history"></i>
+                <span id="timezone-display">{{ session.original_timezone or 'Africa/Dar_es_Salaam' }}</span>
+            </div>
+            <div class="meta-item">
+                <i class="bi bi-people"></i>
+                <span>Class: {{ session.classroom.class_name }}</span>
+            </div>
+            <div class="meta-item">
+                <i class="bi bi-person"></i>
+                <span>Teacher: {{ session.creator.username }}</span>
+            </div>
+        </div>
+
+        {% set current_time = now_utc %}
+        {% if current_time < session.start_time %}
+            <span class="status-badge status-upcoming">Upcoming</span>
+        {% elif current_time > session.end_time %}
+            <span class="status-badge status-ended">Ended</span>
+        {% else %}
+            <span class="status-badge status-active">Live Now</span>
+        {% endif %}
+    </div>
+
+    <!-- Status Messages -->
+    <div id="status-message" class="message-box"></div>
+    <div id="loading-spinner" class="loading-spinner"></div>
+
+    <!-- Video Conference Container -->
+    <div id="video-container">
+        <div id="root"></div>
+        <div id="time-remaining" class="time-remaining" style="display: none;"></div>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+        <button id="join-btn" class="btn btn-primary" onclick="joinSession()">
+            <i class="bi bi-box-arrow-in-right"></i> <span class="btn-text">Join Session</span>
+        </button>
+        <button id="leave-btn" class="btn btn-danger" onclick="leaveSession()" style="display: none;">
+            <i class="bi bi-box-arrow-left"></i> <span class="btn-text">Leave Session</span>
+        </button>
+        <button id="fullscreen-btn" class="btn btn-secondary" onclick="toggleFullscreen()" style="display: none;">
+            <i class="bi bi-fullscreen"></i> <span class="btn-text">Fullscreen</span>
+        </button>
+        {% if session.recording_url and current_time > session.end_time %}
+            <a href="{{ session.recording_url }}" class="btn btn-primary" target="_blank">
+                <i class="bi bi-play-circle"></i> <span class="btn-text">Watch Recording</span>
+            </a>
+        {% endif %}
+    </div>
+
+    <!-- Session Details -->
+    <div class="session-details">
+        <h3 class="details-title">Session Details</h3>
+        <p>{{ session.description or 'No additional details provided.' }}</p>
+    </div>
+</div>
+
+<script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
+<script>
+    // Enhanced Configuration
+    const CONFIG = {
+        APP_ID: 981616766,
+        SERVER_SECRET: "33eb72d74f0142e8ccb0ced74fb42569",
+        VIDEO_CONTAINER_ID: "video-container",
+        ROOT_ELEMENT_ID: "root",
+        JOIN_BUTTON_ID: "join-btn",
+        LEAVE_BUTTON_ID: "leave-btn",
+        FULLSCREEN_BUTTON_ID: "fullscreen-btn",
+        STATUS_MESSAGE_ID: "status-message",
+        LOADING_SPINNER_ID: "loading-spinner",
+        TIME_REMAINING_ID: "time-remaining",
+        MESSAGE_DISPLAY_TIME: 5000,
+        TIME_UPDATE_INTERVAL: 60000, // 1 minute
+        AUTO_JOIN_DELAY: 1000 // Delay for auto-join in milliseconds
+    };
+
+    // Enhanced Session Data
+    const SESSION = {
+        roomID: "{{ session.room_id }}",
+        userID: "student_{{ current_user.id }}_{{ random }}",
+        userName: "{{ current_user.username }}",
+        startTime: new Date("{{ session.start_time.isoformat() }}"),
+        endTime: new Date("{{ session.end_time.isoformat() }}"),
+        currentTime: new Date(),
+        sessionID: "{{ session.id }}",
+        csrfToken: "{{ csrf_token }}",
+        recordingURL: "{{ session.recording_url or '' }}"
+    };
+
+    // Enhanced Global State
+    let state = {
+        zpInstance: null,
+        isJoined: false,
+        attendanceRecorded: false,
+        timeUpdateInterval: null,
+        fullscreen: false
+    };
+
+    // DOM Elements with caching
+    const elements = {
+        joinBtn: document.getElementById(CONFIG.JOIN_BUTTON_ID),
+        leaveBtn: document.getElementById(CONFIG.LEAVE_BUTTON_ID),
+        fullscreenBtn: document.getElementById(CONFIG.FULLSCREEN_BUTTON_ID),
+        statusMessage: document.getElementById(CONFIG.STATUS_MESSAGE_ID),
+        loadingSpinner: document.getElementById(CONFIG.LOADING_SPINNER_ID),
+        videoContainer: document.getElementById(CONFIG.VIDEO_CONTAINER_ID),
+        rootElement: document.getElementById(CONFIG.ROOT_ELEMENT_ID),
+        timeRemaining: document.getElementById(CONFIG.TIME_REMAINING_ID)
+    };
+
+    // Utility Functions
+    const utils = {
+        formatTime: (date) => {
+            return date.toLocaleString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            });
+        },
+        formatTimeRemaining: (endTime) => {
+            const now = new Date();
+            if (now >= endTime) return "Session ended";
+            
+            const diff = endTime - now;
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            
+            if (hours > 0) return `${hours}h ${minutes}m remaining`;
+            if (minutes > 0) return `${minutes}m remaining`;
+            return "Less than 1m remaining";
+        },
+        throttle: (func, limit) => {
+            let lastFunc;
+            let lastRan;
+            return function() {
+                const context = this;
+                const args = arguments;
+                if (!lastRan) {
+                    func.apply(context, args);
+                    lastRan = Date.now();
+                } else {
+                    clearTimeout(lastFunc);
+                    lastFunc = setTimeout(function() {
+                        if ((Date.now() - lastRan) >= limit) {
+                            func.apply(context, args);
+                            lastRan = Date.now();
+                        }
+                    }, limit - (Date.now() - lastRan));
+                }
+            }
+        }
+    };
+
+    // Initialize the page with enhanced checks
+    function initialize() {
+        updateSessionStatus();
+        
+        // Check for auto-join parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('auto_join') && isSessionActive()) {
+            setTimeout(() => {
+                joinSession();
+            }, CONFIG.AUTO_JOIN_DELAY);
+        }
+
+        // Set up time remaining updates if session is active
+        if (isSessionActive()) {
+            updateTimeRemaining();
+            state.timeUpdateInterval = setInterval(updateTimeRemaining, CONFIG.TIME_UPDATE_INTERVAL);
+        }
+
+        // Add resize observer for responsive adjustments
+        const resizeObserver = new ResizeObserver(utils.throttle(handleResize, 200));
+        resizeObserver.observe(document.body);
+    }
+
+    // Handle window resize
+    function handleResize() {
+        if (state.fullscreen) return;
+        
+        // Adjust video container height based on aspect ratio
+        const containerWidth = elements.videoContainer.clientWidth;
+        elements.videoContainer.style.height = `${containerWidth * 0.5625}px`; // 16:9 ratio
+    }
+
+    // Update time remaining display
+    function updateTimeRemaining() {
+        if (!isSessionActive() || !state.isJoined) return;
+        
+        const remainingText = utils.formatTimeRemaining(SESSION.endTime);
+        elements.timeRemaining.textContent = remainingText;
+        elements.timeRemaining.style.display = 'block';
+    }
+
+    // Check if session is currently active
+    function isSessionActive() {
+        const now = new Date();
+        return now >= SESSION.startTime && now <= SESSION.endTime;
+    }
+
+    // Update session status display with enhanced formatting
+    function updateSessionStatus() {
+        if (SESSION.currentTime < SESSION.startTime) {
+            showMessage(`Session starts at ${utils.formatTime(SESSION.startTime)}`, 'message-info');
+            elements.joinBtn.disabled = false;
+        } else if (SESSION.currentTime > SESSION.endTime) {
+            showMessage(`Session ended at ${utils.formatTime(SESSION.endTime)}`, 'message-info');
+            elements.joinBtn.disabled = true;
+            
+            // Show recording button if available
+            if (SESSION.recordingURL) {
+                const recordingBtn = document.createElement('a');
+                recordingBtn.href = SESSION.recordingURL;
+                recordingBtn.className = 'btn btn-primary';
+                recordingBtn.target = '_blank';
+                recordingBtn.innerHTML = '<i class="bi bi-play-circle"></i> <span class="btn-text">Watch Recording</span>';
+                elements.controls.appendChild(recordingBtn);
+            }
+        } else {
+            showMessage('Session is live now!', 'message-info');
+            elements.joinBtn.disabled = false;
+        }
+    }
+
+    // Enhanced join session function with loading state
+    async function joinSession() {
+        if (state.isJoined) return;
+
+        // Validate session timing with enhanced checks
+        if (SESSION.currentTime < SESSION.startTime) {
+            showMessage('Session has not started yet', 'message-warning');
+            return;
+        }
+
+        if (SESSION.currentTime > SESSION.endTime) {
+            showMessage('Session has already ended', 'message-warning');
+            return;
+        }
+
+        try {
+            // Show loading state
+            elements.loadingSpinner.style.display = 'block';
+            elements.joinBtn.disabled = true;
+            elements.joinBtn.innerHTML = '<i class="bi bi-hourglass"></i> <span class="btn-text">Connecting...</span>';
+
+            // Generate authentication token
+            const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
+                CONFIG.APP_ID, 
+                CONFIG.SERVER_SECRET, 
+                SESSION.roomID, 
+                SESSION.userID, 
+                SESSION.userName
+            );
+
+            // Create Zego instance with enhanced configuration
+            state.zpInstance = ZegoUIKitPrebuilt.create(kitToken);
+
+            // Configure room settings with additional options
+            state.zpInstance.joinRoom({
+                container: elements.rootElement,
+                scenario: {
+                    mode: ZegoUIKitPrebuilt.VideoConference,
+                },
+                turnOnMicrophoneWhenJoining: false,
+                turnOnCameraWhenJoining: false,
+                showMyCameraToggleButton: true,
+                showMyMicrophoneToggleButton: true,
+                showAudioVideoSettingsButton: true,
+                showScreenSharingButton: false,
+                showTextChat: true,
+                showUserList: true,
+                showLeaveButton: true,
+                showRoomTimer: true,
+                layout: "Auto",
+                maxUsers: 50,
+                onJoinRoom: handleJoinSuccess,
+                onLeaveRoom: handleLeave,
+                onUserJoin: handleUserJoin,
+                onUserLeave: handleUserLeave,
+                onError: handleError
+            });
+
+            // Set initial video container height
+            handleResize();
+        } catch (error) {
+            console.error('Failed to initialize video session:', error);
+            showMessage('Failed to initialize video session. Please try again.', 'message-error');
+            resetJoinButton();
+        }
+    }
+
+    // Handle successful room join with enhanced UI updates
+    function handleJoinSuccess() {
+        state.isJoined = true;
+        
+        // Update UI
+        elements.joinBtn.style.display = 'none';
+        elements.leaveBtn.style.display = 'inline-block';
+        elements.fullscreenBtn.style.display = 'inline-block';
+        elements.loadingSpinner.style.display = 'none';
+        
+        showMessage('Successfully joined the session', 'message-info');
+        
+        // Record attendance if not already done
+        if (!state.attendanceRecorded) {
+            recordAttendance();
+            state.attendanceRecorded = true;
+        }
+        
+        // Set up automatic session end
+        const timeUntilEnd = SESSION.endTime.getTime() - new Date().getTime();
+        if (timeUntilEnd > 0) {
+            setTimeout(() => {
+                leaveSession();
+                showMessage('The session has ended', 'message-info');
+            }, timeUntilEnd);
+        }
+        
+        // Start time remaining updates
+        updateTimeRemaining();
+        if (!state.timeUpdateInterval) {
+            state.timeUpdateInterval = setInterval(updateTimeRemaining, CONFIG.TIME_UPDATE_INTERVAL);
+        }
+    }
+
+    // Reset join button state
+    function resetJoinButton() {
+        elements.joinBtn.disabled = false;
+        elements.joinBtn.innerHTML = '<i class="bi bi-box-arrow-in-right"></i> <span class="btn-text">Join Session</span>';
+        elements.loadingSpinner.style.display = 'none';
+    }
+
+    // Handle user join notification
+    function handleUserJoin(userList) {
+        console.log('User joined:', userList);
+        // Could add notification here if desired
+    }
+
+    // Handle user leave notification
+    function handleUserLeave(userList) {
+        console.log('User left:', userList);
+        // Could add notification here if desired
+    }
+
+    // Handle room leave with cleanup
+    function handleLeave() {
+        state.isJoined = false;
+        elements.joinBtn.style.display = 'inline-block';
+        elements.leaveBtn.style.display = 'none';
+        elements.fullscreenBtn.style.display = 'none';
+        elements.timeRemaining.style.display = 'none';
+        resetJoinButton();
+        
+        // Clean up interval
+        if (state.timeUpdateInterval) {
+            clearInterval(state.timeUpdateInterval);
+            state.timeUpdateInterval = null;
+        }
+    }
+
+    // Enhanced error handling
+    function handleError(error) {
+        console.error('Zego SDK error:', error);
+        
+        let errorMessage = 'Error joining session';
+        if (error.code) {
+            switch(error.code) {
+                case 1001:
+                    errorMessage = 'Network error. Please check your connection.';
+                    break;
+                case 1002:
+                    errorMessage = 'Authentication failed. Please refresh and try again.';
+                    break;
+                case 1003:
+                    errorMessage = 'Session is full. Contact your teacher.';
+                    break;
+                default:
+                    errorMessage = `Error: ${error.message}`;
+            }
+        }
+        
+        showMessage(errorMessage, 'message-error');
+        resetJoinButton();
+        
+        // Attempt to leave if partially joined
+        if (state.zpInstance) {
+            state.zpInstance.leaveRoom();
+        }
+    }
+
+    // Leave the session with confirmation
+    function leaveSession() {
+        if (confirm('Are you sure you want to leave the session?')) {
+            if (state.zpInstance && state.isJoined) {
+                state.zpInstance.leaveRoom();
+                elements.rootElement.innerHTML = '';
+            }
+        }
+    }
+
+    // Toggle fullscreen mode with enhanced handling
+    function toggleFullscreen() {
+        if (!document.fullscreenElement) {
+            elements.videoContainer.requestFullscreen()
+                .then(() => {
+                    state.fullscreen = true;
+                    elements.fullscreenBtn.innerHTML = '<i class="bi bi-fullscreen-exit"></i> <span class="btn-text">Exit Fullscreen</span>';
+                })
+                .catch(err => {
+                    showMessage('Fullscreen error: ' + err.message, 'message-error');
+                });
+        } else {
+            document.exitFullscreen()
+                .then(() => {
+                    state.fullscreen = false;
+                    elements.fullscreenBtn.innerHTML = '<i class="bi bi-fullscreen"></i> <span class="btn-text">Fullscreen</span>';
+                });
+        }
+    }
+
+    // Display status messages with animation
+    function showMessage(text, className) {
+        elements.statusMessage.textContent = text;
+        elements.statusMessage.className = 'message-box ' + className;
+        
+        // Animate appearance
+        elements.statusMessage.style.display = 'block';
+        elements.statusMessage.style.opacity = '0';
+        elements.statusMessage.style.transition = 'opacity 0.3s';
+        
+        setTimeout(() => {
+            elements.statusMessage.style.opacity = '1';
+        }, 10);
+        
+        // Auto-hide non-error messages
+        if (className !== 'message-error') {
+            setTimeout(() => {
+                elements.statusMessage.style.opacity = '0';
+                setTimeout(() => {
+                    elements.statusMessage.style.display = 'none';
+                }, 300);
+            }, CONFIG.MESSAGE_DISPLAY_TIME);
+        }
+    }
+
+    // Record attendance to server with retry logic
+    function recordAttendance() {
+        let attempts = 0;
+        const maxAttempts = 3;
+        
+        function attemptRecording() {
+            attempts++;
+            
+            fetch('/record_attendance', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': SESSION.csrfToken
+                },
+                body: JSON.stringify({
+                    session_id: SESSION.sessionID
+                })
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
+            .then(data => {
+                if (!data.success) {
+                    throw new Error(data.error || 'Attendance recording failed');
+                }
+                console.log('Attendance recorded successfully');
+            })
+            .catch(error => {
+                console.error('Error recording attendance (attempt ' + attempts + '):', error);
+                if (attempts < maxAttempts) {
+                    setTimeout(attemptRecording, 2000 * attempts); // Exponential backoff
+                }
+            });
+        }
+        
+        attemptRecording();
+    }
+
+    // Handle page visibility changes
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden' && state.isJoined) {
+            // Send beacon when page is hidden
+            const data = new Blob([JSON.stringify({
+                session_id: SESSION.sessionID,
+                action: 'visibility_change',
+                timestamp: new Date().toISOString()
+            })], {type: 'application/json'});
+            
+            navigator.sendBeacon('/record_activity', data);
+        }
+    });
+
+    // Handle page unload with beacon API
+    window.addEventListener('beforeunload', function(e) {
+        if (state.isJoined) {
+            const data = new Blob([JSON.stringify({
+                session_id: SESSION.sessionID,
+                action: 'leave',
+                timestamp: new Date().toISOString()
+            })], {type: 'application/json'});
+            
+            navigator.sendBeacon('/record_attendance', data);
+            
+            // Show confirmation if in fullscreen
+            if (state.fullscreen) {
+                e.preventDefault();
+                e.returnValue = 'Are you sure you want to leave the session?';
+                return e.returnValue;
+            }
+        }
+    });
+
+    // Initialize the page when DOM is loaded
+    document.addEventListener('DOMContentLoaded', initialize);
+</script>
+{% endblock %}

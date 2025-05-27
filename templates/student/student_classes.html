@@ -1,0 +1,32 @@
+{% extends 'student_dashboard.html' %}
+
+{% block content %}
+<div class="container">
+    <h2>My Classes</h2>
+    
+    <div class="row">
+        {% for enrollment in enrollments %}
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">{{ enrollment.classroom.class_name }}</h5>
+                    <p class="card-text">{{ enrollment.classroom.description|default('No description', true) }}</p>
+                </div>
+                <div class="card-footer">
+                    <a href="{{ url_for('class_sessions', class_id=enrollment.classroom.id) }}" 
+                       class="btn btn-primary">
+                        View Sessions
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                You are not enrolled in any classes yet.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

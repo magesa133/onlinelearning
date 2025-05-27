@@ -76,7 +76,11 @@
                                 <div class="answer-section">
                                     <strong>Your answer:</strong> 
                                     {% if answer %}
-                                        <span>{{ answer.selected_answer }}. {{ question.options[answer.selected_answer] }}</span>
+                                        {% if question.question_type == 'short_answer' %}
+                                            <span>{{ answer.answer_text or "No answer provided" }}</span>
+                                        {% else %}
+                                            <span>{{ answer.selected_answer }}. {{ question.options[answer.selected_answer] if answer.selected_answer in question.options else "Invalid option" }}</span>
+                                        {% endif %}
                                     {% else %}
                                         <span class="text-muted">Not answered</span>
                                     {% endif %}
@@ -85,7 +89,11 @@
                                 <div class="correct-answer-section mt-2">
                                     <strong>Correct answer:</strong> 
                                     <span class="text-success">
-                                        {{ question.correct_option }}. {{ question.options[question.correct_option] }}
+                                        {% if question.question_type == 'short_answer' %}
+                                            {{ question.correct_option.split('|')[0] }} (or other accepted answers)
+                                        {% else %}
+                                            {{ question.correct_option }}. {{ question.options[question.correct_option] }}
+                                        {% endif %}
                                     </span>
                                 </div>
                                 

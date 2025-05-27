@@ -1,0 +1,208 @@
+{% extends "teacher_dashboard.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Message Header Section -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <a href="{{ url_for('message_inbox') }}" class="btn btn-outline-secondary me-2">
+                <i class="fas fa-arrow-left me-1"></i> Back to Inbox
+            </a>
+            <h2 class="d-inline-block mb-0">
+                <i class="fas fa-envelope-open-text me-2"></i>Message Details
+            </h2>
+        </div>
+        <div>
+            {% if message.is_urgent %}
+            <span class="badge bg-danger me-2">
+                <i class="fas fa-exclamation-triangle me-1"></i> Urgent
+            </span>
+            {% endif %}
+            <span class="text-muted">
+                {{ message.created_at.strftime('%b %d, %Y at %I:%M %p') }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Message Content Card -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <div class="d-flex justify-content-between align-items-center">
+                <h4 class="mb-0">{{ message.title }}</h4>
+                {% if current_user.id == message.sender_id %}
+                <span class="badge bg-info">Sent</span>
+                {% else %}
+                <span class="badge bg-success">Received</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- Message Metadata -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="fas fa-user-circle me-2 text-primary"></i>
+                        <div>
+                            <small class="text-muted">From</small>
+                            <div>{{ message.sender.username }}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="fas fa-users me-2 text-primary"></i>
+                        <div>
+                            <small class="text-muted">Class</small>
+                            <div>
+                                {% if message.classroom %}
+                                {{ message.classroom.class_name }} - {{ message.classroom.section }}
+                                {% else %}
+                                Direct Message
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Message Body -->
+            <div class="border-top pt-3 mb-4">
+                <div class="message-content">
+                    {{ message.content|safe }}
+                </div>
+            </div>
+
+            <!-- Message Actions -->
+            <div class="border-top pt-3">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        {% if message.is_announcement %}
+                        <span class="badge bg-info me-2">
+                            <i class="fas fa-bullhorn me-1"></i> Announcement
+                        </span>
+                        {% endif %}
+                        {% if message.recipient_id and not message.is_announcement %}
+                        <span class="badge bg-secondary me-2">
+                            <i class="fas fa-user-tag me-1"></i> Private
+                        </span>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <a href="{{ url_for('send_class_message') }}?reply_to={{ message.id }}" 
+                           class="btn btn-primary me-2">
+                            <i class="fas fa-reply me-1"></i> Reply
+                        </a>
+                        {% if current_user.id == message.sender_id %}
+                        <button class="btn btn-outline-danger" data-bs-toggle="modal" 
+                                data-bs-target="#deleteModal">
+                            <i class="fas fa-trash-alt me-1"></i> Delete
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Related Messages (if any) -->
+    {% if message.thread_id %}
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">
+                <i class="fas fa-comments me-2"></i>Conversation Thread
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="list-group">
+                {% for related_message in message.get_thread_messages() %}
+                <a href="{{ url_for('view_message', message_id=related_message.id) }}" 
+                   class="list-group-item list-group-item-action {% if related_message.id == message.id %}active{% endif %}">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">
+                            {{ related_message.title }}
+                            {% if related_message.id == message.id %}
+                            <span class="badge bg-light text-dark">Current</span>
+                            {% endif %}
+                        </h6>
+                        <small>{{ related_message.created_at|time_ago }}</small>
+                    </div>
+                    <p class="mb-1 text-truncate">{{ related_message.content|striptags|truncate(100) }}</p>
+                    <small>
+                        From: {{ related_message.sender.username }}
+                        {% if related_message.is_urgent %}
+                        <span class="badge bg-danger ms-2">Urgent</span>
+                        {% endif %}
+                    </small>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Deletion</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to delete this message? This action cannot be undone.</p>
+                    <p class="fw-bold">{{ message.title }}</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <!-- In your template -->
+                <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="deleteModalLabel">Confirm Deletion</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                Are you sure you want to permanently delete this message?
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                <form method="POST" action="{{ url_for('delete_message', message_id=message.id) }}">
+                                    <button type="submit" class="btn btn-danger">
+                                        <i class="fas fa-trash-alt me-1"></i> Delete
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .message-content {
+        line-height: 1.8;
+        font-size: 1.05rem;
+    }
+    .message-content img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 4px;
+    }
+    .message-content pre {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 4px;
+        overflow-x: auto;
+    }
+    .message-content blockquote {
+        border-left: 4px solid #dee2e6;
+        padding-left: 1rem;
+        color: #6c757d;
+        font-style: italic;
+    }
+</style>
+{% endblock %}

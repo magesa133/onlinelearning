@@ -1,0 +1,661 @@
+{% extends "index.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-6xl">
+    <!-- Resource Header -->
+    <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-8">
+        <div class="p-6">
+            <div class="flex flex-col md:flex-row justify-between gap-6">
+                <div class="flex-1">
+                    <h1 class="text-2xl font-bold text-gray-900 mb-2">{{ resource.title }}</h1>
+                    <div class="flex flex-wrap items-center gap-3 mb-4">
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {{ resource.resource_type|upper }}
+                        </span>
+                        {% if resource.is_featured %}
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                            Featured
+                        </span>
+                        {% endif %}
+                        <span class="text-sm text-gray-500">
+                            {{ resource.views_count }} views
+                        </span>
+                        <span class="text-sm text-gray-500">
+                            {{ resource.upload_date.strftime('%b %d, %Y') }}
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="flex items-center space-x-3">
+                    <button onclick="likeResource()" class="flex items-center space-x-1 text-gray-700 hover:text-blue-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                        </svg>
+                        <span>Like</span>
+                    </button>
+                    <button onclick="shareResource()" class="flex items-center space-x-1 text-gray-700 hover:text-blue-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                        </svg>
+                        <span>Share</span>
+                    </button>
+                    <button class="flex items-center space-x-1 text-gray-700 hover:text-blue-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                        </svg>
+                        <span>Save</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Left Column - Media Player and Description -->
+        <div class="lg:col-span-2">
+            <!-- Media Player Section -->
+            <div class="bg-black rounded-xl overflow-hidden mb-6" style="min-height: 300px; max-height: 80vh;">
+                {% set file_ext = resource.file_name.split('.')[-1].lower() %}
+                {% set file_path = resource.file_path %}
+                
+                {% if file_ext in ['mp4', 'mov', 'avi', 'webm'] %}
+                <!-- Video Player -->
+                <video 
+                    id="resourcePlayer"
+                    class="w-full h-full object-cover"
+                    controls
+                    playsinline
+                    poster="{{ url_for('static', filename='images/video-thumbnail.jpg') }}"
+                    style="aspect-ratio: 16/9;"
+                >
+                    <source src="{{ url_for('serve_uploaded_file', filename=file_path) }}" type="video/{{ file_ext }}">
+                    Your browser does not support the video tag.
+                </video>
+                
+                {% elif file_ext in ['jpg', 'jpeg', 'png', 'gif', 'webp'] %}
+                <!-- Enhanced Image Viewer -->
+                <div class="relative w-full h-full flex items-center justify-center bg-gray-900">
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <img 
+                            src="{{ url_for('serve_uploaded_file', filename=file_path) }}" 
+                            alt="{{ resource.title }}"
+                            class="max-w-full max-h-full object-contain transition-all duration-300 hover:scale-105"
+                            style="box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);"
+                            onerror="this.onerror=null;this.src='{{ url_for('static', filename='images/image-error.jpg') }}'"
+                        >
+                    </div>
+                    <div class="absolute bottom-4 right-4 bg-black bg-opacity-70 text-white px-3 py-1 rounded-full text-sm backdrop-blur-sm">
+                        {{ file_ext|upper }}
+                    </div>
+                </div>
+                
+                {% elif file_ext == 'pdf' %}
+                <!-- PDF Viewer with Mobile Optimization -->
+                <div class="w-full h-full bg-gray-50 flex flex-col">
+                    <div class="bg-gray-200 px-4 py-2 flex justify-between items-center">
+                        <span class="text-sm font-medium text-gray-700">PDF Viewer</span>
+                        <div class="flex space-x-2">
+                            <button onclick="zoomPDF('in')" class="text-gray-600 hover:text-blue-600 p-1 rounded-full hover:bg-gray-300">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 10v4m0-4h4m-9 0h4" />
+                                </svg>
+                            </button>
+                            <button onclick="zoomPDF('out')" class="text-gray-600 hover:text-blue-600 p-1 rounded-full hover:bg-gray-300">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM7 10h4" />
+                                </svg>
+                            </button>
+                            <a href="{{ url_for('student_download_resource', resource_id=resource.id) }}" 
+                               class="text-sm text-blue-600 hover:text-blue-800 flex items-center px-2 py-1 rounded hover:bg-gray-300">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                </svg>
+                                Download
+                            </a>
+                        </div>
+                    </div>
+                    <iframe 
+                        id="pdfViewer"
+                        src="{{ url_for('serve_uploaded_file', filename=file_path) }}#toolbar=0&navpanes=0&scrollbar=0" 
+                        class="w-full h-full border-none flex-grow"
+                        style="min-height: 400px;"
+                    >
+                        <div class="p-8 text-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <h4 class="text-lg font-medium text-gray-700 mb-2">PDF Preview Not Available</h4>
+                            <p class="text-gray-500 mb-4">Your browser doesn't support embedded PDF preview.</p>
+                            <a href="{{ url_for('student_download_resource', resource_id=resource.id) }}" 
+                               class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                                Download PDF
+                            </a>
+                        </div>
+                    </iframe>
+                </div>
+                
+                {% else %}
+                <!-- Unsupported Media Fallback -->
+                <div class="w-full h-full flex flex-col items-center justify-center bg-gray-800 text-white p-6 text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <h3 class="text-xl font-medium mb-2">Preview Not Available</h3>
+                    <p class="text-gray-300 mb-4">Download the file to view its contents</p>
+                    <a href="{{ url_for('student_download_resource', resource_id=resource.id) }}" 
+                       class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition">
+                        Download Now
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Video Controls (for video files) -->
+            {% if file_ext in ['mp4', 'mov', 'avi', 'webm'] %}
+            <div class="flex items-center justify-between bg-gray-50 px-4 py-3 rounded-lg mb-6">
+                <div class="flex items-center space-x-4">
+                    <button id="playPauseBtn" class="text-gray-700 hover:text-blue-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </button>
+                    <button id="muteBtn" class="text-gray-700 hover:text-blue-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                        </svg>
+                    </button>
+                    <div class="w-32">
+                        <input type="range" id="volumeSlider" min="0" max="1" step="0.1" value="1" class="w-full">
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="currentTime" class="text-sm text-gray-600">0:00</span>
+                    <span class="text-sm text-gray-400">/</span>
+                    <span id="duration" class="text-sm text-gray-600">0:00</span>
+                    <button id="fullscreenBtn" class="text-gray-700 hover:text-blue-600">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Resource Description -->
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden mb-6">
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold text-gray-900">About This Resource</h2>
+                        <span class="text-sm text-gray-500">{{ resource.upload_date.strftime('%B %d, %Y') }}</span>
+                    </div>
+                    
+                    <div class="prose max-w-none text-gray-700 mb-6">
+                        {{ resource.description|default("No description provided.", true)|markdown }}
+                    </div>
+                    
+                    <div class="flex flex-wrap gap-2">
+                        {% for tag in resource.tags if tag %}
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            {{ tag.strip() }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comments Section -->
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div class="p-6">
+                    <h2 class="text-xl font-bold text-gray-900 mb-6">Comments ({{ resource.comments|length }})</h2>
+                    
+                    <!-- Comment Form -->
+                    <form method="POST" action="{{ url_for('add_resource_comment', resource_id=resource.id) }}" class="mb-8">
+                        <div class="flex items-start space-x-3">
+                            <div class="flex-shrink-0">
+                                <div class="bg-blue-100 text-blue-800 rounded-full w-10 h-10 flex items-center justify-center font-medium">
+                                    {{ current_user.username|first|upper if current_user.is_authenticated else 'A' }}
+                                </div>
+                            </div>
+                            <div class="flex-1">
+                                <textarea 
+                                    name="comment" 
+                                    rows="3" 
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                                    placeholder="Add a public comment..."
+                                    required
+                                ></textarea>
+                                <div class="flex justify-end mt-2">
+                                    <button 
+                                        type="submit" 
+                                        class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition"
+                                    >
+                                        Comment
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                    
+                    <!-- Comments List -->
+                    <div class="space-y-6">
+                        {% for comment in resource.comments %}
+                        <div class="flex items-start space-x-3">
+                            <div class="flex-shrink-0">
+                                <div class="bg-gray-100 text-gray-800 rounded-full w-10 h-10 flex items-center justify-center font-medium">
+                                    {{ comment.author.username|first|upper }}
+                                </div>
+                            </div>
+                            <div class="flex-1">
+                                <div class="bg-gray-50 p-4 rounded-lg">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <h4 class="text-sm font-medium text-gray-900">
+                                            {{ comment.author.username }}
+                                            {% if comment.author.teacher_profile %}
+                                            <span class="text-xs text-blue-600 ml-1">(Teacher)</span>
+                                            {% endif %}
+                                        </h4>
+                                        <span class="text-xs text-gray-500">
+                                            {{ comment.created_at.strftime('%b %d, %Y') }}
+                                        </span>
+                                    </div>
+                                    <p class="text-sm text-gray-700">{{ comment.content }}</p>
+                                    <div class="flex items-center space-x-4 mt-2">
+                                        <button class="text-xs text-gray-500 hover:text-blue-600">Like</button>
+                                        <button class="text-xs text-gray-500 hover:text-blue-600">Reply</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-8">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                            </svg>
+                            <h4 class="text-lg font-medium text-gray-700">No comments yet</h4>
+                            <p class="text-gray-500 mt-1">Be the first to comment</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column - Sidebar -->
+        <div class="space-y-4">
+            <!-- Author Info -->
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden p-4">
+                <div class="flex items-center space-x-3 mb-4">
+                    <div class="flex-shrink-0">
+                        <div class="bg-blue-100 text-blue-800 rounded-full w-12 h-12 flex items-center justify-center font-medium text-lg">
+                            {{ resource.teacher.username|first|upper }}
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="font-medium text-gray-900">{{ resource.teacher.username }}</h3>
+                        <p class="text-sm text-gray-500">
+                            {% if resource.teacher.teacher_profile %}
+                                {{ resource.teacher.teacher_profile.full_name }}
+                            {% else %}
+                                Teacher
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+                <button class="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium rounded-lg transition">
+                    Subscribe
+                </button>
+            </div>
+
+            <!-- Resource Details -->
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div class="p-4 border-b border-gray-200">
+                    <h3 class="font-medium text-gray-900">Resource Details</h3>
+                </div>
+                <div class="p-4">
+                    <ul class="space-y-3">
+                        <li class="flex justify-between">
+                            <span class="text-sm text-gray-500">Type</span>
+                            <span class="text-sm font-medium text-gray-900">{{ resource.resource_type|upper }}</span>
+                        </li>
+                        <li class="flex justify-between">
+                            <span class="text-sm text-gray-500">Subject</span>
+                            <span class="text-sm font-medium text-gray-900">{{ resource.subject.name }}</span>
+                        </li>
+                        <li class="flex justify-between">
+                            <span class="text-sm text-gray-500">Grade Level</span>
+                            <span class="text-sm font-medium text-gray-900">{{ resource.classroom.grade_level }}</span>
+                        </li>
+                        <li class="flex justify-between">
+                            <span class="text-sm text-gray-500">File Size</span>
+                            <span class="text-sm font-medium text-gray-900">
+                                {% if resource.file_size > 1024*1024 %}
+                                    {{ (resource.file_size/(1024*1024))|round(1) }} MB
+                                {% else %}
+                                    {{ (resource.file_size/1024)|round(1) }} KB
+                                {% endif %}
+                            </span>
+                        </li>
+                        <li class="flex justify-between">
+                            <span class="text-sm text-gray-500">Downloads</span>
+                            <span class="text-sm font-medium text-gray-900">{{ resource.download_count }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Download Section -->
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div class="p-4 border-b border-gray-200">
+                    <h3 class="font-medium text-gray-900">Download Options</h3>
+                </div>
+                <div class="p-4">
+                    <a href="{{ url_for('student_download_resource', resource_id=resource.id) }}" 
+                       class="w-full flex items-center justify-center px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition mb-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Download Original File
+                    </a>
+                    <p class="text-xs text-gray-500 text-center">
+                        File type: {{ file_ext|upper }} • 
+                        {% if resource.file_size > 1024*1024 %}
+                            {{ (resource.file_size/(1024*1024))|round(1) }} MB
+                        {% else %}
+                            {{ (resource.file_size/1024)|round(1) }} KB
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+
+            <!-- Related Resources -->
+            <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <div class="p-4 border-b border-gray-200">
+                    <h3 class="font-medium text-gray-900">Related Resources</h3>
+                </div>
+                <div class="p-4 space-y-4">
+                    {% if related_resources and related_resources|length > 0 %}
+                        {% for related in related_resources[:3] %}
+                        <a href="{{ url_for('study_resource_detail', resource_id=related.id) }}" class="flex items-start space-x-3 group">
+                            <div class="flex-shrink-0 w-24 h-16 bg-gray-200 rounded-lg overflow-hidden">
+                                {% set related_ext = related.file_name.split('.')[-1].lower() %}
+                                {% if related_ext in ['mp4', 'mov', 'avi', 'webm'] %}
+                                <div class="w-full h-full flex items-center justify-center bg-gray-800">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                {% elif related_ext in ['jpg', 'jpeg', 'png', 'gif', 'webp'] %}
+                                <img 
+                                    src="{{ url_for('serve_uploaded_file', filename=related.file_path) }}" 
+                                    alt="{{ related.title }}"
+                                    class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                    style="object-position: center;"
+                                    onerror="this.onerror=null;this.src='{{ url_for('static', filename='images/image-error.jpg') }}'"
+                                >
+                                {% else %}
+                                <div class="w-full h-full flex items-center justify-center bg-gray-100">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                    </svg>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-medium text-gray-900 group-hover:text-blue-600 line-clamp-2">{{ related.title }}</h4>
+                                <p class="text-xs text-gray-500 mt-1">{{ related.teacher.username }}</p>
+                                <p class="text-xs text-gray-500">{{ related.views_count }} views • {{ related.upload_date.strftime('%b %d, %Y') }}</p>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mx-auto text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <p class="text-sm text-gray-500">No related resources found</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Video player controls (only for video files)
+{% if file_ext in ['mp4', 'mov', 'avi', 'webm'] %}
+const player = document.getElementById('resourcePlayer');
+const playPauseBtn = document.getElementById('playPauseBtn');
+const muteBtn = document.getElementById('muteBtn');
+const volumeSlider = document.getElementById('volumeSlider');
+const currentTimeEl = document.getElementById('currentTime');
+const durationEl = document.getElementById('duration');
+const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+// Update play/pause button
+player.addEventListener('play', () => {
+    playPauseBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+    `;
+});
+
+player.addEventListener('pause', () => {
+    playPauseBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+    `;
+});
+
+// Toggle play/pause
+playPauseBtn.addEventListener('click', () => {
+    if (player.paused) {
+        player.play();
+    } else {
+        player.pause();
+    }
+});
+
+// Toggle mute
+muteBtn.addEventListener('click', () => {
+    player.muted = !player.muted;
+    muteBtn.innerHTML = player.muted ? `
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+        </svg>
+    ` : `
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+        </svg>
+    `;
+});
+
+// Volume control
+volumeSlider.addEventListener('input', () => {
+    player.volume = volumeSlider.value;
+    player.muted = false;
+    muteBtn.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+        </svg>
+    `;
+});
+
+// Time display
+player.addEventListener('loadedmetadata', () => {
+    durationEl.textContent = formatTime(player.duration);
+});
+
+player.addEventListener('timeupdate', () => {
+    currentTimeEl.textContent = formatTime(player.currentTime);
+});
+
+function formatTime(seconds) {
+    const minutes = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${minutes}:${secs < 10 ? '0' : ''}${secs}`;
+}
+
+// Fullscreen
+fullscreenBtn.addEventListener('click', () => {
+    if (player.requestFullscreen) {
+        player.requestFullscreen();
+    } else if (player.webkitRequestFullscreen) {
+        player.webkitRequestFullscreen();
+    } else if (player.msRequestFullscreen) {
+        player.msRequestFullscreen();
+    }
+});
+{% endif %}
+
+// PDF Zoom Controls
+function zoomPDF(action) {
+    const pdfViewer = document.getElementById('pdfViewer');
+    const currentSrc = pdfViewer.src;
+    
+    if (action === 'in') {
+        pdfViewer.src = currentSrc.replace(/zoom=\d+/i, '') + '&zoom=150';
+    } else if (action === 'out') {
+        pdfViewer.src = currentSrc.replace(/zoom=\d+/i, '') + '&zoom=75';
+    }
+}
+
+// Like resource
+function likeResource() {
+    showToast('Thanks for your feedback!');
+}
+
+// Share resource
+function shareResource() {
+    const title = "{{ resource.title }}";
+    const url = window.location.href;
+    
+    if (navigator.share) {
+        navigator.share({
+            title: title,
+            text: 'Check out this educational resource:',
+            url: url
+        }).catch(err => {
+            console.log('Error sharing:', err);
+            copyToClipboard(url);
+            showToast('Link copied to clipboard!');
+        });
+    } else {
+        copyToClipboard(url);
+        showToast('Link copied to clipboard!');
+    }
+}
+
+// Helper functions
+function copyToClipboard(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+}
+
+function showToast(message) {
+    const toast = document.createElement('div');
+    toast.className = 'fixed bottom-4 right-4 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg flex items-center animate-fade-in';
+    toast.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+        ${message}
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.classList.add('animate-fade-out');
+        setTimeout(() => {
+            document.body.removeChild(toast);
+        }, 300);
+    }, 3000);
+}
+</script>
+
+<style>
+/* Animation styles */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-fade-out {
+    animation: fadeOut 0.3s ease-out forwards;
+}
+
+/* Video player styling */
+video {
+    background-color: #000;
+}
+
+/* PDF Viewer styling */
+#pdfViewer {
+    min-height: 400px;
+}
+
+/* Image enhancements */
+img {
+    transition: transform 0.3s ease;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+img:hover {
+    transform: scale(1.02);
+}
+
+/* Line clamping for text */
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;  
+    overflow: hidden;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .container {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    #pdfViewer {
+        min-height: 300px;
+    }
+    
+    .flex.flex-col.md\:flex-row {
+        flex-direction: column;
+    }
+    
+    .flex.items-center.space-x-3 {
+        justify-content: space-between;
+        width: 100%;
+        margin-top: 1rem;
+    }
+}
+
+/* Aspect ratio for video container */
+.aspect-video {
+    aspect-ratio: 16 / 9;
+}
+</style>
+{% endblock %}

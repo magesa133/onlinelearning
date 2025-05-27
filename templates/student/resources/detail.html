@@ -1,0 +1,349 @@
+{% extends "student_dashboard.html" %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="card shadow-sm">
+        <!-- Resource Header -->
+        <div class="card-header bg-light">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+                <div class="mb-2 mb-md-0">
+                    <span class="badge bg-{{ 'primary' if resource.resource_type == 'pdf' else 
+                                      'success' if resource.resource_type in ['doc', 'docx'] else
+                                      'warning' if resource.resource_type in ['ppt', 'pptx'] else
+                                      'info' if resource.resource_type in ['xls', 'xlsx'] else
+                                      'danger' }}">
+                        {{ resource.resource_type|upper }}
+                    </span>
+                    <h2 class="d-inline-block ms-2">{{ resource.title }}</h2>
+                </div>
+                <span class="text-muted small">
+                    <i class="far fa-calendar-alt me-1"></i>
+                    {{ resource.upload_date.strftime('%b %d, %Y') }}
+                </span>
+            </div>
+            
+            <div class="mt-2 d-flex flex-column flex-md-row flex-wrap">
+                <span class="text-muted me-md-3 mb-1 mb-md-0">
+                    <i class="fas fa-book me-1"></i>
+                    {{ resource.subject.name }} - {{ resource.classroom.class_name }}
+                </span>
+                <span class="text-muted">
+                    <i class="fas fa-user-tie me-1"></i>
+                    {{ resource.teacher.username }}
+                    {% if resource.teacher.teacher_profile %}
+                        ({{ resource.teacher.teacher_profile.full_name }})
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+
+        <!-- Resource Content -->
+        <div class="card-body">
+            <!-- Description -->
+            <div class="mb-4">
+                <h4 class="h5 text-muted mb-3">Description</h4>
+                <div class="p-3 bg-light rounded">
+                    {{ resource.description or "No description provided" }}
+                </div>
+            </div>
+
+            <!-- File Preview Section -->
+            <div class="mb-4">
+                <h4 class="h5 text-muted mb-3">Preview</h4>
+                <div class="p-3 bg-light rounded">
+                    {# Get file extension #}
+                    {% set file_ext = resource.file_name.split('.')[-1].lower() %}
+                    
+                    {# PDF Preview #}
+                    {% if file_ext == 'pdf' %}
+                        <div class="ratio ratio-16x9">
+                            <iframe src="{{ url_for('serve_uploaded_file', filename=resource.file_path) }}#toolbar=0" 
+                                    class="border rounded"
+                                    allowfullscreen>
+                                <div class="alert alert-info m-3">
+                                    <p>PDF preview not available. Please download the file.</p>
+                                    <a href="{{ url_for('student_download_resource', resource_id=resource.id) }}" 
+                                       class="btn btn-primary mt-2">
+                                        <i class="fas fa-download me-2"></i> Download PDF
+                                    </a>
+                                </div>
+                            </iframe>
+                        </div>
+
+                    {# Image Preview #}
+                    {% elif file_ext in ['jpg', 'jpeg', 'png', 'gif'] %}
+                        <div class="text-center">
+                            <img src="{{ url_for('serve_uploaded_file', filename=resource.file_path) }}" 
+                                 class="img-fluid rounded border" 
+                                 alt="{{ resource.title }}"
+                                 style="max-height: 70vh;">
+                        </div>
+
+                    {# Video Preview #}
+                    {% elif file_ext in ['mp4', 'mov', 'avi'] %}
+                        <div class="ratio ratio-16x9">
+                            <video controls class="border rounded">
+                                <source src="{{ url_for('serve_uploaded_file', filename=resource.file_path) }}" 
+                                        type="video/{{ file_ext }}">
+                                Your browser does not support the video tag.
+                            </video>
+                        </div>
+
+                    {# Audio Preview #}
+                    {% elif file_ext in ['mp3', 'wav'] %}
+                        <div class="p-3 bg-white rounded border">
+                            <audio controls class="w-100">
+                                <source src="{{ url_for('serve_uploaded_file', filename=resource.file_path) }}" 
+                                        type="audio/{{ file_ext }}">
+                                Your browser does not support the audio element.
+                            </audio>
+                        </div>
+
+                    {# Office Document Previews #}
+                    {% elif file_ext in ['doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx'] %}
+                        <div class="alert alert-info d-flex flex-column flex-md-row align-items-center">
+                            <div class="me-md-3 mb-3 mb-md-0 text-center">
+                                {% if file_ext in ['doc', 'docx'] %}
+                                    <i class="fas fa-file-word fa-4x text-primary"></i>
+                                {% elif file_ext in ['ppt', 'pptx'] %}
+                                    <i class="fas fa-file-powerpoint fa-4x text-warning"></i>
+                                {% else %}
+                                    <i class="fas fa-file-excel fa-4x text-success"></i>
+                                {% endif %}
+                            </div>
+                            <div class="text-center text-md-start">
+                                <h5 class="mb-2">
+                                    {% if file_ext in ['doc', 'docx'] %}
+                                        Word Document
+                                    {% elif file_ext in ['ppt', 'pptx'] %}
+                                        PowerPoint Presentation
+                                    {% else %}
+                                        Excel Spreadsheet
+                                    {% endif %}
+                                </h5>
+                                <p class="mb-3">Click below to view this document online</p>
+                                <a href="https://view.officeapps.live.com/op/embed.aspx?src={{ url_for('serve_uploaded_file', filename=resource.file_path, _external=True) }}" 
+                                   target="_blank" class="btn btn-primary">
+                                    <i class="fas fa-external-link-alt me-2"></i> View in Office Online
+                                </a>
+                            </div>
+                        </div>
+                    
+                    {# Text File Preview #}
+                    {% elif file_ext == 'txt' %}
+                        <div class="p-3 bg-white rounded border" style="max-height: 500px; overflow: auto;">
+                            <pre class="mb-0">{{ read_text_file(resource.file_path) }}</pre>
+                        </div>
+                    
+                    {# ZIP Archive #}
+                    {% elif file_ext == 'zip' %}
+                        <div class="alert alert-warning text-center">
+                            <i class="fas fa-file-archive fa-4x mb-3"></i>
+                            <h5 class="mb-2">Compressed Archive</h5>
+                            <p class="mb-3">Download to view the contents of this ZIP file</p>
+                            <a href="{{ url_for('student_download_resource', resource_id=resource.id) }}" 
+                               class="btn btn-primary">
+                                <i class="fas fa-download me-2"></i> Download Archive
+                            </a>
+                        </div>
+                    
+                    {# Unsupported File Type #}
+                    {% else %}
+                        <div class="alert alert-info text-center">
+                            <i class="fas fa-file fa-4x mb-3"></i>
+                            <h5 class="mb-2">File Preview Not Available</h5>
+                            <p class="mb-3">Download to view this file</p>
+                            <a href="{{ url_for('student_download_resource', resource_id=resource.id) }}" 
+                               class="btn btn-primary">
+                                <i class="fas fa-download me-2"></i> Download File
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- File Details -->
+            <div class="mb-4">
+                <h4 class="h5 text-muted mb-3">File Details</h4>
+                <div class="d-flex align-items-center p-3 bg-light rounded">
+                    <div class="me-3 fs-1">
+                        {% if file_ext == 'pdf' %}
+                            <i class="fas fa-file-pdf text-danger"></i>
+                        {% elif file_ext in ['doc', 'docx'] %}
+                            <i class="fas fa-file-word text-primary"></i>
+                        {% elif file_ext in ['ppt', 'pptx'] %}
+                            <i class="fas fa-file-powerpoint text-warning"></i>
+                        {% elif file_ext in ['xls', 'xlsx'] %}
+                            <i class="fas fa-file-excel text-success"></i>
+                        {% elif file_ext in ['jpg', 'jpeg', 'png', 'gif'] %}
+                            <i class="fas fa-file-image text-info"></i>
+                        {% elif file_ext in ['mp4', 'mov', 'avi'] %}
+                            <i class="fas fa-file-video text-danger"></i>
+                        {% elif file_ext in ['mp3', 'wav'] %}
+                            <i class="fas fa-file-audio text-primary"></i>
+                        {% elif file_ext == 'zip' %}
+                            <i class="fas fa-file-archive text-secondary"></i>
+                        {% else %}
+                            <i class="fas fa-file text-muted"></i>
+                        {% endif %}
+                    </div>
+                    <div class="overflow-hidden">
+                        <p class="mb-1 text-truncate"><strong>{{ resource.file_name }}</strong></p>
+                        <p class="text-muted small mb-0">
+                            {{ (resource.file_size / 1024 / 1024)|round(2) }} MB • 
+                            {{ file_ext|upper }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats and Activities -->
+            <div class="row g-3 mb-4">
+                <div class="col-12 col-md-4">
+                    <div class="card h-100 bg-light">
+                        <div class="card-body text-center py-3">
+                            <h3 class="mb-0">
+                                <i class="fas fa-download me-2"></i>
+                                {{ resource.download_count }}
+                            </h3>
+                            <p class="text-muted small mb-0">Downloads</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <div class="card h-100 bg-light">
+                        <div class="card-body text-center py-3">
+                            <h3 class="mb-0">
+                                <i class="fas fa-eye me-2"></i>
+                                {{ resource.views_count }}
+                            </h3>
+                            <p class="text-muted small mb-0">Views</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12 col-md-4">
+                    <div class="card h-100 bg-light">
+                        <div class="card-body text-center py-3">
+                            <h3 class="mb-0">
+                                <i class="fas fa-comments me-2"></i>
+                                {{ resource.comments|length }}
+                            </h3>
+                            <p class="text-muted small mb-0">Comments</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comments Section -->
+            <div class="mb-4">
+                <h4 class="h5 text-muted mb-3">Comments</h4>
+                <div class="p-3 bg-light rounded">
+                    {% if resource.comments %}
+                        <div class="comment-list" style="max-height: 400px; overflow-y: auto;">
+                            {% for comment in resource.comments %}
+                            <div class="mb-3 pb-3 border-bottom">
+                                <div class="d-flex justify-content-between">
+                                    <strong>{{ comment.author.username }}</strong>
+                                    <small class="text-muted">{{ comment.created_at.strftime('%b %d, %Y %I:%M %p') }}</small>
+                                </div>
+                                <p class="mb-0 mt-1">{{ comment.content }}</p>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted text-center py-3">No comments yet. Be the first to comment!</p>
+                    {% endif %}
+                    
+                    <!-- Add Comment Form -->
+                    <form method="POST" action="{{ url_for('add_resource_comment', resource_id=resource.id) }}" class="mt-4">
+                        <div class="form-group mb-3">
+                            <textarea class="form-control" name="comment" rows="3" 
+                                      placeholder="Add your comment here..." required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-paper-plane me-2"></i> Post Comment
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="card-footer bg-light">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
+                <a href="{{ url_for('study_resources') }}" class="btn btn-outline-secondary mb-2 mb-md-0">
+                    <i class="fas fa-arrow-left me-2"></i> Back to Resources
+                </a>
+                <div class="d-flex flex-column flex-md-row">
+                    <button class="btn btn-outline-primary me-md-2 mb-2 mb-md-0" data-bs-toggle="modal" data-bs-target="#shareModal">
+                        <i class="fas fa-share-alt me-2"></i> Share
+                    </button>
+                    <a href="{{ url_for('student_download_resource', resource_id=resource.id) }}" 
+                       class="btn btn-primary">
+                        <i class="fas fa-download me-2"></i> Download
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Share Modal -->
+<div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="shareModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="shareModalLabel">Share Resource</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Share Link</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" 
+                               value="{{ url_for('study_resource_detail', resource_id=resource.id, _external=True) }}" 
+                               id="shareLink" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="copyShareLink()">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="social-share d-flex justify-content-center mt-3">
+                    <a href="#" class="btn btn-outline-primary rounded-circle mx-1" title="Share on Facebook">
+                        <i class="fab fa-facebook-f"></i>
+                    </a>
+                    <a href="#" class="btn btn-outline-info rounded-circle mx-1" title="Share on Twitter">
+                        <i class="fab fa-twitter"></i>
+                    </a>
+                    <a href="#" class="btn btn-outline-success rounded-circle mx-1" title="Share on WhatsApp">
+                        <i class="fab fa-whatsapp"></i>
+                    </a>
+                    <a href="#" class="btn btn-outline-danger rounded-circle mx-1" title="Share via Email">
+                        <i class="fas fa-envelope"></i>
+                    </a>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyShareLink() {
+    const copyText = document.getElementById("shareLink");
+    copyText.select();
+    copyText.setSelectionRange(0, 99999);
+    document.execCommand("copy");
+    
+    // Show tooltip or alert
+    const tooltip = new bootstrap.Tooltip(copyText.nextElementSibling, {
+        title: "Copied!",
+        trigger: "manual"
+    });
+    tooltip.show();
+    setTimeout(() => tooltip.hide(), 2000);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,242 @@
+<!-- templates/library.html -->
+{% extends "index.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="flex flex-col md:flex-row gap-6">
+        <!-- Sidebar Filters -->
+        <div class="w-full md:w-64 flex-shrink-0">
+            <div class="bg-white rounded-lg shadow p-4 sticky top-4">
+                <h3 class="text-lg font-semibold mb-4">Filters</h3>
+                
+                <!-- Search Box -->
+                <div class="mb-4">
+                    <form action="{{ url_for('library') }}" method="get">
+                        <div class="relative">
+                            <input type="text" name="q" value="{{ search_query }}" 
+                                   class="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                                   placeholder="Search resources...">
+                            <svg class="absolute left-3 top-2.5 h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                        </div>
+                    </form>
+                </div>
+                
+                <!-- Resource Type Filter -->
+                <div class="mb-4">
+                    <h4 class="font-medium mb-2">Resource Type</h4>
+                    <select name="type" class="w-full border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onchange="window.location.href=updateQueryParam('type', this.value)">
+                        <option value="all" {% if current_type == 'all' %}selected{% endif %}>All Types</option>
+                        <option value="document" {% if current_type == 'document' %}selected{% endif %}>Documents</option>
+                        <option value="video" {% if current_type == 'video' %}selected{% endif %}>Videos</option>
+                        <option value="audio" {% if current_type == 'audio' %}selected{% endif %}>Audio</option>
+                        <option value="image" {% if current_type == 'image' %}selected{% endif %}>Images</option>
+                        <option value="presentation" {% if current_type == 'presentation' %}selected{% endif %}>Presentations</option>
+                        <option value="spreadsheet" {% if current_type == 'spreadsheet' %}selected{% endif %}>Spreadsheets</option>
+                    </select>
+                </div>
+                
+                <!-- Subject Filter -->
+                <div class="mb-4">
+                    <h4 class="font-medium mb-2">Subject</h4>
+                    <select name="subject" class="w-full border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onchange="window.location.href=updateQueryParam('subject', this.value)">
+                        <option value="">All Subjects</option>
+                        {% for subject in subjects %}
+                        <option value="{{ subject.id }}" {% if current_subject == subject.id %}selected{% endif %}>{{ subject.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Classroom Filter -->
+                <div class="mb-4">
+                    <h4 class="font-medium mb-2">Classroom</h4>
+                    <select name="classroom" class="w-full border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onchange="window.location.href=updateQueryParam('classroom', this.value)">
+                        <option value="">All Classrooms</option>
+                        {% for classroom in classrooms %}
+                        <option value="{{ classroom.id }}" {% if current_classroom == classroom.id %}selected{% endif %}>{{ classroom.class_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Sorting Options -->
+                <div class="mb-4">
+                    <h4 class="font-medium mb-2">Sort By</h4>
+                    <select name="sort" class="w-full border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            onchange="window.location.href=updateQueryParam('sort', this.value)">
+                        <option value="recent" {% if sort_by == 'recent' %}selected{% endif %}>Most Recent</option>
+                        <option value="popular" {% if sort_by == 'popular' %}selected{% endif %}>Most Downloads</option>
+                        <option value="views" {% if sort_by == 'views' %}selected{% endif %}>Most Views</option>
+                    </select>
+                </div>
+                
+                <!-- Reset Filters -->
+                <a href="{{ url_for('library') }}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">Reset all filters</a>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="flex-1">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">Library Resources</h2>
+                <span class="text-gray-600">{{ resources.total }} resources found</span>
+            </div>
+            
+            {% if resources.items %}
+            <!-- Resource Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% for resource in resources.items %}
+                <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
+                    <!-- Resource Thumbnail -->
+                    <div class="h-48 bg-gray-100 flex items-center justify-center relative">
+                        {% if resource.thumbnail_path %}
+                        <img src="{{ url_for('uploadeds', resource_type=resource.resource_type, filename=resource.thumbnail_path) }}" 
+                            alt="{{ resource.title }}" class="h-full w-full object-cover">
+                        {% else %}
+                        <div class="text-gray-400">
+                            {% if resource.resource_type == 'document' %}
+                            <svg class="h-20 w-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            {% elif resource.resource_type == 'video' %}
+                            <svg class="h-20 w-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                            </svg>
+                            {% elif resource.resource_type == 'audio' %}
+                            <svg class="h-20 w-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+                            </svg>
+                            {% else %}
+                            <svg class="h-20 w-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                            </svg>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        <div class="absolute top-2 right-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                            {{ resource.resource_type|capitalize }}
+                        </div>
+                    </div>
+                    
+                    <!-- Resource Info -->
+                    <div class="p-4">
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="font-semibold text-lg text-gray-800 hover:text-blue-600">
+                                <a href="{{ url_for('view_library_resource', resource_id=resource.id) }}">{{ resource.title }}</a>
+                            </h3>
+                            {% if resource.is_featured %}
+                            <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">Featured</span>
+                            {% endif %}
+                        </div>
+                        
+                        <p class="text-gray-600 text-sm mb-3 line-clamp-2">{{ resource.description|default('No description', true) }}</p>
+                        
+                        <div class="flex items-center text-sm text-gray-500 mb-3">
+                            <svg class="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            {{ resource.upload_date.strftime('%b %d, %Y') }}
+                        </div>
+                        
+                        <div class="flex justify-between text-sm text-gray-500 mb-4">
+                            <div class="flex items-center">
+                                <svg class="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                </svg>
+                                {{ resource.views_count }} views
+                            </div>
+                            <div class="flex items-center">
+                                <svg class="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                </svg>
+                                {{ resource.download_count }} downloads
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-between items-center">
+                            <a href="{{ url_for('view_library_resource', resource_id=resource.id) }}" 
+                               class="text-blue-600 hover:text-blue-800 text-sm font-medium">View Details</a>
+                            <a href="{{ url_for('download_library_resource', resource_id=resource.id) }}" 
+                               class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded-lg text-sm font-medium">Download</a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Pagination -->
+            <div class="mt-8 flex justify-center">
+                <nav class="inline-flex rounded-md shadow">
+                    {% if resources.has_prev %}
+                    <a href="{{ url_for('library', page=resources.prev_num, type=current_type, subject=current_subject, classroom=current_classroom, q=search_query, sort=sort_by) }}" 
+                       class="px-3 py-2 rounded-l-md border border-gray-300 bg-white text-gray-500 hover:bg-gray-50">
+                        Previous
+                    </a>
+                    {% else %}
+                    <span class="px-3 py-2 rounded-l-md border border-gray-300 bg-gray-100 text-gray-400">Previous</span>
+                    {% endif %}
+                    
+                    {% for page_num in resources.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                        {% if page_num %}
+                            {% if resources.page == page_num %}
+                            <a href="{{ url_for('library', page=page_num, type=current_type, subject=current_subject, classroom=current_classroom, q=search_query, sort=sort_by) }}" 
+                               class="px-3 py-2 border-t border-b border-gray-300 bg-blue-500 text-white">
+                                {{ page_num }}
+                            </a>
+                            {% else %}
+                            <a href="{{ url_for('library', page=page_num, type=current_type, subject=current_subject, classroom=current_classroom, q=search_query, sort=sort_by) }}" 
+                               class="px-3 py-2 border-t border-b border-gray-300 bg-white text-gray-500 hover:bg-gray-50">
+                                {{ page_num }}
+                            </a>
+                            {% endif %}
+                        {% else %}
+                            <span class="px-3 py-2 border-t border-b border-gray-300 bg-white text-gray-500">...</span>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if resources.has_next %}
+                    <a href="{{ url_for('library', page=resources.next_num, type=current_type, subject=current_subject, classroom=current_classroom, q=search_query, sort=sort_by) }}" 
+                       class="px-3 py-2 rounded-r-md border border-gray-300 bg-white text-gray-500 hover:bg-gray-50">
+                        Next
+                    </a>
+                    {% else %}
+                    <span class="px-3 py-2 rounded-r-md border border-gray-300 bg-gray-100 text-gray-400">Next</span>
+                    {% endif %}
+                </nav>
+            </div>
+            
+            {% else %}
+            <div class="bg-white rounded-lg shadow p-8 text-center">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <h3 class="mt-2 text-lg font-medium text-gray-900">No resources found</h3>
+                <p class="mt-1 text-gray-500">Try adjusting your search or filter to find what you're looking for.</p>
+                <div class="mt-6">
+                    <a href="{{ url_for('library') }}" class="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Clear all filters
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    // Helper function to update query parameters
+    function updateQueryParam(key, value) {
+        const url = new URL(window.location.href);
+        if (value === '' || value === 'all') {
+            url.searchParams.delete(key);
+        } else {
+            url.searchParams.set(key, value);
+        }
+        return url.toString();
+    }
+</script>
+{% endblock %}

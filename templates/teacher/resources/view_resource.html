@@ -7,6 +7,9 @@
         <h1 class="resource-title">{{ resource.title }}</h1>
         <div class="resource-meta">
             <span class="resource-badge">{{ resource.resource_type|capitalize }}</span>
+            {% if not resource.is_approved %}
+            <span class="approval-badge"><i class="fas fa-clock"></i>  Approval</span>
+            {% endif %}
             <span class="meta-item"><i class="fas fa-calendar"></i> {{ resource.upload_date.strftime('%b %d, %Y') }}</span>
             <span class="meta-item"><i class="fas fa-download"></i> {{ resource.download_count }}</span>
             <span class="meta-item"><i class="fas fa-eye"></i> {{ resource.views_count }}</span>
@@ -123,26 +126,81 @@
 
         <div class="action-buttons">
             <a href="{{ url_for('download_resource', resource_id=resource.id) }}" 
-               class="btn primary-btn">
+            class="btn primary-btn">
                 <i class="fas fa-download"></i> Download File
             </a>
             
             {% if current_user.role == 'teacher' and resource.teacher_id == current_user.id %}
-            <a href="{{ url_for('edit_resource', resource_id=resource.id) }}" 
-               class="btn secondary-btn">
-                <i class="fas fa-edit"></i> Edit Resource
-            </a>
-            
-            <form action="{{ url_for('delete_resource', resource_id=resource.id) }}" 
-                  method="POST" 
-                  class="delete-form">
-                <button type="submit" class="btn danger-btn">
-                    <i class="fas fa-trash-alt"></i> Delete Resource
-                </button>
-            </form>
+                {% if not resource.is_approved %}
+                <form action="{{ url_for('approve_resource', resource_id=resource.id) }}" 
+                    method="POST" 
+                    class="approve-form">
+                    <button type="submit" class="btn success-btn">
+                        <i class="fas fa-check-circle"></i> Approve Resource
+                    </button>
+                </form>
+                {% else %}
+                <form action="{{ url_for('unapprove_resource', resource_id=resource.id) }}" 
+                    method="POST" 
+                    class="unapprove-form">
+                    <button type="submit" class="btn warning-btn">
+                        <i class="fas fa-times-circle"></i> Unapprove Resource
+                    </button>
+                </form>
+                {% endif %}
+                
+                <a href="{{ url_for('edit_resource', resource_id=resource.id) }}" 
+                class="btn secondary-btn">
+                    <i class="fas fa-edit"></i> Edit Resource
+                </a>
+                
+                <form action="{{ url_for('delete_resource', resource_id=resource.id) }}" 
+                    method="POST" 
+                    class="delete-form">
+                    <button type="submit" class="btn danger-btn">
+                        <i class="fas fa-trash-alt"></i> Delete Resource
+                    </button>
+                </form>
             {% endif %}
         </div>
     </div>
+
+    <div class="comments-section">
+    <h2><i class="fas fa-comments"></i> Comments</h2>
+    
+    {% if resource.comments %}
+    <div class="comments-list">
+        {% for comment in resource.comments %}
+        <div class="comment">
+            <div class="comment-header">
+                <span class="comment-author">{{ comment.author.username }}</span>
+                <span class="comment-date">{{ comment.created_at.strftime('%b %d, %Y at %H:%M') }}</span>
+            </div>
+            <div class="comment-content">
+                {{ comment.content }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p>No comments yet. Be the first to comment!</p>
+    {% endif %}
+    
+    {% if current_user.is_authenticated %}
+    <form action="{{ url_for('add_comment', resource_id=resource.id) }}" method="POST" class="comment-form">
+        <div class="form-group">
+            <textarea name="comment" placeholder="Add your comment..." required></textarea>
+        </div>
+        <button type="submit" class="btn primary-btn">
+            <i class="fas fa-paper-plane"></i> Post Comment
+        </button>
+    </form>
+    {% else %}
+    <div class="login-prompt">
+        <a href="{{ url_for('login') }}">Log in</a> to post comments
+    </div>
+    {% endif %}
+</div>
 </div>
 
 <!-- PDF.js Implementation -->
@@ -297,6 +355,18 @@
         border-radius: 9999px;
         font-weight: 500;
         font-size: 0.8rem;
+    }
+    
+    .approval-badge {
+        background: #ed8936;
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 9999px;
+        font-weight: 500;
+        font-size: 0.8rem;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
     }
     
     .meta-item {
@@ -589,6 +659,15 @@
         background: #e53e3e;
     }
     
+    .success-btn {
+        background: #48bb78;
+        color: white;
+    }
+    
+    .success-btn:hover {
+        background: #38a169;
+    }
+    
     /* Mobile Responsiveness */
     @media (max-width: 768px) {
         .resource-view-container {
@@ -662,5 +741,81 @@
             font-size: 1.25rem;
         }
     }
+
+
+    /* Comments Section */
+.comments-section {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid #e2e8f0;
+}
+
+.comments-section h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.comments-list {
+    margin-bottom: 2rem;
+}
+
+.comment {
+    background: #f7fafc;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid #e2e8f0;
+}
+
+.comment-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.comment-author {
+    font-weight: 600;
+    color: #2d3748;
+}
+
+.comment-date {
+    color: #718096;
+}
+
+.comment-content {
+    line-height: 1.5;
+    color: #4a5568;
+}
+
+.comment-form textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.375rem;
+    min-height: 100px;
+    margin-bottom: 1rem;
+    font-family: inherit;
+}
+
+.login-prompt {
+    text-align: center;
+    padding: 1rem;
+    background: #f7fafc;
+    border-radius: 0.375rem;
+}
+
+.login-prompt a {
+    color: #4299e1;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.login-prompt a:hover {
+    text-decoration: underline;
+}
 </style>
 {% endblock %}

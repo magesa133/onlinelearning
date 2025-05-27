@@ -1,0 +1,581 @@
+<!-- templates/teacher/grades/gradebook.html -->
+{% extends "teacher_dashboard.html" %}
+
+{% block styles %}
+{{ super() }}
+<link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.2.2/css/buttons.dataTables.min.css">
+<style>
+    .grade-distribution {
+        height: 20px;
+        border-radius: 3px;
+        overflow: hidden;
+    }
+    .grade-A { background-color: #28a745; }
+    .grade-B { background-color: #5cb85c; }
+    .grade-C { background-color: #ffc107; }
+    .grade-D { background-color: #fd7e14; }
+    .grade-F { background-color: #dc3545; }
+    .progress-thin {
+        height: 8px;
+    }
+    .assessment-card {
+        transition: all 0.2s;
+        border-left: 4px solid transparent;
+    }
+    .assessment-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .assignment-card {
+        border-left-color: #4e73df;
+    }
+    .quiz-card {
+        border-left-color: #1cc88a;
+    }
+    .nav-tabs .nav-link.active {
+        font-weight: bold;
+        border-bottom: 3px solid;
+    }
+    .tab-content {
+        padding-top: 1rem;
+    }
+    .stat-card {
+        border-radius: 0.5rem;
+    }
+    .stat-value {
+        font-size: 1.75rem;
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 font-weight-bold text-gray-800">
+                <i class="fas fa-chart-bar text-primary me-2"></i>Gradebook
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('teacher_dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Gradebook</li>
+                </ol>
+            </nav>
+        </div>
+        <div>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#exportModal">
+                <i class="fas fa-download me-2"></i>Export
+            </button>
+        </div>
+    </div>
+
+    <!-- Add this at the top of your content block -->
+    {% if not classes %}
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        You don't have any classes assigned yet.
+    </div>
+    {% elif not assignments and not quizzes %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>
+        No assignments or quizzes found in your classes. Create some to see them here.
+    </div>
+    {% endif %}
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow stat-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Assignments
+                            </div>
+                            <div class="stat-value text-gray-800">{{ total_assignments }}</div>
+                        </div>
+                        <div class="icon-circle bg-primary text-white">
+                            <i class="fas fa-clipboard-list"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow stat-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Quizzes
+                            </div>
+                            <div class="stat-value text-gray-800">{{ total_quizzes }}</div>
+                        </div>
+                        <div class="icon-circle bg-success text-white">
+                            <i class="fas fa-question-circle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow stat-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                Grading Progress
+                            </div>
+                            <div class="stat-value text-gray-800">{{ overall_completion|round(1) }}%</div>
+                        </div>
+                        <div class="icon-circle bg-info text-white">
+                            <i class="fas fa-percentage"></i>
+                        </div>
+                    </div>
+                    <div class="progress progress-thin mt-2">
+                        <div class="progress-bar bg-info" 
+                             style="width: {{ overall_completion }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow stat-card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Classes
+                            </div>
+                            <div class="stat-value text-gray-800">{{ classes|length }}</div>
+                        </div>
+                        <div class="icon-circle bg-warning text-white">
+                            <i class="fas fa-school"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs Navigation -->
+    <ul class="nav nav-tabs" id="gradebookTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="assignments-tab" data-bs-toggle="tab" 
+                    data-bs-target="#assignments" type="button" role="tab"
+                    aria-selected="true">
+                <i class="fas fa-clipboard-list me-2"></i>Assignments
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="quizzes-tab" data-bs-toggle="tab" 
+                    data-bs-target="#quizzes" type="button" role="tab"
+                    aria-selected="false">
+                <i class="fas fa-question-circle me-2"></i>Quizzes
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tabs Content -->
+    <div class="tab-content bg-white p-4 shadow-sm rounded-bottom" id="gradebookTabsContent">
+        <!-- Assignments Tab -->
+        <div class="tab-pane fade show active" id="assignments" role="tabpanel">
+            {% if assignments %}
+            <div class="table-responsive">
+                <table id="assignmentsTable" class="table table-hover" style="width:100%">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Assignment</th>
+                            <th>Class</th>
+                            <th>Due Date</th>
+                            <th>Avg Score</th>
+                            <th>Progress</th>
+                            <th>Grade Distribution</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in assignments %}
+                        <tr class="assessment-card assignment-card">
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-clipboard-list text-primary me-2"></i>
+                                    <div>
+                                        <h6 class="mb-0">{{ item.title }}</h6>
+                                        <small class="text-muted">{{ item.type|capitalize }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ item.class_name }}</td>
+                            <td data-order="{{ item.due_date.timestamp() if item.due_date else 0 }}">
+                                {% if item.due_date %}
+                                    {{ item.due_date.strftime('%b %d, %Y') }}
+                                    <small class="d-block text-muted">{{ item.due_date.strftime('%I:%M %p') }}</small>
+                                {% else %}
+                                    No due date
+                                {% endif %}
+                            </td>
+                            <!-- In your gradebook.html, update the score display -->
+                            <td data-order="{{ item.average or 0 }}">
+                                {% if item.average is not none %}
+                                <span class="fw-bold">{{ item.average|round(1) }}</span>
+                                <small class="text-muted">/ {{ item.max_score }}</small>
+                                {% else %}
+                                <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td data-order="{{ item.completion }}">
+                                <div class="d-flex align-items-center">
+                                    <small class="me-2">{{ item.completion|round(0) }}%</small>
+                                    <div class="progress progress-thin flex-grow-1">
+                                        <div class="progress-bar bg-{{ 'success' if item.completion == 100 else 'warning' }}" 
+                                             style="width: {{ item.completion }}%"
+                                             role="progressbar"
+                                             aria-valuenow="{{ item.completion }}"
+                                             aria-valuemin="0"
+                                             aria-valuemax="100"></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="grade-distribution d-flex">
+                                    {% for grade, count in item.distribution.items() %}
+                                    {% if count > 0 %}
+                                    <div class="grade-{{ grade }} flex-grow-1" 
+                                         title="{{ grade }}: {{ count }}" 
+                                         data-bs-toggle="tooltip"></div>
+                                    {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-primary dropdown-toggle" 
+                                            type="button" data-bs-toggle="dropdown">
+                                        <i class="fas fa-ellipsis-h"></i>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a class="dropdown-item" 
+                                               href="{{ url_for('view_assignment', assignment_id=item.id) }}">
+                                                <i class="fas fa-eye me-2"></i>View Details
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" 
+                                               href="{{ url_for('grade_assignment', assignment_id=item.id) }}">
+                                                <i class="fas fa-edit me-2"></i>Grade
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" 
+                                               href="{{ url_for('export_assignment', assignment_id=item.id) }}">
+                                                <i class="fas fa-download me-2"></i>Export
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i> No assignments found
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Quizzes Tab -->
+        <div class="tab-pane fade" id="quizzes" role="tabpanel">
+            {% if quizzes %}
+            <div class="table-responsive">
+                <table id="quizzesTable" class="table table-hover" style="width:100%">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Quiz</th>
+                            <th>Class</th>
+                            <th>Due Date</th>
+                            <th>Avg Score</th>
+                            <th>Progress</th>
+                            <th>Grade Distribution</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in quizzes %}
+                        <tr class="assessment-card quiz-card">
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-question-circle text-success me-2"></i>
+                                    <div>
+                                        <h6 class="mb-0">{{ item.title }}</h6>
+                                        <small class="text-muted">{{ item.type|capitalize }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ item.class_name }}</td>
+                            <td data-order="{{ item.due_date.timestamp() if item.due_date else 0 }}">
+                                {% if item.due_date %}
+                                    {{ item.due_date.strftime('%b %d, %Y') }}
+                                    <small class="d-block text-muted">{{ item.due_date.strftime('%I:%M %p') }}</small>
+                                {% else %}
+                                    No due date
+                                {% endif %}
+                            </td>
+                            <td data-order="{{ item.average or 0 }}">
+                                {% if item.average %}
+                                <span class="fw-bold">{{ item.average|round(1) }}</span>
+                                <small class="text-muted">/ {{ item.max_score }}</small>
+                                {% else %}
+                                <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td data-order="{{ item.completion }}">
+                                <div class="d-flex align-items-center">
+                                    <small class="me-2">{{ item.completion|round(0) }}%</small>
+                                    <div class="progress progress-thin flex-grow-1">
+                                        <div class="progress-bar bg-{{ 'success' if item.completion == 100 else 'warning' }}" 
+                                             style="width: {{ item.completion }}%"
+                                             role="progressbar"
+                                             aria-valuenow="{{ item.completion }}"
+                                             aria-valuemin="0"
+                                             aria-valuemax="100"></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="grade-distribution d-flex">
+                                    {% for grade, count in item.distribution.items() %}
+                                    {% if count > 0 %}
+                                    <div class="grade-{{ grade }} flex-grow-1" 
+                                         title="{{ grade }}: {{ count }}" 
+                                         data-bs-toggle="tooltip"></div>
+                                    {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-success dropdown-toggle" 
+                                            type="button" data-bs-toggle="dropdown">
+                                        <i class="fas fa-ellipsis-h"></i>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a class="dropdown-item" 
+                                               href="{{ url_for('view_quiz', quiz_id=item.id) }}">
+                                                <i class="fas fa-eye me-2"></i>View Details
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" 
+                                               href="{{ url_for('grade_quiz', quiz_id=item.id) }}">
+                                                <i class="fas fa-edit me-2"></i>Grade
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" 
+                                               href="{{ url_for('export_quiz', quiz_id=item.id) }}">
+                                                <i class="fas fa-download me-2"></i>Export
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i> No quizzes found
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal fade" id="exportModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-file-export me-2"></i>Export Gradebook
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="exportForm" method="get" action="{{ url_for('export_grades') }}">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="exportFormat" class="form-label">Export Format</label>
+                            <select class="form-select" id="exportFormat" name="format" required>
+                                <option value="csv">CSV (Excel compatible)</option>
+                                <option value="json">JSON (Raw data)</option>
+                                <option value="pdf">PDF Report</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="contentType" class="form-label">Content Type</label>
+                            <select class="form-select" id="contentType" name="content_type">
+                                <option value="all">All Content</option>
+                                <option value="assignments">Assignments Only</option>
+                                <option value="quizzes">Quizzes Only</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="dateRange" class="form-label">Date Range</label>
+                            <select class="form-select" id="dateRange" name="date_range">
+                                <option value="all">All Dates</option>
+                                <option value="current">Current Term</option>
+                                <option value="last_month">Last 30 Days</option>
+                                <option value="custom">Custom Range</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6" id="customDateFields" style="display: none;">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="startDate" class="form-label">Start Date</label>
+                                    <input type="date" class="form-control" id="startDate" name="start_date">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="endDate" class="form-label">End Date</label>
+                                    <input type="date" class="form-control" id="endDate" name="end_date">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Include Fields</label>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="fieldStudent" name="fields" value="student" checked>
+                                    <label class="form-check-label" for="fieldStudent">Student Name</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="fieldClass" name="fields" value="class" checked>
+                                    <label class="form-check-label" for="fieldClass">Class</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="fieldScore" name="fields" value="score" checked>
+                                    <label class="form-check-label" for="fieldScore">Score</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="fieldGrade" name="fields" value="grade" checked>
+                                    <label class="form-check-label" for="fieldGrade">Grade</label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="fieldDate" name="fields" value="date" checked>
+                                    <label class="form-check-label" for="fieldDate">Due Date</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="fieldStatus" name="fields" value="status" checked>
+                                    <label class="form-check-label" for="fieldStatus">Status</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="exportForm" class="btn btn-primary">
+                    <i class="fas fa-download me-2"></i>Export
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.2.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.2.2/js/buttons.print.min.js"></script>
+<script>
+$(document).ready(function() {
+    // Initialize DataTables with export buttons
+    $('#assignmentsTable').DataTable({
+        order: [[2, 'desc']],  // Sort by due date
+        responsive: true,
+        dom: '<"top"fB>rt<"bottom"lip><"clear">',
+        buttons: [
+            {
+                extend: 'print',
+                text: '<i class="fas fa-print me-2"></i>Print',
+                className: 'btn btn-outline-secondary',
+                exportOptions: {
+                    columns: [0, 1, 2, 3, 4, 5]
+                }
+            }
+        ]
+    });
+    
+    $('#quizzesTable').DataTable({
+        order: [[2, 'desc']],  // Sort by due date
+        responsive: true,
+        dom: '<"top"fB>rt<"bottom"lip><"clear">',
+        buttons: [
+            {
+                extend: 'print',
+                text: '<i class="fas fa-print me-2"></i>Print',
+                className: 'btn btn-outline-secondary',
+                exportOptions: {
+                    columns: [0, 1, 2, 3, 4, 5]
+                }
+            }
+        ]
+    });
+
+    // Initialize tooltips
+    $('[data-bs-toggle="tooltip"]').tooltip();
+
+    // Export modal date range toggle
+    $('#dateRange').change(function() {
+        if ($(this).val() === 'custom') {
+            $('#customDateFields').show();
+        } else {
+            $('#customDateFields').hide();
+        }
+    });
+
+    // Set default dates for export
+    const today = new Date().toISOString().split('T')[0];
+    const lastMonth = new Date();
+    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    const lastMonthStr = lastMonth.toISOString().split('T')[0];
+    
+    $('#startDate').val(lastMonthStr);
+    $('#endDate').val(today);
+
+    // Handle export form submission
+    $('#exportForm').submit(function(e) {
+        e.preventDefault();
+        const url = $(this).attr('action') + '?' + $(this).serialize();
+        window.open(url, '_blank');
+        $('#exportModal').modal('hide');
+    });
+});
+</script>
+{% endblock %}

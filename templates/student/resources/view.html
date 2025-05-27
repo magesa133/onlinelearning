@@ -1,88 +1,54 @@
 {% extends "student_dashboard.html" %}
 
 {% block content %}
-<div class="resource-detail">
-    <div class="resource-header">
-        <span class="resource-type {{ resource.resource_type }}">
-            {{ resource.resource_type|upper }}
-        </span>
-        <h2>{{ resource.title }}</h2>
-        
-        <div class="resource-meta">
-            <span class="course-name">
-                <i class="fas fa-book"></i>
-                {{ resource.subject.name }} - {{ resource.classroom.class_name }}
-            </span>
-            <span class="teacher-name">
-                <i class="fas fa-chalkboard-teacher"></i>
-                Uploaded by {{ resource.teacher.user.username }}
-            </span>
-            <span class="upload-date">
-                <i class="far fa-calendar-alt"></i>
-                {{ resource.upload_date|datetimeformat('%b %d, %Y at %I:%M %p') }}
-            </span>
+<div class="container py-4">
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h2 class="mb-0">Study Resources</h2>
         </div>
-    </div>
-    
-    <div class="resource-content">
-        <div class="resource-description">
-            <h3>Description</h3>
-            <p>{{ resource.description }}</p>
-        </div>
-        
-        <div class="resource-file">
-            <h3>File Details</h3>
-            <div class="file-details">
-                <div class="file-icon">
-                    {% if resource.resource_type == 'pdf' %}
-                    <i class="fas fa-file-pdf"></i>
-                    {% elif resource.resource_type in ['doc', 'docx'] %}
-                    <i class="fas fa-file-word"></i>
-                    {% elif resource.resource_type in ['ppt', 'pptx'] %}
-                    <i class="fas fa-file-powerpoint"></i>
-                    {% elif resource.resource_type in ['xls', 'xlsx'] %}
-                    <i class="fas fa-file-excel"></i>
-                    {% elif resource.resource_type in ['jpg', 'jpeg', 'png', 'gif'] %}
-                    <i class="fas fa-file-image"></i>
-                    {% elif resource.resource_type in ['mp4', 'mov', 'avi'] %}
-                    <i class="fas fa-file-video"></i>
-                    {% elif resource.resource_type in ['mp3', 'wav'] %}
-                    <i class="fas fa-file-audio"></i>
-                    {% elif resource.resource_type == 'zip' %}
-                    <i class="fas fa-file-archive"></i>
-                    {% else %}
-                    <i class="fas fa-file"></i>
-                    {% endif %}
+        <div class="card-body">
+            {% if not resources %}
+                <div class="alert alert-info">No resources available yet.</div>
+            {% else %}
+                <div class="row">
+                    {% for resource in resources %}
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header">
+                                <span class="badge bg-{{ 'primary' if resource.resource_type == 'pdf' else 
+                                                  'success' if resource.resource_type in ['doc', 'docx'] else
+                                                  'warning' if resource.resource_type in ['ppt', 'pptx'] else
+                                                  'info' if resource.resource_type in ['xls', 'xlsx'] else
+                                                  'danger' }}">
+                                    {{ resource.resource_type|upper }}
+                                </span>
+                                <h5 class="d-inline-block ms-2">{{ resource.title }}</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="text-muted small">
+                                    <i class="fas fa-book me-1"></i>
+                                    {{ resource.subject.name }} - {{ resource.classroom.class_name }}
+                                </p>
+                                <p class="text-truncate">{{ resource.description or "No description" }}</p>
+                            </div>
+                            <div class="card-footer bg-light">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted">
+                                        <i class="far fa-calendar-alt me-1"></i>
+                                        {{ resource.upload_date.strftime('%b %d, %Y') }}
+                                    </small>
+                                    <a href="{{ url_for('study_resource_detail', resource_id=resource.id) }}" 
+                                       class="btn btn-sm btn-outline-primary">
+                                        View Details
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
                 </div>
-                <div class="file-info">
-                    <p class="file-name">{{ resource.file_name }}</p>
-                    <p class="file-size">{{ (resource.file_size / 1024 / 1024)|round(2) }} MB</p>
-                </div>
-            </div>
+            {% endif %}
         </div>
-        
-        <div class="resource-stats">
-            <div class="stat-card">
-                <i class="fas fa-download"></i>
-                <h4>{{ resource.download_count }}</h4>
-                <p>Downloads</p>
-            </div>
-            <div class="stat-card">
-                <i class="fas fa-eye"></i>
-                <h4>{{ resource.views_count }}</h4>
-                <p>Views</p>
-            </div>
-        </div>
-    </div>
-    
-    <div class="resource-actions">
-        <a href="{{ url_for('student_download_resource', resource_id=resource.id) }}" 
-           class="btn btn-primary btn-lg">
-            <i class="fas fa-download"></i> Download Resource
-        </a>
-        <a href="{{ url_for('student_resources') }}" class="btn btn-outline-secondary">
-            Back to Resources
-        </a>
     </div>
 </div>
 {% endblock %}

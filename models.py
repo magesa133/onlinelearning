@@ -1,15 +1,20 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
-from flask import current_app
+from flask import current_app, url_for
+from flask_login import current_user
 from enum import Enum, unique
-from sqlalchemy import func, event, Index, and_, or_
+from sqlalchemy import event, Index
 from sqlalchemy.orm import validates
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, time
+from zoneinfo import ZoneInfo
 import os
 import json
 from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.exceptions import NotFound, Forbidden
-import pytz
+from pytz import utc
+
+# Define a default application timezone
+APP_TIMEZONE = 'UTC'
+
 
 db = SQLAlchemy()
 
@@ -78,69 +83,122 @@ class User(UserMixin, db.Model, BaseMixin):
     role = db.Column(db.String(20), nullable=False)
     face_image = db.Column(db.String(255))
     last_login = db.Column(db.DateTime)
-    timezone = db.Column(db.String(50), default='UTC')
+    profile_image_url = db.Column(db.String(255), nullable=True)  # Add this line
+    timezone = db.Column(db.String(50), default='Africa/Dar_es_Salaam')
     is_active = db.Column(db.Boolean, default=True)
 
     # Relationships
-    teacher_profile = db.relationship('Teacher', 
-                                    back_populates='user', 
-                                    uselist=False, 
-                                    cascade='all, delete-orphan',
-                                    foreign_keys='Teacher.user_id')
+
+    # Add these relationships
+    notifications = db.relationship(
+        'Notification', 
+        back_populates='user',
+        cascade='all, delete-orphan',
+        lazy='dynamic'
+    )
     
-    student_profile = db.relationship('Student', 
-                                    back_populates='user', 
-                                    uselist=False, 
-                                    cascade='all, delete-orphan',
-                                    primaryjoin='User.id==Student.user_id')
-    sent_messages = db.relationship('Message', 
-                                  foreign_keys='Message.sender_id', 
-                                  back_populates='sender')
-    received_messages = db.relationship('Message', 
-                                      foreign_keys='Message.recipient_id', 
-                                      back_populates='recipient')
-    comments = db.relationship('ResourceComment', 
-                             back_populates='author')
-    uploaded_resources = db.relationship('Resource', 
-                                       back_populates='teacher')
-    created_assignments = db.relationship('Assignment', 
-                                        back_populates='author', 
-                                        cascade='all, delete-orphan')
-    created_sessions = db.relationship('OnlineSession', 
-                                     back_populates='creator', 
-                                     cascade='all, delete-orphan')
-    quiz_attempts = db.relationship('QuizAttempt', 
-                                  back_populates='user', 
-                                  cascade='all, delete-orphan')
+    notification_settings = db.relationship(
+        'NotificationSettings',
+        back_populates='user',
+        uselist=False,  # One-to-one relationship
+        cascade='all, delete-orphan'
+    )
+
+    teacher_profile = db.relationship(
+        'Teacher', 
+        back_populates='user', 
+        uselist=False, 
+        cascade='all, delete-orphan'
+    )
+    student_profile = db.relationship(
+        'Student', 
+        back_populates='user', 
+        uselist=False, 
+        cascade='all, delete-orphan'
+    )
+    notifications = db.relationship(
+        'Notification',
+        back_populates='user',
+        lazy='dynamic',
+        cascade='all, delete-orphan'
+    )
+    sent_messages = db.relationship(
+        'Message',
+        foreign_keys='Message.sender_id',
+        back_populates='sender',
+        lazy='dynamic'
+    )
+    received_messages = db.relationship(
+        'Message',
+        foreign_keys='Message.recipient_id',
+        back_populates='recipient',
+        lazy='dynamic'
+    )
+    comments = db.relationship(
+        'ResourceComment',
+        back_populates='author',
+        cascade='all, delete-orphan'
+    )
+    uploaded_resources = db.relationship(
+        'Resource',
+        back_populates='teacher'
+    )
+    created_assignments = db.relationship(
+        'Assignment',
+        back_populates='author',
+        cascade='all, delete-orphan'
+    )
+    created_sessions = db.relationship(
+        'OnlineSession',
+        back_populates='creator',
+        cascade='all, delete-orphan'
+    )
+    quiz_attempts = db.relationship(
+        'QuizAttempt',
+        back_populates='user',
+        cascade='all, delete-orphan'
+    )
+
+    # In your User model
+    def validate_timezone(timezone_str):
+        try:
+            import pytz
+            return timezone_str in pytz.all_timezones
+        except:
+            try:
+                from zoneinfo import available_timezones
+                return timezone_str in available_timezones()
+            except:
+                return False
+
+    # Add to your User model
+    @property
+    def enrollments(self):
+        if self.role == 'student' and self.student_profile:
+            return self.student_profile.enrollments
+        return []
 
     @validates('email')
     def validate_email(self, key, email):
-        """Validate email format"""
         if '@' not in email:
             raise ValueError("Invalid email address")
         return email
 
     def get_full_name(self):
-        """Get user's full name based on their role"""
         if self.role == 'teacher' and self.teacher_profile:
-            return self.teacher_profile.full_name()
+            return self.teacher_profile.full_name
         elif self.role == 'student' and self.student_profile:
-            return self.student_profile.full_name()
+            return self.student_profile.full_name
         return self.username
 
     @property
     def is_student(self):
-        """Check if user is a student"""
         return self.role == 'student' and self.student_profile is not None
-    
+
     def get_submissions(self):
-        """Get student submissions if user is a student"""
-        if self.is_student:
-            return self.student_profile.submissions
-        return []
-    
+        return self.student_profile.submissions if self.is_student else []
+
     def set_password(self, password):
-        """Create hashed password."""
         self.password = generate_password_hash(
             password,
             method='pbkdf2:sha256',
@@ -148,12 +206,12 @@ class User(UserMixin, db.Model, BaseMixin):
         )
 
     def check_password(self, password):
-        """Check hashed password."""
         return check_password_hash(self.password, password)
 
     def __repr__(self):
         return f'<User {self.username} ({self.role})>'
-
+    
+    
 class Department(db.Model, BaseMixin):
     __tablename__ = 'departments'
     
@@ -233,12 +291,12 @@ class Teacher(db.Model, BaseMixin):
     office_location = db.Column(db.String(100))
 
     # Relationships
-    user = db.relationship('User', back_populates='teacher_profile')
+    user = db.relationship('User', back_populates='teacher_profile', overlaps="teacher")
     department = db.relationship('Department', back_populates='teachers')
     subjects = db.relationship('Subject', secondary=teacher_subjects, back_populates='teachers')
     classrooms = db.relationship('Classroom', back_populates='teacher', cascade='all, delete-orphan')
     announcements = db.relationship('Announcement', back_populates='author')
-    quizzes = db.relationship('Quiz', back_populates='teacher')  # Added this relationship
+    quizzes = db.relationship('Quiz', back_populates='teacher')
 
     def full_name(self):
         return f"{self.user.username}"
@@ -290,7 +348,7 @@ class Student(db.Model, BaseMixin):
     is_active = db.Column(db.Boolean, default=True)
 
     # Relationships
-    user = db.relationship('User', back_populates='student_profile')
+    user = db.relationship('User', back_populates='student_profile', overlaps="student")
     department = db.relationship('Department', back_populates='students')
     enrollments = db.relationship('Enrollment', back_populates='student', cascade='all, delete-orphan')
     submissions = db.relationship('Submission', back_populates='student', cascade='all, delete-orphan')
@@ -401,6 +459,7 @@ class Student(db.Model, BaseMixin):
         return round((completed / total_assignments) * 100, 1)
     
 
+# models.py
 class Message(db.Model, BaseMixin):
     __tablename__ = 'messages'
     
@@ -414,47 +473,247 @@ class Message(db.Model, BaseMixin):
     is_urgent = db.Column(db.Boolean, default=False)
     is_read = db.Column(db.Boolean, default=False)
     is_announcement = db.Column(db.Boolean, default=False)
+    sent_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Relationships
     sender = db.relationship('User', foreign_keys=[sender_id], back_populates='sent_messages')
     recipient = db.relationship('User', foreign_keys=[recipient_id], back_populates='received_messages')
     classroom = db.relationship('Classroom', back_populates='messages')
     parent = db.relationship('Message', remote_side=[id], back_populates='replies')
-    replies = db.relationship('Message', back_populates='parent')
+    replies = db.relationship('Message', back_populates='parent', order_by='Message.sent_at.asc()')
 
-    __table_args__ = (
-        Index('idx_message_sender', 'sender_id'),
-        Index('idx_message_recipient', 'recipient_id'),
-        Index('idx_message_classroom', 'classroom_id'),
-    )
+    def get_recipients(self):
+        """Returns all recipients of this message"""
+        if self.is_announcement and self.classroom:
+            return [s.user for s in self.classroom.students]
+        elif self.recipient:
+            return [self.recipient]
+        return []
 
-    def mark_as_read(self):
-        self.is_read = True
-        self.save()
+    def send_notifications(self):
+        """Create notifications for all recipients"""
+        for recipient in self.get_recipients():
+            notification = Notification(
+                user_id=recipient.id,
+                title=f"New message from {self.sender.full_name()}",
+                message=f"{self.title}",
+                action_url=url_for('view_message', message_id=self.id),
+                is_read=False
+            )
+            db.session.add(notification)
+        db.session.commit()
 
-    def reply(self, content, sender):
-        reply = Message(
-            title=f"Re: {self.title}",
+    @classmethod
+    def send_system_message(cls, title, content, recipient=None, classroom=None):
+        """Helper method for system-generated messages"""
+        message = cls(
+            title=title,
             content=content,
-            sender_id=sender.id,
-            recipient_id=self.sender_id,
-            classroom_id=self.classroom_id,
-            parent_id=self.id,
-            is_urgent=self.is_urgent
+            sender_id=1,  # System user
+            recipient_id=recipient.id if recipient else None,
+            classroom_id=classroom.id if classroom else None,
+            is_announcement=bool(classroom and not recipient)
         )
-        return reply.save()
-
-    def get_thread(self):
-        """Get the entire conversation thread"""
-        thread = []
-        current = self
-        while current.parent:
-            current = current.parent
-        thread.append(current)
-        thread.extend(current.replies.order_by(Message.created_at.asc()).all())
-        return thread
+        db.session.add(message)
+        db.session.commit()
+        message.send_notifications()
+        return message
 
     def __repr__(self):
-        return f'<Message {self.title[:20]}...>'
+        return f'<Message {self.id}: {self.title}>'
+
+
+class NotificationSettings(db.Model, BaseMixin):
+    __tablename__ = 'notification_settings'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
+    
+    # Delivery methods
+    email_enabled = db.Column(db.Boolean, default=True)
+    push_enabled = db.Column(db.Boolean, default=True)
+    in_app_enabled = db.Column(db.Boolean, default=True)
+    
+    # Notification types
+    receive_assignments = db.Column(db.Boolean, default=True)
+    receive_messages = db.Column(db.Boolean, default=True)
+    receive_attendance = db.Column(db.Boolean, default=True)
+    receive_announcements = db.Column(db.Boolean, default=True)
+    receive_system = db.Column(db.Boolean, default=True)
+    
+    # Frequency settings
+    digest_frequency = db.Column(db.String(20), default='immediate')  # immediate, daily, weekly
+    quiet_hours_enabled = db.Column(db.Boolean, default=False)
+    quiet_hours_start = db.Column(db.Time, default=time(22, 0))  # 10 PM
+    quiet_hours_end = db.Column(db.Time, default=time(7, 0))    # 7 AM
+    
+    # Relationships
+    user = db.relationship('User', back_populates='notification_settings')
+
+    @classmethod
+    def get_or_create(cls, user_id):
+        settings = cls.query.filter_by(user_id=user_id).first()
+        if not settings:
+            settings = cls(user_id=user_id)
+            db.session.add(settings)
+            db.session.commit()
+        return settings
+
+    def update_settings(self, **kwargs):
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+        db.session.commit()
+        return self
+
+    def to_dict(self):
+        return {
+            'email_enabled': self.email_enabled,
+            'push_enabled': self.push_enabled,
+            'in_app_enabled': self.in_app_enabled,
+            'receive_assignments': self.receive_assignments,
+            'receive_messages': self.receive_messages,
+            'receive_attendance': self.receive_attendance,
+            'receive_announcements': self.receive_announcements,
+            'receive_system': self.receive_system,
+            'digest_frequency': self.digest_frequency,
+            'quiet_hours_enabled': self.quiet_hours_enabled,
+            'quiet_hours_start': self.quiet_hours_start.strftime('%H:%M') if self.quiet_hours_start else None,
+            'quiet_hours_end': self.quiet_hours_end.strftime('%H:%M') if self.quiet_hours_end else None
+        }
+
+    def should_receive(self, notification_type):
+        """Check if user should receive this type of notification"""
+        type_map = {
+            'assignment': self.receive_assignments,
+            'message': self.receive_messages,
+            'attendance': self.receive_attendance,
+            'announcement': self.receive_announcements,
+            'system': self.receive_system
+        }
+        return type_map.get(notification_type, True)
+
+    def is_quiet_time(self):
+        """Check if current time falls within quiet hours"""
+        if not self.quiet_hours_enabled:
+            return False
+            
+        now = datetime.now().time()
+        if self.quiet_hours_start < self.quiet_hours_end:
+            return self.quiet_hours_start <= now <= self.quiet_hours_end
+        else:  # Overnight quiet hours (e.g., 10 PM to 7 AM)
+            return now >= self.quiet_hours_start or now <= self.quiet_hours_end
+
+    def __repr__(self):
+        return f'<NotificationSettings for User {self.user_id}>'
+
+
+# Enhanced Notification class with additional methods
+class Notification(db.Model, BaseMixin):
+    __tablename__ = 'notifications'
+    
+    PRIORITY_LOW = 'low'
+    PRIORITY_MEDIUM = 'medium'
+    PRIORITY_HIGH = 'high'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    title = db.Column(db.String(100), nullable=False)
+    message = db.Column(db.String(255), nullable=False)
+    link = db.Column(db.String(255))
+    notification_type = db.Column(db.String(50))  # 'attendance', 'message', 'video_join', etc.
+    related_id = db.Column(db.Integer)  # ID of related entity
+    is_read = db.Column(db.Boolean, default=False)
+    priority = db.Column(db.String(20), default=PRIORITY_MEDIUM)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    read_at = db.Column(db.DateTime)
+
+    # Relationships
+    user = db.relationship('User', back_populates='notifications')
+
+    def mark_as_read(self):
+        """Mark notification as read"""
+        if not self.is_read:
+            self.is_read = True
+            self.read_at = datetime.utcnow()
+            db.session.commit()
+        return self
+
+    @classmethod
+    def create_for_user(cls, user_id, title, message, link=None, 
+                       notification_type=None, related_id=None, priority=PRIORITY_MEDIUM):
+        """Create a notification for a single user"""
+        notification = cls(
+            user_id=user_id,
+            title=title,
+            message=message,
+            link=link,
+            notification_type=notification_type,
+            related_id=related_id,
+            priority=priority
+        )
+        db.session.add(notification)
+        db.session.commit()
+        return notification
+
+    @classmethod
+    def create_for_users(cls, users, title, message, link=None, 
+                        notification_type=None, related_id=None, priority=PRIORITY_MEDIUM):
+        """Bulk create notifications for multiple users"""
+        notifications = [
+            cls(
+                user_id=user.id,
+                title=title,
+                message=message,
+                link=link,
+                notification_type=notification_type,
+                related_id=related_id,
+                priority=priority
+            )
+            for user in users
+        ]
+        db.session.bulk_save_objects(notifications)
+        db.session.commit()
+        return notifications
+
+    @classmethod
+    def get_unread_count(cls, user_id):
+        """Count unread notifications for a user"""
+        return cls.query.filter_by(user_id=user_id, is_read=False).count()
+
+    @classmethod
+    def mark_all_read(cls, user_id):
+        """Mark all notifications as read for a user"""
+        updated = cls.query.filter_by(user_id=user_id, is_read=False).update(
+            {'is_read': True, 'read_at': datetime.utcnow()},
+            synchronize_session=False
+        )
+        db.session.commit()
+        return updated
+
+    @classmethod
+    def clear_all(cls, user_id):
+        """Delete all notifications for a user"""
+        deleted = cls.query.filter_by(user_id=user_id).delete()
+        db.session.commit()
+        return deleted
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'title': self.title,
+            'message': self.message,
+            'link': self.link,
+            'type': self.notification_type,
+            'is_read': self.is_read,
+            'priority': self.priority,
+            'created_at': self.created_at.isoformat(),
+            'read_at': self.read_at.isoformat() if self.read_at else None,
+            'related_id': self.related_id
+        }
+
+    def __repr__(self):
+        return f'<Notification {self.id} for User {self.user_id}>'
 
 class Classroom(db.Model, BaseMixin):
     __tablename__ = 'classrooms'
@@ -471,6 +730,7 @@ class Classroom(db.Model, BaseMixin):
     section = db.Column(db.String(10))
     room_number = db.Column(db.String(20))
     description = db.Column(db.Text)
+    timezone = db.Column(db.String(50), default='Africa/Dar_es_Salaam')  # Add this line
 
     # Relationships
     subject = db.relationship('Subject', back_populates='classrooms')
@@ -516,6 +776,13 @@ class Classroom(db.Model, BaseMixin):
                       else (self.subject.name[:3].upper() if self.subject else 'CLS'))
         year_part = self.academic_year.replace('-', '')[:4]
         return f"{subject_code}-{year_part}-{self.semester}-{self.id:03d}"
+    
+    @property
+    def students(self):
+        """Get active students in this classroom"""
+        return [enrollment.student.user for enrollment in self.enrollments 
+                if not getattr(enrollment, 'is_dropped', False) 
+                and enrollment.student.user.is_active]
 
     def current_student_count(self):
         """Return count of active enrolled students"""
@@ -527,7 +794,8 @@ class Classroom(db.Model, BaseMixin):
 
     def __repr__(self):
         return f'<Classroom {self.class_name} ({self.academic_year} S{self.semester})>'
-    
+
+
 class ClassroomActivity(db.Model):
     """Tracks all significant classroom events and activities"""
     __tablename__ = 'classroom_activities'
@@ -610,6 +878,17 @@ class Resource(db.Model, BaseMixin):
     teacher = db.relationship('User', back_populates='uploaded_resources')
     tags = db.relationship('Tag', secondary='resource_tags', back_populates='resources')
     comments = db.relationship('ResourceComment', back_populates='resource')
+
+    @property
+    def formatted_file_size(self):
+        """Return human-readable file size"""
+        size = self.file_size
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if size < 1024.0:
+                return f"{size:.1f} {unit}"
+            size /= 1024.0
+        return f"{size:.1f} TB"
+
     
     __table_args__ = (
         Index('idx_resource_type', 'resource_type'),
@@ -651,7 +930,7 @@ class Assignment(db.Model, BaseMixin):
     description = db.Column(db.Text, nullable=False)
     questions = db.Column(db.Text)
     question_file_path = db.Column(db.String(255))
-    due_date = db.Column(db.DateTime(timezone=True), nullable=False)  # Explicit timezone
+    due_date = db.Column(db.DateTime(timezone=True), nullable=False)
     max_score = db.Column(db.Integer, nullable=False)
     subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
     class_id = db.Column(db.Integer, db.ForeignKey('classrooms.id'), nullable=False)
@@ -659,6 +938,7 @@ class Assignment(db.Model, BaseMixin):
     is_draft = db.Column(db.Boolean, default=False)
     is_published = db.Column(db.Boolean, default=False, nullable=False)
 
+    # Relationships
     subject = db.relationship('Subject', back_populates='assignments')
     classroom = db.relationship('Classroom', back_populates='assignments')
     author = db.relationship('User', back_populates='created_assignments')
@@ -667,44 +947,184 @@ class Assignment(db.Model, BaseMixin):
     def __repr__(self):
         return f'<Assignment {self.title}>'
 
-    def time_remaining(self):
-        remaining = self.due_date - datetime.utcnow()
-        return remaining if remaining.total_seconds() > 0 else timedelta(0)
+    def get_timezone(self, tz_string=None):
+        """Safely get timezone object with proper fallbacks"""
+        if not tz_string:
+            return utc  # Default to UTC if no timezone specified
+            
+        try:
+            # Try modern ZoneInfo first (Python 3.9+)
+            from zoneinfo import ZoneInfo
+            try:
+                return ZoneInfo(tz_string)
+            except Exception:
+                pass
+        except ImportError:
+            pass
+        
+        # Fallback to pytz
+        try:
+            return timezone(tz_string)
+        except Exception as e:
+            current_app.logger.error(f"Invalid timezone '{tz_string}': {str(e)}")
+            return utc  # Final fallback to UTC
 
-    def submission_count(self):
-        return len(self.submissions)
+    def time_remaining(self, user_tz_string=None):
+        """Calculate time remaining until due date"""
+        try:
+            now = datetime.now(utc)
+            
+            # Ensure due_date is timezone-aware (convert if needed)
+            if self.due_date.tzinfo is None:
+                due_date = self.due_date.replace(tzinfo=utc)
+            else:
+                due_date = self.due_date
+            
+            remaining = due_date - now
+            return remaining if remaining.total_seconds() > 0 else timedelta(0)
+        except Exception as e:
+            current_app.logger.error(f"Error calculating time remaining: {str(e)}")
+            return timedelta(0)
 
-    def status(self):
+    def local_due_date(self, user_tz_string=None):
+        """Convert due date to user's local timezone"""
+        try:
+            user_tz = self.get_timezone(user_tz_string)
+            
+            # Ensure due_date is timezone-aware
+            if self.due_date.tzinfo is None:
+                due_date = self.due_date.replace(tzinfo=utc)
+            else:
+                due_date = self.due_date
+            
+            return due_date.astimezone(user_tz)
+        except Exception as e:
+            current_app.logger.error(f"Error converting to local time: {str(e)}")
+            return self.due_date  # Fallback to original date
+
+    def status(self, user_tz_string=None):
+        """Get assignment status with icons"""
+        remaining = self.time_remaining(user_tz_string)
+        seconds = remaining.total_seconds()
+        
         if self.is_draft:
-            return "Draft"
-        if datetime.utcnow() > self.due_date:
-            return "Closed"
-        return "Active"
-
-    def average_score(self):
-        avg = db.session.query(db.func.avg(Submission.score)) \
-              .filter(Submission.assignment_id == self.id) \
-              .filter(Submission.score.isnot(None)) \
-              .scalar()
-        return round(avg, 2) if avg else None
+            return ("draft", "Draft", "fas fa-edit")
+        elif seconds <= 0:
+            return ("overdue", "Overdue", "fas fa-exclamation-triangle")
+        elif seconds <= 86400:  # 1 day
+            return ("due-soon", "Due Soon", "fas fa-clock")
+        else:
+            return ("active", "Active", "far fa-clock")
+        
 
 class Submission(db.Model, BaseMixin):
     __tablename__ = 'submissions'
     
     id = db.Column(db.Integer, primary_key=True)
-    content = db.Column(db.Text, nullable=False)
-    file_path = db.Column(db.String(300))
-    score = db.Column(db.Float)
+    content = db.Column(db.Text)
+    file_path = db.Column(db.String(512))
+    score = db.Column(db.Integer)
     feedback = db.Column(db.Text)
-    submitted_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    submitted_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    last_modified = db.Column(db.DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc))
+    
     assignment_id = db.Column(db.Integer, db.ForeignKey('assignments.id'), nullable=False)
     student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
-
+    
     assignment = db.relationship('Assignment', back_populates='submissions')
     student = db.relationship('Student', back_populates='submissions')
+    
+    def get_file_name(self):
+        if self.file_path:
+            return os.path.basename(self.file_path)
+        return None
+    
+    @property
+    def file_size(self):
+        """Return the file size in bytes."""
+        if self.file_path and os.path.exists(self.file_path):
+            return os.path.getsize(self.file_path)
+        return None
 
-    def __repr__(self):
-        return f'<Submission {self.id}>'
+    def human_readable_file_size(self):
+        """Return the file size in a human-readable format."""
+        size = self.file_size
+        if size is not None:
+            if size < 1024:
+                return f"{size} B"
+            elif size < 1024 * 1024:
+                return f"{size / 1024:.1f} KB"
+            else:
+                return f"{size / (1024 * 1024):.1f} MB"
+        return "Unknown size"
+
+    def get_file_size(self):
+        if self.file_path and os.path.exists(self.file_path):
+            size = os.path.getsize(self.file_path)
+            if size < 1024:
+                return f"{size} B"
+            elif size < 1024*1024:
+                return f"{size/1024:.1f} KB"
+            else:
+                return f"{size/(1024*1024):.1f} MB"
+        return None
+    
+    def get_file_icon(self):
+        if not self.file_path:
+            return "fa-file"
+        
+        ext = self.file_path.split('.')[-1].lower()
+        if ext in {'pdf'}:
+            return "fa-file-pdf"
+        elif ext in {'doc', 'docx', 'odt', 'rtf'}:
+            return "fa-file-word"
+        elif ext in {'xls', 'xlsx'}:
+            return "fa-file-excel"
+        elif ext in {'ppt', 'pptx'}:
+            return "fa-file-powerpoint"
+        elif ext in {'zip', 'rar', '7z'}:
+            return "fa-file-archive"
+        elif ext in {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'svg'}:
+            return "fa-file-image"
+        else:
+            return "fa-file"
+
+    @property
+    def is_late(self):
+        if not self.submitted_at or not self.assignment.due_date:
+            return False
+        return self.submitted_at > self.assignment.due_date
+
+    @property
+    def submitted_at_aware(self):
+        """Return submission time as timezone-aware datetime in UTC"""
+        if not self.submitted_at:
+            return None
+        return self.submitted_at.replace(tzinfo=ZoneInfo('UTC'))
+    
+    @property
+    def last_modified_aware(self):
+        """Return last modified time as timezone-aware datetime in UTC"""
+        if not self.last_modified:
+            return None
+        return self.last_modified.replace(tzinfo=ZoneInfo('UTC'))
+    
+    def to_local_timezone(self, tz_string):
+        """Convert timestamps to local timezone and return as dict"""
+        try:
+            user_tz = ZoneInfo(tz_string)
+            result = {
+                'submitted_at': self.submitted_at_aware.astimezone(user_tz) if self.submitted_at else None,
+                'last_modified': self.last_modified_aware.astimezone(user_tz) if self.last_modified else None
+            }
+        except Exception as e:
+            current_app.logger.error(f"Timezone conversion error: {str(e)}")
+            # Fallback to UTC if conversion fails
+            result = {
+                'submitted_at': self.submitted_at_aware,
+                'last_modified': self.last_modified_aware
+            }
+        return result
     
 @unique
 class QuizStatus(Enum):
@@ -868,43 +1288,65 @@ class Quiz(db.Model):
 
 
 class Question(db.Model):
+    """
+    Database model representing a quiz question with multiple answer types.
+    Supports multiple choice, true/false, and short answer questions.
+    """
+    
     __tablename__ = 'questions'
     
+    # Primary Key
     id = db.Column(db.Integer, primary_key=True)
-    text = db.Column(db.Text, nullable=False)
-    question_type = db.Column(db.String(20), default='multiple_choice')
     
-    # For multiple choice questions - store options as JSON
-    options = db.Column(db.JSON)  # This is correct for your use case
+    # Question Content
+    text = db.Column(db.Text, nullable=False, comment="The question text/content")
+    question_type = db.Column(db.String(20), default='multiple_choice', 
+                            comment="Type of question: multiple_choice, true_false, or short_answer")
     
-    # For other fields
-    correct_option = db.Column(db.Integer)
-    correct_answer = db.Column(db.String(50))
-    points = db.Column(db.Integer, default=1)
-    time_limit = db.Column(db.Integer, default=60)
+    # Answer Options (stored as JSON for flexibility)
+    options = db.Column(db.JSON, comment="Available choices for multiple choice questions")
+    correct_option = db.Column(db.String(500), comment="Correct answer key or value")
+    
+    # Question Metadata
+    points = db.Column(db.Integer, default=1, comment="Point value for this question")
+    time_limit = db.Column(db.Integer, default=60, comment="Time limit in seconds (0 for no limit)")
+    position = db.Column(db.Integer, comment="Ordering position within the quiz")
+    is_optional = db.Column(db.Boolean, default=False, comment="Whether answering is optional")
+    
+    # Timestamps
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, comment="When question was created")
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, 
+                         onupdate=datetime.utcnow, comment="When question was last updated")
+    
+    # Foreign Key Relationships
     quiz_id = db.Column(db.Integer, db.ForeignKey('quizzes.id'), nullable=False)
-    position = db.Column(db.Integer)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
+    
     # Relationships
     quiz = db.relationship('Quiz', back_populates='questions')
-    answers = db.relationship('QuizAnswer', 
-                            back_populates='question', 
+    answers = db.relationship('QuizAnswer', back_populates='question', 
                             cascade='all, delete-orphan')
 
-    # Methods
     def update_position(self, new_position):
-        """Update question position and reorder others"""
+        """
+        Update this question's position and reorder other questions in the quiz
+        
+        Args:
+            new_position (int): The new position for this question
+            
+        Returns:
+            Question: The updated question instance
+        """
         old_position = self.position
         
         if new_position > old_position:
+            # Move down - shift questions between old and new up
             Question.query.filter(
                 Question.quiz_id == self.quiz_id,
                 Question.position > old_position,
                 Question.position <= new_position
             ).update({Question.position: Question.position - 1})
         else:
+            # Move up - shift questions between new and old down
             Question.query.filter(
                 Question.quiz_id == self.quiz_id,
                 Question.position >= new_position,
@@ -915,44 +1357,76 @@ class Question(db.Model):
         db.session.commit()
         return self
 
-    def get_options(self):
-        """Return question options in a standardized format"""
+    @property
+    def formatted_options(self):
+        """
+        Returns question options in a standardized dictionary format
+        
+        Returns:
+            dict: Options formatted as {letter: text} for multiple choice,
+                  {0: 'False', 1: 'True'} for true/false,
+                  empty dict for short answer
+        """
         if self.question_type == 'multiple_choice':
-            # Return options as a dictionary if they're stored that way
             if isinstance(self.options, dict):
                 return self.options
-            # Or convert from list to dict if needed
             elif isinstance(self.options, list):
                 return {chr(65+i): option for i, option in enumerate(self.options)}
-            # Default fallback
             return {
-                'A': getattr(self, 'option_a', 'Option A'),
-                'B': getattr(self, 'option_b', 'Option B'),
-                'C': getattr(self, 'option_c', 'Option C'),
-                'D': getattr(self, 'option_d', 'Option D')
+                'A': 'Option A',
+                'B': 'Option B', 
+                'C': 'Option C',
+                'D': 'Option D'
             }
         elif self.question_type == 'true_false':
             return {0: 'False', 1: 'True'}
-        elif self.question_type == 'short_answer':
-            return {}  # No options for short answer questions
-        else:
-            return {}
+        return {}
 
     def validate_answer(self, answer):
-        """Validate student's answer against correct answer"""
+        """
+        Check if the provided answer is correct
+        
+        Args:
+            answer (str): The answer to validate
+            
+        Returns:
+            bool: True if answer is correct, False otherwise
+        """
+        if not answer:
+            return False
+            
+        answer = str(answer).strip()
+        
         if self.question_type == 'multiple_choice':
+            # For dictionary format options (e.g., {'A': 'Option 1'})
             if isinstance(self.options, dict):
-                return str(answer) in self.options
+                return answer.upper() == str(self.correct_option).upper()
+            
+            # For list format options (e.g., ['Option 1', 'Option 2'])
             elif isinstance(self.options, list):
                 try:
-                    index = int(answer)
-                    return 0 <= index < len(self.options)
+                    selected_index = int(answer)
+                    if 0 <= selected_index < len(self.options):
+                        selected_text = str(self.options[selected_index]).upper()
+                        return selected_text == str(self.correct_option).upper()
                 except ValueError:
                     return False
-        return str(answer).strip().lower() == str(self.correct_answer).strip().lower()
+                    
+        elif self.question_type == 'true_false':
+            return answer.upper() == str(self.correct_option).upper()
+            
+        elif self.question_type == 'short_answer':
+            user_answer = answer.lower()
+            # Support multiple correct answers separated by pipes
+            correct_answers = [a.strip().lower() 
+                             for a in str(self.correct_option).split('|')]
+            return user_answer in correct_answers
+            
+        return False
 
     def __repr__(self):
-        return f'<Question {self.id}: {self.text[:50]}...>'
+        """String representation for debugging"""
+        return f'<Question {self.id}: {self.text[:50]}{"..." if len(self.text)>50 else ""}>'
     
 
 class BaseMixin:
@@ -977,8 +1451,10 @@ class QuizAttempt(db.Model):
     completed_at = db.Column(db.DateTime(timezone=True))
     
     # Performance metrics
-    score = db.Column(db.Float)
-    time_spent = db.Column(db.Integer)  # in seconds
+    score = db.Column(db.Float, default=0.0)  # Changed from None to 0.0 default
+    correct_answers = db.Column(db.Integer, default=0)
+    total_questions = db.Column(db.Integer, default=0)
+    time_spent = db.Column(db.Integer, default=0)  # in seconds
     
     # Relationships
     quiz = db.relationship('Quiz', back_populates='attempts')
@@ -998,44 +1474,73 @@ class QuizAttempt(db.Model):
                 kwargs['user_id'] = user.id
         super().__init__(**kwargs)
 
-    @validates('student_id')
-    def validate_student(self, key, student_id):
-        """Validate the student exists and is active"""
-        student = Student.query.get(student_id)
-        
-        if not student:
-            raise ValueError("Student account not found")
-            
-        if hasattr(student, 'is_active') and not student.is_active:
-            raise ValueError("Student account is not active")
-            
-        return student_id
+    @property
+    def is_completed(self):
+        """Check if attempt is completed"""
+        return self.completed_at is not None
+    
+    @property
+    def is_passed(self):
+        """Check if attempt passed (score >= 70%)"""
+        return self.score >= 70 if self.is_completed else False
+    
+    @validates('score')
+    def validate_score(self, key, score):
+        """Validate score is between 0 and 100 and only set when completed"""
+        if score is not None:
+            if not 0 <= score <= 100:
+                raise ValueError("Score must be between 0 and 100")
+            if not self.is_completed:
+                raise ValueError("Cannot set score before completing attempt")
+        return score
 
     def calculate_score(self):
         """Calculate score based on correct answers"""
         if not self.answers:
             self.score = 0.0
+            self.correct_answers = 0
+            self.total_questions = 0
             return self.score
             
-        correct = sum(1 for answer in self.answers if answer.is_correct)
-        total = len(self.quiz.questions) if self.quiz else len(self.answers)
+        self.correct_answers = sum(1 for answer in self.answers if answer.is_correct)
+        self.total_questions = len(self.quiz.questions) if self.quiz else len(self.answers)
         
-        self.score = round((correct / total) * 100, 2) if total > 0 else 0.0
+        if self.total_questions > 0:
+            self.score = round((self.correct_answers / self.total_questions) * 100, 2)
+        else:
+            self.score = 0.0
+            
         return self.score
 
     def complete_attempt(self):
         """Mark attempt as completed and calculate final score"""
-        if not self.completed_at:
+        if not self.is_completed:
             self.completed_at = datetime.now(timezone.utc)
             if self.started_at:
                 started = self.started_at if self.started_at.tzinfo else self.started_at.replace(tzinfo=timezone.utc)
                 self.time_spent = (self.completed_at - started).total_seconds()
             self.calculate_score()
+            db.session.commit()
+
+    def to_dict(self):
+        """Convert attempt to dictionary for JSON responses"""
+        return {
+            'id': self.id,
+            'quiz_id': self.quiz_id,
+            'score': self.score,
+            'correct_answers': self.correct_answers,
+            'total_questions': self.total_questions,
+            'time_spent': self.time_spent,
+            'status': self.status,
+            'is_passed': self.is_passed,
+            'started_at': self.started_at.isoformat() if self.started_at else None,
+            'completed_at': self.completed_at.isoformat() if self.completed_at else None
+        }
 
     @property
     def status(self):
         """Get attempt status"""
-        if self.completed_at:
+        if self.is_completed:
             return 'completed'
         if self.started_at:
             return 'in_progress'
@@ -1060,6 +1565,7 @@ class QuizAnswer(db.Model):
     is_correct = db.Column(db.Boolean, default=False)
     points_earned = db.Column(db.Float)
     time_taken = db.Column(db.Integer)
+    answered_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = db.Column(db.DateTime(timezone=True), onupdate=lambda: datetime.now(timezone.utc))
     
@@ -1067,67 +1573,30 @@ class QuizAnswer(db.Model):
     attempt = db.relationship('QuizAttempt', back_populates='answers')
     question = db.relationship('Question', back_populates='answers')
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.points_earned = 0
-        self.time_taken = 0
+    @property
+    def has_answer(self):
+        """Simplified and more reliable answer check"""
+        if self.question.question_type == 'short_answer':
+            return bool(self.answer_text and str(self.answer_text).strip())
+        return self.selected_answer is not None
 
-    @validates('selected_answer')
-    def validate_selected_answer(self, key, selected_answer):
-        if self.question and self.question.question_type == 'multiple_choice':
-            if selected_answer not in self.question.options:
-                raise ValueError(f"Invalid answer for question {self.question_id}")
-        return selected_answer
 
-    def check_correctness(self):
-        if not self.question:
-            return False
-            
-        if self.question.question_type == 'multiple_choice':
-            self.is_correct = str(self.selected_answer) == str(self.question.correct_option)
-        else:
-            self.is_correct = str(self.answer_text).strip().lower() == str(self.question.correct_answer).strip().lower()
-        
-        return self.is_correct
-
-    def calculate_points(self):
-        if not self.question:
-            return 0
-            
-        self.check_correctness()
-        self.points_earned = self.question.points if self.is_correct else 0
-        return self.points_earned
-
-    def update_from_request(self, data):
-        if 'selected_answer' in data:
-            self.selected_answer = data['selected_answer']
-        if 'answer_text' in data:
-            self.answer_text = data['answer_text']
-        if 'time_taken' in data:
-            self.time_taken = data['time_taken']
-        
-        self.calculate_points()
-        self.updated_at = datetime.now(timezone.utc)
-
-    def to_dict(self):
-        return {
-            'id': self.id,
-            'question_id': self.question_id,
-            'selected_answer': self.selected_answer,
-            'answer_text': self.answer_text,
-            'is_correct': self.is_correct,
-            'points_earned': self.points_earned,
-            'time_taken': self.time_taken,
-            'created_at': self.created_at.isoformat(),
-            'updated_at': self.updated_at.isoformat()
-        }
 
 class OnlineSession(db.Model, BaseMixin):
     __tablename__ = 'online_sessions'
     
+    STATUS_CHOICES = {
+        'scheduled': 'Scheduled',
+        'upcoming': 'Starting Soon',
+        'live': 'Live Now',
+        'ended': 'Completed',
+        'cancelled': 'Cancelled'
+    }
+
     id = db.Column(db.Integer, primary_key=True)
     room_id = db.Column(db.String(100), unique=True, nullable=False)
-    session_name = db.Column(db.String(200), nullable=False)
+    session_name = db.Column(db.String(200), nullable=False, default="New Session")
+    description = db.Column(db.Text, nullable=True)
     session_link = db.Column(db.String(500), nullable=False)
     class_id = db.Column(db.Integer, db.ForeignKey('classrooms.id'), nullable=False)
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
@@ -1135,24 +1604,267 @@ class OnlineSession(db.Model, BaseMixin):
     status = db.Column(db.String(20), default='scheduled')
     start_time = db.Column(db.DateTime(timezone=True), nullable=False)
     end_time = db.Column(db.DateTime(timezone=True))
-    original_timezone = db.Column(db.String(50), nullable=False)
+    original_timezone = db.Column(db.String(50), default='Africa/Dar_es_Salaam')
     duration_minutes = db.Column(db.Integer)
     recording_url = db.Column(db.String(500))
-    timezone = db.Column(db.String(50))
-    
+    last_updated = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    max_participants = db.Column(db.Integer, default=50)
+    is_recurring = db.Column(db.Boolean, default=False)
+    recurrence_pattern = db.Column(db.String(100))  # e.g., 'weekly', 'daily'
+    attendance_finalized = db.Column(db.Boolean, default=False)
+
+
+    # Relationships
     classroom = db.relationship('Classroom', back_populates='sessions')
     creator = db.relationship('User', back_populates='created_sessions')
     attendances = db.relationship('Attendance', back_populates='session')
 
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self._ensure_timezone_awareness()
+        self._set_default_name()
+        self.validate_and_calculate()
+
+    def get_local_time_range(self):
+        """
+        Get formatted time range string in local timezone
+        Replaces the previous get_local_time_string method with more functionality
+        """
+        try:
+            start_local, end_local = self.get_local_times()
+            
+            if not start_local:
+                return "Invalid time data"
+                
+            if not end_local:
+                return start_local.strftime('%b %d, %Y %I:%M %p')
+                
+            if start_local.date() == end_local.date():
+                return f"{start_local.strftime('%b %d, %Y %I:%M %p')} - {end_local.strftime('%I:%M %p')}"
+            return f"{start_local.strftime('%b %d, %Y %I:%M %p')} - {end_local.strftime('%b %d, %Y %I:%M %p')}"
+            
+        except Exception as e:
+            current_app.logger.error(f"Error formatting time range: {e}")
+            return "Invalid time data"
+
+    def _ensure_timezone_awareness(self):
+        """
+        Ensure all datetime fields are timezone-aware UTC.
+        This is the key fix for the comparison errors.
+        """
+        if self.start_time:
+            if not isinstance(self.start_time, datetime):
+                raise ValueError("start_time must be a datetime object")
+            if not self.start_time.tzinfo:
+                self.start_time = self.start_time.replace(tzinfo=timezone.utc)
+            else:
+                self.start_time = self.start_time.astimezone(timezone.utc)
+        
+        if self.end_time:
+            if not isinstance(self.end_time, datetime):
+                raise ValueError("end_time must be a datetime object")
+            if not self.end_time.tzinfo:
+                self.end_time = self.end_time.replace(tzinfo=timezone.utc)
+            else:
+                self.end_time = self.end_time.astimezone(timezone.utc)
+
+
+    def _set_default_name(self):
+        """Set default session name if not provided"""
+        if not self.session_name:
+            self.session_name = f"Session {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}"
+
+    def validate_and_calculate(self):
+        """Validate session data and calculate derived fields"""
+        self._validate_times()
+        self._calculate_duration()
+        self._update_status()
+
+    def _validate_times(self):
+        """Validate start and end times"""
+        if self.start_time and self.end_time:
+            if self.start_time >= self.end_time:
+                raise ValueError("End time must be after start time")
+        if self.start_time and self.start_time < datetime.now(timezone.utc) - timedelta(days=30):
+            raise ValueError("Start time cannot be more than 30 days in the past")
+
+    def _calculate_duration(self):
+        """Calculate duration in minutes"""
         if self.start_time and self.end_time:
             self.duration_minutes = int((self.end_time - self.start_time).total_seconds() / 60)
-        if hasattr(self.creator, 'timezone'):
-            self.timezone = self.creator.timezone
+        else:
+            self.duration_minutes = None
+
+    def _update_status(self):
+        """Update status based on current time"""
+        if not self.is_valid:
+            self.status = 'cancelled'
+            return
+            
+        now = datetime.now(timezone.utc)
+        if now < self.start_time:
+            self.status = 'scheduled'
+        elif self.start_time <= now <= self.end_time:
+            self.status = 'live'
+        else:
+            self.status = 'ended'
+
+    # In your model
+    def update_status(self):
+        """Update status based on current time"""
+        if not self.is_valid:
+            self.status = 'cancelled'
+            return
+            
+        now = datetime.now(timezone.utc)
+        if now < self.start_time:
+            self.status = 'scheduled'
+        elif self.start_time <= now <= self.end_time:
+            self.status = 'live'
+        else:
+            self.status = 'ended'
+
+    # Add this new method to replace the missing get_status
+    def get_status(self, current_time=None):
+        """
+        Get current status of the session with proper timezone handling.
+        Replaces the previous _update_status method.
+        """
+        if not self.is_valid:
+            return 'cancelled'
+            
+        now = current_time if current_time else datetime.now(timezone.utc)
+        if not now.tzinfo:
+            now = now.replace(tzinfo=timezone.utc)
+        
+        # Ensure our comparison datetimes are timezone-aware
+        self._ensure_timezone_awareness()
+        
+        if now < self.start_time:
+            return 'scheduled'
+        elif self.start_time <= now <= self.end_time:
+            return 'live'
+        return 'ended'
+
+    @property
+    def is_valid(self):
+        """Check if session has valid data with safe timezone comparisons"""
+        try:
+            self._ensure_timezone_awareness()
+            
+            if not all([
+                self.room_id,
+                self.session_name,
+                self.start_time,
+                self.end_time,
+                isinstance(self.start_time, datetime),
+                isinstance(self.end_time, datetime)
+            ]):
+                return False
+                
+            # Now safe to compare as both are timezone-aware
+            return self.start_time < self.end_time
+            
+        except Exception as e:
+            current_app.logger.error(f"Validation error: {e}")
+            return False
+
+    @property
+    def time_until_start(self):
+        """Time remaining until session starts with timezone safety"""
+        if not self.is_valid:
+            return None
+            
+        self._ensure_timezone_awareness()
+        now = datetime.now(timezone.utc)
+        return max(self.start_time - now, timedelta(0))
+
+    @property
+    def time_remaining(self):
+        """Time remaining in current session with timezone safety"""
+        if not self.is_valid or not self.is_active:
+            return None
+            
+        self._ensure_timezone_awareness()
+        now = datetime.now(timezone.utc)
+        return max(self.end_time - now, timedelta(0))
+
+    @property
+    def is_active(self):
+        """Check if session is currently live with timezone safety"""
+        if not self.is_valid:
+            return False
+            
+        self._ensure_timezone_awareness()
+        now = datetime.now(timezone.utc)
+        if not now.tzinfo:
+            now = now.replace(tzinfo=timezone.utc)
+        return self.start_time <= now <= self.end_time
+
+    @property
+    def display_timezone(self):
+        """Get display timezone with fallbacks"""
+        return (
+            self.original_timezone or
+            getattr(self.classroom, 'timezone', None) or
+            getattr(self.creator, 'timezone', None) or
+            'Africa/Dar_es_Salaam'
+        )
+
+    def get_local_times(self):
+        """Return start and end times in local timezone"""
+        try:
+            tz = ZoneInfo(self.display_timezone)
+            return (
+                self.start_time.astimezone(tz),
+                self.end_time.astimezone(tz) if self.end_time else None
+            )
+        except Exception as e:
+            current_app.logger.error(f"Timezone conversion error: {e}")
+            return self.start_time, self.end_time
+
+    def get_local_time_string(self):
+        """Get formatted local time string"""
+        start, end = self.get_local_times()
+        if not start:
+            return "Invalid time data"
+            
+        if not end:
+            return start.strftime('%b %d, %Y %I:%M %p')
+            
+        if start.date() == end.date():
+            return f"{start.strftime('%b %d, %Y %I:%M %p')} - {end.strftime('%I:%M %p')}"
+        return f"{start.strftime('%b %d, %Y %I:%M %p')} - {end.strftime('%b %d, %Y %I:%M %p')}"
+
+    def can_join(self, user=None):
+        """Check if session can be joined"""
+        if not self.is_valid or self.status == 'cancelled':
+            return False
+            
+        now = datetime.now(timezone.utc)
+        join_window_start = self.start_time - timedelta(minutes=15)  # 15 minute early join window
+        return join_window_start <= now <= self.end_time
+
+    def to_dict(self):
+        """Convert session to dictionary for API responses"""
+        return {
+            'id': self.id,
+            'name': self.session_name,
+            'description': self.description,
+            'start_time': self.start_time.isoformat() if self.start_time else None,
+            'end_time': self.end_time.isoformat() if self.end_time else None,
+            'status': self.status,
+            'room_id': self.room_id,
+            'recording_url': self.recording_url,
+            'time_until_start': self.time_until_start.total_seconds() if self.time_until_start else None,
+            'time_remaining': self.time_remaining.total_seconds() if self.time_remaining else None,
+            'is_active': self.is_active,
+            'can_join': self.can_join()
+        }
 
     def __repr__(self):
-        return f'<OnlineSession {self.room_id}>'
+        return f"<OnlineSession {self.id}: {self.session_name} ({self.status})>"
  
 class Attendance(db.Model, BaseMixin):
     __tablename__ = 'attendances'
@@ -1160,14 +1872,18 @@ class Attendance(db.Model, BaseMixin):
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
     session_id = db.Column(db.Integer, db.ForeignKey('online_sessions.id'), nullable=False)
+    joined_at = db.Column(db.DateTime, nullable=False)  # Added this
+    date = db.Column(db.Date, nullable=False)  # Added this
+    duration = db.Column(db.Integer)  # Added this (nullable since it's set later)
     status = db.Column(db.String(20), nullable=False)
-
+    
     student = db.relationship('Student', back_populates='attendances')
     session = db.relationship('OnlineSession', back_populates='attendances')
 
     def __repr__(self):
         return f'<Attendance {self.student.full_name()} for {self.session.session_name} - {self.status}>'
     
+
 class Grade(db.Model, BaseMixin):
     __tablename__ = 'grades'
     

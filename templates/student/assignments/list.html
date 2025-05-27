@@ -31,61 +31,214 @@
         </div>
     </div>
 
-    <div class="assignments-list">
-        {% if assignments %}
-        {% for assignment in assignments %}
-        <div class="assignment-card {% if assignment.id in submissions %}submitted{% endif %} 
-            {% if assignment.due_date < now %}overdue{% endif %}">
-            <div class="assignment-header">
-                <h3>{{ assignment.title }}</h3>
-                <span class="course-name">{{ assignment.subject.name }}</span>
+<div class="assignments-list">
+    {% if assignments %}
+    {% for assignment in assignments %}
+    <div class="assignment-card {% if assignment.id in submissions %}submitted{% endif %} 
+        {% if assignment.due_date.replace(tzinfo=utc) < now.replace(tzinfo=utc) %}overdue{% endif %}">
+        <div class="assignment-header">
+            <h3>{{ assignment.title }}</h3>
+            <span class="course-name">{{ assignment.subject.name }}</span>
+        </div>
+        
+        <div class="assignment-details">
+            <div class="due-date">
+                <i class="far fa-clock"></i>
+                <strong>Due:</strong> 
+                {{ assignment.due_date.replace(tzinfo=utc).astimezone(local_timezone).strftime('%b %d, %Y at %I:%M %p') }}
             </div>
             
-            <div class="assignment-details">
-                <div class="due-date">
-                    <i class="far fa-clock"></i>
-                    <strong>Due:</strong> {{ assignment.due_date.strftime('%b %d, %Y at %I:%M %p') }}
-                </div>
-                
-                <div class="assignment-status">
-                    {% if assignment.id in submissions %}
-                    <span class="badge badge-success">
-                        <i class="fas fa-check"></i> Submitted
-                    </span>
-                    {% elif assignment.due_date < now %}
-                    <span class="badge badge-danger">
-                        <i class="fas fa-exclamation-triangle"></i> Overdue
-                    </span>
-                    {% else %}
-                    <span class="badge badge-warning">
-                        <i class="fas fa-clock"></i> Pending
-                    </span>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <div class="assignment-actions">
-                <a href="{{ url_for('student_view_assignment', assignment_id=assignment.id) }}" 
-                   class="btn btn-primary">
-                    View Details
-                </a>
-                
-                {% if assignment.id not in submissions and assignment.due_date > now %}
-                <a href="{{ url_for('student_submit_assignment', assignment_id=assignment.id) }}" 
-                   class="btn btn-success">
-                    Submit Assignment
-                </a>
+            <div class="assignment-status">
+                {% if assignment.id in submissions %}
+                <span class="badge badge-success">
+                    <i class="fas fa-check"></i> Submitted
+                </span>
+                {% elif assignment.due_date.replace(tzinfo=utc) < now.replace(tzinfo=utc) %}
+                <span class="badge badge-danger">
+                    <i class="fas fa-exclamation-triangle"></i> Overdue
+                </span>
+                {% else %}
+                <span class="badge badge-warning">
+                    <i class="fas fa-clock"></i> Pending
+                </span>
                 {% endif %}
             </div>
         </div>
-        {% endfor %}
-        {% else %}
-        <div class="no-assignments">
-            <i class="fas fa-check-circle"></i>
-            <h3>No assignments found</h3>
-            <p>You're all caught up with your work!</p>
+        
+        <div class="assignment-actions">
+            <a href="{{ url_for('student_view_assignment', assignment_id=assignment.id) }}" 
+               class="btn btn-primary">
+                View Details
+            </a>
+            
+            {% if assignment.id not in submissions and assignment.due_date.replace(tzinfo=utc) > now.replace(tzinfo=utc) %}
+            <a href="{{ url_for('student_submit_assignment', assignment_id=assignment.id) }}" 
+               class="btn btn-success">
+                Submit Assignment
+            </a>
+            {% endif %}
         </div>
-        {% endif %}
     </div>
+    {% endfor %}
+    {% else %}
+    <div class="no-assignments">
+        <i class="fas fa-check-circle"></i>
+        <h3>No assignments found</h3>
+        <p>You're all caught up with your work!</p>
+    </div>
+    {% endif %}
 </div>
+</div>
+
+<style>
+    .assignments-content {
+        padding: 2rem;
+    }
+
+    .assignments-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .assignment-filters {
+        background: var(--white);
+        padding: 1rem;
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .filter-form {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-end;
+        flex-wrap: wrap;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .form-group label {
+        font-weight: 500;
+        color: var(--dark-gray);
+        font-size: 0.9rem;
+    }
+
+    .assignments-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .assignment-card {
+        background: var(--white);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        box-shadow: var(--shadow-sm);
+        transition: var(--transition);
+        border-left: 4px solid var(--primary);
+    }
+
+    .assignment-card:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .assignment-card.overdue {
+        border-left-color: var(--danger);
+    }
+
+    .assignment-card.submitted {
+        border-left-color: var(--success);
+    }
+
+    .assignment-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .assignment-header h3 {
+        font-size: 1.2rem;
+        color: var(--dark);
+        margin: 0;
+    }
+
+    .course-name {
+        background: var(--primary-lighter);
+        color: var(--primary);
+        padding: 0.25rem 0.75rem;
+        border-radius: 50px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .assignment-details {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .due-date {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--dark-gray);
+    }
+
+    .assignment-actions {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    .no-assignments {
+        text-align: center;
+        padding: 3rem;
+        background: var(--white);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .no-assignments i {
+        font-size: 3rem;
+        color: var(--success);
+        margin-bottom: 1rem;
+    }
+
+    .no-assignments h3 {
+        color: var(--dark);
+        margin-bottom: 0.5rem;
+    }
+
+    .no-assignments p {
+        color: var(--medium-gray);
+    }
+
+    @media (max-width: 768px) {
+        .filter-form {
+            flex-direction: column;
+            align-items: stretch;
+        }
+        
+        .assignment-actions {
+            flex-direction: column;
+        }
+        
+        .assignment-actions .btn {
+            width: 100%;
+        }
+    }
+</style>
 {% endblock %}

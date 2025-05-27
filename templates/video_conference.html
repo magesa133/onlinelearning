@@ -32,9 +32,120 @@
     #error-container {
         margin-bottom: 20px;
     }
+
+    /* Flip Card Styles */
+    .flip-card-container {
+        perspective: 1000px;
+    }
+    .flip-card {
+        width: 100%;
+        height: 100%;
+        position: relative;
+        transform-style: preserve-3d;
+        transition: transform 0.6s ease;
+    }
+    .flip-card.flipped {
+        transform: rotateY(180deg);
+    }
+    .flip-card-inner {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        text-align: center;
+        transition: transform 0.6s;
+        transform-style: preserve-3d;
+    }
+    .flip-card-front, .flip-card-back {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        backface-visibility: hidden;
+        border-radius: 0.375rem;
+    }
+    .flip-card-back {
+        transform: rotateY(180deg);
+    }
+    /* Flop animation variant */
+    .flop-card {
+        transform-style: preserve-3d;
+        transition: transform 0.6s ease;
+    }
+    .flop-card.flopped {
+        transform: rotateX(180deg);
+    }
+    .flop-card .flip-card-back {
+        transform: rotateX(180deg);
+    }
+    /* Hover effects */
+    .flip-card:not(.flipped):hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    }
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .flip-card {
+            transform: none !important;
+        }
+        .flip-card-front, .flip-card-back {
+            position: relative;
+            backface-visibility: visible;
+        }
+        .flip-card-back {
+            display: none;
+        }
+        .flip-card.flipped .flip-card-front {
+            display: none;
+        }
+        .flip-card.flipped .flip-card-back {
+            display: block;
+            transform: none;
+        }
+    }
+
+
+    /* Notification styles */
+    .toast {
+        margin-bottom: 10px;
+        box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15);
+        transition: all 0.3s ease;
+    }
+
+    .notification-badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background: #dc3545;
+        color: white;
+        border-radius: 50%;
+        width: 18px;
+        height: 18px;
+        font-size: 10px;
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Animation for new notifications */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .toast.show {
+        animation: fadeIn 0.3s ease forwards;
+    }
+
 </style>
 
 <div class="container mt-4">
+
+    <!-- Add this to your base template or teacher dashboard -->
+    <div id="notification-container" 
+        class="position-fixed top-0 end-0 p-3"
+        style="z-index: 1100; max-width: 350px; width: 100%">
+    </div>
+
+
     <div class="card shadow">
         <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
             <h2 class="mb-0">Manage Online Sessions</h2>
@@ -43,21 +154,51 @@
         
         <div class="card-body">
             <!-- Time Display Section -->
-            <div class="time-display-section">
+            <div class="time-display-section d-flex justify-content-between flex-wrap">
+                <!-- Server Time Display -->
+                <div class="alert alert-secondary">
+                    <strong><i class="bi bi-server"></i> Server Time (UTC):</strong><br>
+                    <span id="server-time-text">{{ server_time }}</span><br>
+                    <strong><i class="bi bi-clock-history"></i> Africa/Dar_es_Salaam Time:</strong><br>
+                    <span id="dar-time-text">{{ dar_time_str }}</span>
+                </div>
+
+                <!-- Session Time -->
                 <div class="time-display-box">
                     <div class="alert alert-info" id="creator-time-display">
-                        <strong>Creator's Time:</strong><br>
-                        <span id="creator-time-text">Not set</span>
+                        <strong><i class="bi bi-calendar-event"></i> Session Time:</strong><br>
+                        {% if sessions %}
+                            {% set session = sessions[0] %}
+                            {{ session.start_local.strftime('%b %d, %Y %I:%M %p') }} -
+                            {{ session.end_local.strftime('%I:%M %p') }}
+                            <div class="mt-1">
+                                <small class="text-muted">
+                                    ({{ session.original_timezone or user_timezone }})
+                                    <span class="badge 
+                                        {% if session.status == 'upcoming' %}bg-info
+                                        {% elif session.status == 'live' %}bg-success
+                                        {% else %}bg-secondary{% endif %}">
+                                        {{ session.status|capitalize }}
+                                    </span>
+                                </small>
+                            </div>
+                        {% else %}
+                            No sessions scheduled.
+                        {% endif %}
                     </div>
                 </div>
+
+                <!-- Local Browser Time -->
                 <div class="time-display-box">
-                    <div class="alert alert-info" id="participant-time-display">
-                        <strong>Your Local Time:</strong><br>
-                        <span id="participant-time-text">Detecting timezone...</span>
+                    <div class="alert alert-primary" id="participant-time-display">
+                        <strong><i class="bi bi-clock"></i> Your Local Time:</strong><br>
+                        <span id="participant-time-text">
+                            Loading...
+                        </span>
                     </div>
                 </div>
             </div>
-            
+
             <!-- Error Display -->
             <div id="error-container"></div>
             
@@ -118,6 +259,80 @@
                 </div>
             </div>
 
+            <!-- My Classroom Links -->
+            <div class="border p-3 rounded mb-4">
+                <h5 class="mb-3"><i class="bi bi-link-45deg"></i> My Classroom Links</h5>
+                
+                {% if sessions %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Session Name</th>
+                                <th>Class</th>
+                                <th>Link</th>
+                                <th>Time</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for session in sessions %}
+                            <tr>
+                                <td>{{ session.session_name }}</td>
+                                <td>
+                                    {% for class in classes %}
+                                        {% if class.id == session.class_id %}
+                                            {{ class.class_name }}
+                                        {% endif %}
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" class="form-control form-control-sm session-link" 
+                                            value="{{ session.session_link }}" readonly>
+                                        <button class="btn btn-outline-secondary copy-link-btn" 
+                                                data-link="{{ session.session_link }}"
+                                                title="Copy link">
+                                            <i class="bi bi-clipboard"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                                <td>
+                                    <small>
+                                        {{ session.start_time|datetimeformat('%b %d, %I:%M %p') }} - 
+                                        {{ session.end_time|datetimeformat('%I:%M %p') }}
+                                    </small>
+                                </td>
+                                <td>
+                                    {% set current_time = now_utc if now_utc is defined else None %}
+                                    {% if current_time and current_time < session.start_time %}
+                                        <span class="badge bg-info">Scheduled</span>
+                                    {% elif current_time and current_time > session.end_time %}
+                                        <span class="badge bg-secondary">Ended</span>
+                                    {% else %}
+                                        <span class="badge bg-success">Live</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ session.session_link }}" 
+                                    class="btn btn-sm btn-outline-primary"
+                                    title="Join session">
+                                        <i class="bi bi-box-arrow-in-right"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="alert alert-info">
+                    No classroom sessions created yet. Create your first session above.
+                </div>
+                {% endif %}
+            </div>
+
             <!-- Video Container -->
             <div id="video-container">
                 <div id="root" class="ratio ratio-16x9 bg-light border rounded mb-3"></div>
@@ -137,582 +352,773 @@
 
 <!-- JavaScript Implementation -->
 <script>
-    /* ===========================================
-       VIDEO SYSTEM CONFIGURATION AND STATE
-       =========================================== */
-    const VIDEO_CONFIG = {
-        // ZegoCloud credentials (replace with your actual values)
-        appId: 295465028,
-        serverSecret: "24961fbcc07baf1fae63b230d5a23894",
-        
-        // SDK loading configuration
-        sdkSources: [
-            'https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js',
-            'https://cdn.jsdelivr.net/npm/@zegocloud/zego-uikit-prebuilt@latest/dist/zego-uikit-prebuilt.js',
-            "{{ url_for('static', filename='js/zego-uikit-prebuilt.min.js') }}"
-        ],
-        maxLoadAttempts: 3,
-        loadTimeoutMs: 10000,
-        retryDelayMs: 2000,
-        maxSessionHours: 8
-    };
+    // Wait for DOM to be fully loaded
+    document.addEventListener('DOMContentLoaded', function() {
+        // First verify all required elements exist
+        const requiredElements = [
+            'sdk-status', 'server-time-text', 'dar-time-text',
+            'creator-time-display', 'participant-time-text',
+            'session-name', 'class-select', 'session-time',
+            'session-end-time', 'createSessionBtn', 'generatedLink',
+            'roomID', 'joinSessionBtn', 'root', 'fullscreenBtn',
+            'error-container'
+        ];
 
-    // Application state management
-    const appState = {
-        // Video system state
-        zegoInstance: null,
-        isVideoSystemReady: false,
-        loadAttemptCount: 0,
-        
-        // User information
-        userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        currentRoomId: null,
-        
-        // Session information
-        currentSession: null
-    };
-
-    /* ===========================================
-       INITIALIZATION AND SETUP
-       =========================================== */
-    document.addEventListener('DOMContentLoaded', initializeApplication);
-
-    async function initializeApplication() {
-        try {
-            // Set initial timezone display
-            setUserTimezoneDisplay();
-            
-            // Check for existing room ID in URL
-            checkUrlForRoomId();
-            
-            // Initialize video system with retry logic
-            await initializeVideoSystemWithRetry();
-            
-            // Set up all event listeners
-            setupEventListeners();
-            
-        } catch (error) {
-            handleFatalError(error);
-        }
-    }
-
-    function setUserTimezoneDisplay() {
-        document.getElementById('user-timezone').value = appState.userTimezone;
-        document.getElementById('participant-time-text').textContent = 
-            `Detected: ${appState.userTimezone}`;
-    }
-
-    function checkUrlForRoomId() {
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('roomID')) {
-            document.getElementById('roomID').value = urlParams.get('roomID');
-        }
-    }
-
-    /* ===========================================
-       VIDEO SYSTEM MANAGEMENT
-       =========================================== */
-    async function initializeVideoSystemWithRetry() {
-        updateSystemStatus('loading', 'Initializing video system...');
-        
-        while (appState.loadAttemptCount < VIDEO_CONFIG.maxLoadAttempts) {
-            try {
-                await Promise.race([
-                    loadVideoSdk(),
-                    timeoutPromise(VIDEO_CONFIG.loadTimeoutMs, 'SDK load timed out')
-                ]);
-                
-                await verifySdkFunctionality();
-                
-                appState.isVideoSystemReady = true;
-                updateSystemStatus('ready', 'Video system ready');
-                enableUiComponents();
-                return;
-                
-            } catch (error) {
-                appState.loadAttemptCount++;
-                console.warn(`Attempt ${appState.loadAttemptCount} failed:`, error);
-                
-                if (appState.loadAttemptCount >= VIDEO_CONFIG.maxLoadAttempts) {
-                    throw new Error('Failed after maximum attempts');
-                }
-                
-                await delay(VIDEO_CONFIG.retryDelayMs);
-            }
-        }
-    }
-
-    async function loadVideoSdk() {
-        // First check if already loaded
-        if (typeof ZegoUIKitPrebuilt !== 'undefined') return;
-        
-        let lastError = null;
-        
-        for (const source of VIDEO_CONFIG.sdkSources) {
-            try {
-                await loadScript(source);
-                if (typeof ZegoUIKitPrebuilt !== 'undefined') return;
-            } catch (error) {
-                lastError = error;
-                console.warn(`Failed to load from ${source}:`, error);
-            }
-        }
-        
-        throw lastError || new Error('All SDK sources failed');
-    }
-
-    async function verifySdkFunctionality() {
-        if (typeof ZegoUIKitPrebuilt === 'undefined') {
-            throw new Error('SDK not loaded');
-        }
-        
-        // Test token generation capability
-        try {
-            const testToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
-                VIDEO_CONFIG.appId,
-                VIDEO_CONFIG.serverSecret,
-                'test-room-' + Date.now(),
-                'test-user-' + Date.now(),
-                'Test User'
-            );
-            
-            if (!testToken) {
-                throw new Error('Token generation test failed');
-            }
-        } catch (error) {
-            throw new Error('SDK verification failed: ' + error.message);
-        }
-    }
-
-    /* ===========================================
-       SESSION MANAGEMENT
-       =========================================== */
-    async function createNewSession() {
-        if (!appState.isVideoSystemReady) {
-            showUserError('Video system not ready');
+        // Check if all elements exist
+        const missingElements = requiredElements.filter(id => !document.getElementById(id));
+        if (missingElements.length > 0) {
+            console.error('Missing elements:', missingElements);
+            document.getElementById('error-container').innerHTML = `
+                <div class="alert alert-danger">
+                    Missing required elements: ${missingElements.join(', ')}
+                </div>
+            `;
             return;
         }
 
-        const button = document.getElementById('createSessionBtn');
-        const originalContent = button.innerHTML;
-        
-        try {
-            // Update UI to show loading state
-            button.disabled = true;
-            button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Creating...';
-            
-            // Validate and collect form data
-            const sessionData = validateSessionForm();
-            
-            // Create session on server
-            const response = await sendCreateSessionRequest(sessionData);
-            
-            if (!response.success) {
-                throw new Error(response.error || 'Failed to create session');
-            }
-            
-            // Store session data
-            appState.currentSession = response.session;
-            
-            // Update UI with session details
-            displaySessionTimes(response.session);
-            updateSessionLink(response.session.link, response.session.room_id);
-            
-            // Start video session
-            await startVideoSession(response.session.room_id, `Teacher_${sessionData.class_id}`);
-            
-        } catch (error) {
-            console.error('Session creation failed:', error);
-            showUserError(error.message);
-        } finally {
-            // Restore button state
-            button.disabled = false;
-            button.innerHTML = originalContent;
-        }
-    }
-
-    function validateSessionForm() {
-        const sessionName = document.getElementById('session-name').value.trim();
-        const classId = document.getElementById('class-select').value;
-        const startTimeInput = document.getElementById('session-time').value;
-        const endTimeInput = document.getElementById('session-end-time').value;
-        
-        // Basic validation
-        if (!sessionName || !classId || !startTimeInput || !endTimeInput) {
-            throw new Error('Please fill all required fields');
-        }
-
-        // Parse times
-        const startTime = new Date(startTimeInput);
-        const endTime = new Date(endTimeInput);
-
-        if (isNaN(startTime.getTime())) {
-            throw new Error('Invalid start time');
-        }
-        
-        if (isNaN(endTime.getTime())) {
-            throw new Error('Invalid end time');
-        }
-        
-        if (endTime <= startTime) {
-            throw new Error('End time must be after start time');
-        }
-
-        // Calculate duration in hours
-        const durationHours = (endTime - startTime) / (1000 * 60 * 60);
-
-        if (durationHours > VIDEO_CONFIG.maxSessionHours) {
-            throw new Error(`Session cannot exceed ${VIDEO_CONFIG.maxSessionHours} hours`);
-        }
-
-        return {
-            class_id: classId,
-            session_name: sessionName,
-            start_time: startTime.toISOString(),
-            end_time: endTime.toISOString(),
-            duration: durationHours,
-            timezone: appState.userTimezone
+        /* ===========================================
+           VIDEO SYSTEM CONFIGURATION AND STATE
+           =========================================== */
+        const VIDEO_CONFIG = {
+            appId: 981616766,
+            serverSecret: "33eb72d74f0142e8ccb0ced74fb42569",
+            sdkSources: [
+                'https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js',
+                'https://cdn.jsdelivr.net/npm/@zegocloud/zego-uikit-prebuilt@latest/dist/zego-uikit-prebuilt.js',
+                "{{ url_for('static', filename='js/zego-uikit-prebuilt.min.js') }}"
+            ],
+            maxLoadAttempts: 3,
+            loadTimeoutMs: 10000,
+            retryDelayMs: 2000,
+            maxSessionHours: 8
         };
-    }
 
-    async function sendCreateSessionRequest(data) {
-        const response = await fetch('/start_session', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken(),
-                'X-Timezone': appState.userTimezone
-            },
-            body: JSON.stringify(data)
-        });
-        return await response.json();
-    }
+        const appState = {
+            zegoInstance: null,
+            isVideoSystemReady: false,
+            loadAttemptCount: 0,
+            userTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            currentRoomId: null,
+            currentSession: null
+        };
 
-    async function joinExistingSession() {
-        const roomId = document.getElementById('roomID').value.trim();
-        if (!roomId) {
-            showUserError('Please enter a Room ID');
-            return;
+        // Initialize the application
+        initializeApplication();
+
+        /* ===========================================
+           MAIN FUNCTIONS
+           =========================================== */
+        async function initializeApplication() {
+            try {
+                // Set initial timezone display
+                setUserTimezoneDisplay();
+                
+                // Check for existing room ID in URL
+                checkUrlForRoomId();
+                
+                // Initialize video system with retry logic
+                await initializeVideoSystemWithRetry();
+                
+                // Set up all event listeners
+                setupEventListeners();
+                
+            } catch (error) {
+                handleFatalError(error);
+            }
         }
 
-        const button = document.getElementById('joinSessionBtn');
-        const originalContent = button.innerHTML;
-        
-        try {
-            button.disabled = true;
-            button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Joining...';
-            
-            await startVideoSession(roomId, 'Teacher');
-            
-        } catch (error) {
-            console.error('Failed to join session:', error);
-            showUserError('Error joining: ' + error.message);
-        } finally {
-            button.disabled = false;
-            button.innerHTML = originalContent;
+        function checkUrlForRoomId() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomIdInput = document.getElementById('roomID');
+            if (urlParams.has('roomID') && roomIdInput) {
+                roomIdInput.value = urlParams.get('roomID');
+            }
         }
-    }
 
-    async function startVideoSession(roomId, userName) {
-        // Validate system state
-        if (!appState.isVideoSystemReady || typeof ZegoUIKitPrebuilt === 'undefined') {
-            throw new Error('Video system not ready');
-        }
-        
-        // Clean up any existing session
-        cleanupVideoSession();
-        
-        // Prepare container
-        const container = document.getElementById('root');
-        if (!container) throw new Error('Video container missing');
-        container.innerHTML = '';
-        
-        // Generate unique user ID
-        const userId = `teacher_${Date.now()}`;
-        
-        try {
-            // Generate authentication token
-            const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
-                VIDEO_CONFIG.appId,
-                VIDEO_CONFIG.serverSecret,
-                roomId,
-                userId,
-                userName
-            );
+        /* ===========================================
+           VIDEO SYSTEM MANAGEMENT
+           =========================================== */
+        async function initializeVideoSystemWithRetry() {
+            updateSystemStatus('loading', 'Initializing video system...');
             
-            // Create and join session
-            appState.zegoInstance = ZegoUIKitPrebuilt.create(kitToken);
-            appState.currentRoomId = roomId;
-            
-            appState.zegoInstance.joinRoom({
-                container: container,
-                sharedLinks: [{
-                    name: 'Classroom Link',
-                    url: `${window.location.origin}${window.location.pathname}?roomID=${roomId}`,
-                }],
-                scenario: {
-                    mode: ZegoUIKitPrebuilt.VideoConference,
-                },
-                turnOnMicrophoneWhenJoining: true,
-                turnOnCameraWhenJoining: true,
-                showMyCameraToggleButton: true,
-                showMyMicrophoneToggleButton: true,
-                showAudioVideoSettingsButton: true,
-                showScreenSharingButton: true,
-                showTextChat: true,
-                showUserList: true,
-                maxUsers: 50,
-                layout: "Sidebar",
-                showLayoutButton: true,
-                onJoinRoom: () => {
-                    console.log('Successfully joined room');
-                    updateSystemStatus('active', 'Session active');
-                },
-                onLeaveRoom: () => {
-                    console.log('Left room');
-                    appState.zegoInstance = null;
-                    appState.currentRoomId = null;
+            while (appState.loadAttemptCount < VIDEO_CONFIG.maxLoadAttempts) {
+                try {
+                    await Promise.race([
+                        loadVideoSdk(),
+                        timeoutPromise(VIDEO_CONFIG.loadTimeoutMs, 'SDK load timed out')
+                    ]);
+                    
+                    await verifySdkFunctionality();
+                    
+                    appState.isVideoSystemReady = true;
                     updateSystemStatus('ready', 'Video system ready');
-                },
-                onError: (error) => {
-                    console.error('Zego SDK error:', error);
-                    showUserError('Video error: ' + error.message);
-                    updateSystemStatus('error', 'Session error');
+                    enableUiComponents();
+                    return;
+                    
+                } catch (error) {
+                    appState.loadAttemptCount++;
+                    console.warn(`Attempt ${appState.loadAttemptCount} failed:`, error);
+                    
+                    if (appState.loadAttemptCount >= VIDEO_CONFIG.maxLoadAttempts) {
+                        throw new Error('Failed after maximum attempts');
+                    }
+                    
+                    await delay(VIDEO_CONFIG.retryDelayMs);
                 }
-            });
-            
-        } catch (error) {
-            console.error('Video session failed:', error);
-            cleanupVideoSession();
-            throw error;
+            }
         }
-    }
 
-    /* ===========================================
-       UI MANAGEMENT
-       =========================================== */
-    function setupEventListeners() {
-        // Session management
-        document.getElementById('createSessionBtn')
-            ?.addEventListener('click', createNewSession);
-        document.getElementById('joinSessionBtn')
-            ?.addEventListener('click', joinExistingSession);
-        
-        // Video controls
-        document.getElementById('fullscreenBtn')
-            ?.addEventListener('click', toggleFullscreen);
-    }
+        async function loadVideoSdk() {
+            // First check if already loaded
+            if (typeof ZegoUIKitPrebuilt !== 'undefined') return;
+            
+            let lastError = null;
+            
+            for (const source of VIDEO_CONFIG.sdkSources) {
+                try {
+                    await loadScript(source);
+                    if (typeof ZegoUIKitPrebuilt !== 'undefined') return;
+                } catch (error) {
+                    lastError = error;
+                    console.warn(`Failed to load from ${source}:`, error);
+                }
+            }
+            
+            throw lastError || new Error('All SDK sources failed');
+        }
 
-    function enableUiComponents() {
-        document.getElementById('createSessionBtn').disabled = false;
-        document.getElementById('joinSessionBtn').disabled = false;
-        document.getElementById('fullscreenBtn').disabled = false;
-    }
+        async function verifySdkFunctionality() {
+            if (typeof ZegoUIKitPrebuilt === 'undefined') {
+                throw new Error('SDK not loaded');
+            }
+            
+            // Test token generation capability
+            try {
+                const testToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
+                    VIDEO_CONFIG.appId,
+                    VIDEO_CONFIG.serverSecret,
+                    'test-room-' + Date.now(),
+                    'test-user-' + Date.now(),
+                    'Test User'
+                );
+                
+                if (!testToken) {
+                    throw new Error('Token generation test failed');
+                }
+            } catch (error) {
+                throw new Error('SDK verification failed: ' + error.message);
+            }
+        }
 
-    function updateSystemStatus(status, message) {
-        const statusElement = document.getElementById('sdk-status');
-        if (!statusElement) return;
-        
-        const statusClasses = {
-            loading: 'bg-warning',
-            ready: 'bg-success',
-            active: 'bg-primary',
-            error: 'bg-danger'
+        /* ===========================================
+           SESSION MANAGEMENT
+           =========================================== */
+        async function createNewSession() {
+            if (!appState.isVideoSystemReady) {
+                showUserError('Video system not ready');
+                return;
+            }
+
+            const button = document.getElementById('createSessionBtn');
+            const originalContent = button.innerHTML;
+            
+            try {
+                // Update UI to show loading state
+                button.disabled = true;
+                button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Creating...';
+                
+                // Validate and collect form data
+                const sessionData = validateSessionForm();
+                
+                // Create session on server
+                const response = await sendCreateSessionRequest(sessionData);
+                
+                if (!response.success) {
+                    throw new Error(response.error || 'Failed to create session');
+                }
+                
+                // Store session data
+                appState.currentSession = response.session;
+                
+                // Update UI with session details
+                displaySessionTimes(response.session);
+                updateSessionLink(response.session.link, response.session.room_id);
+                
+                // Start video session
+                await startVideoSession(response.session.room_id, `Teacher_${sessionData.class_id}`);
+                
+            } catch (error) {
+                console.error('Session creation failed:', error);
+                showUserError(error.message);
+            } finally {
+                // Restore button state
+                button.disabled = false;
+                button.innerHTML = originalContent;
+            }
+        }
+
+        function validateSessionForm() {
+            const sessionName = document.getElementById('session-name').value.trim();
+            const classId = document.getElementById('class-select').value;
+            const startTimeInput = document.getElementById('session-time').value;
+            const endTimeInput = document.getElementById('session-end-time').value;
+            
+            // Basic validation
+            if (!sessionName || !classId || !startTimeInput || !endTimeInput) {
+                throw new Error('Please fill all required fields');
+            }
+
+            // Parse times
+            const startTime = new Date(startTimeInput);
+            const endTime = new Date(endTimeInput);
+
+            if (isNaN(startTime.getTime())) {
+                throw new Error('Invalid start time');
+            }
+            
+            if (isNaN(endTime.getTime())) {
+                throw new Error('Invalid end time');
+            }
+            
+            if (endTime <= startTime) {
+                throw new Error('End time must be after start time');
+            }
+
+            // Calculate duration in hours
+            const durationHours = (endTime - startTime) / (1000 * 60 * 60);
+
+            if (durationHours > VIDEO_CONFIG.maxSessionHours) {
+                throw new Error(`Session cannot exceed ${VIDEO_CONFIG.maxSessionHours} hours`);
+            }
+
+            return {
+                class_id: classId,
+                session_name: sessionName,
+                start_time: startTime.toISOString(),
+                end_time: endTime.toISOString(),
+                duration: durationHours,
+                timezone: appState.userTimezone
+            };
+        }
+
+        async function sendCreateSessionRequest(data) {
+            const response = await fetch('/start_session', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken(),
+                    'X-Timezone': appState.userTimezone
+                },
+                body: JSON.stringify(data)
+            });
+            return await response.json();
+        }
+
+        async function joinExistingSession() {
+            const roomId = document.getElementById('roomID').value.trim();
+            if (!roomId) {
+                showUserError('Please enter a Room ID');
+                return;
+            }
+
+            const button = document.getElementById('joinSessionBtn');
+            const originalContent = button.innerHTML;
+            
+            try {
+                button.disabled = true;
+                button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Joining...';
+                
+                await startVideoSession(roomId, 'Teacher');
+                
+            } catch (error) {
+                console.error('Failed to join session:', error);
+                showUserError('Error joining: ' + error.message);
+            } finally {
+                button.disabled = false;
+                button.innerHTML = originalContent;
+            }
+        }
+
+        async function startVideoSession(roomId, userName) {
+            // Validate system state
+            if (!appState.isVideoSystemReady || typeof ZegoUIKitPrebuilt === 'undefined') {
+                throw new Error('Video system not ready');
+            }
+            
+            // Clean up any existing session
+            cleanupVideoSession();
+            
+            // Prepare container
+            const container = document.getElementById('root');
+            if (!container) throw new Error('Video container missing');
+            container.innerHTML = '';
+            
+            // Generate unique user ID
+            const userId = `teacher_${Date.now()}`;
+            
+            try {
+                // Generate authentication token
+                const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
+                    VIDEO_CONFIG.appId,
+                    VIDEO_CONFIG.serverSecret,
+                    roomId,
+                    userId,
+                    userName
+                );
+                
+                // Create and join session
+                appState.zegoInstance = ZegoUIKitPrebuilt.create(kitToken);
+                appState.currentRoomId = roomId;
+                
+                // In your video initialization code
+                appState.zegoInstance.joinRoom({
+                    container: container,
+                    // ... existing config ...
+                    onUserJoin: (users) => {
+                        users.forEach(user => {
+                            if (user.userID.startsWith('student_')) {
+                                showJoinNotification(user.userName);
+                                
+                                // Send to server if this is the teacher's view
+                                if (userName.startsWith('Teacher')) {
+                                    fetch('/notify_video_join', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'X-CSRFToken': getCsrfToken()
+                                        },
+                                        body: JSON.stringify({
+                                            student_id: user.userID.replace('student_', ''),
+                                            student_name: user.userName,
+                                            session_id: roomId,
+                                            session_name: appState.currentSession?.session_name || 'Current Session'
+                                        })
+                                    });
+                                }
+                            }
+                        });
+                    }
+                });
+
+                // Notification display function
+                function showJoinNotification(studentName) {
+                    const notificationContainer = document.getElementById('notification-container');
+                    if (!notificationContainer) return;
+                    
+                    const toastId = `toast-${Date.now()}`;
+                    const toastHtml = `
+                        <div id="${toastId}" class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+                            <div class="toast-header bg-primary text-white">
+                                <strong class="me-auto">Student Joined</strong>
+                                <small class="text-white">Just now</small>
+                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" 
+                                    onclick="document.getElementById('${toastId}').remove()"></button>
+                            </div>
+                            <div class="toast-body">
+                                ${studentName} has joined the video session
+                            </div>
+                        </div>
+                    `;
+                    
+                    const toastElement = document.createElement('div');
+                    toastElement.innerHTML = toastHtml;
+                    notificationContainer.appendChild(toastElement.firstElementChild);
+                    
+                    // Auto-remove after 5 seconds
+                    setTimeout(() => {
+                        const toast = document.getElementById(toastId);
+                        if (toast) toast.remove();
+                    }, 5000);
+                    
+                    // Update notification badge
+                    updateNotificationBadge();
+                }
+                
+            } catch (error) {
+                console.error('Video session failed:', error);
+                cleanupVideoSession();
+                throw error;
+            }
+        }
+
+
+
+        /* ===========================================
+           NOTIFICATION MANAGEMENT
+           =========================================== */
+
+           // Client-side SocketIO handling
+            if (typeof socketio !== 'undefined') {
+                // Handle new attendance notifications
+                socketio.on('new_attendance', (data) => {
+                    showDesktopNotification(
+                        `${data.student_name} attended`, 
+                        data.session_name,
+                        `/sessions/${data.session_id}/attendance`
+                    );
+                    showToastNotification(
+                        'Student Attendance',
+                        `${data.student_name} attended ${data.session_name}`,
+                        'attendance'
+                    );
+                    updateNotificationBadge();
+                });
+                
+                // Handle video join notifications
+                socketio.on('video_join_notification', (data) => {
+                    showDesktopNotification(
+                        `${data.student_name} joined`, 
+                        data.session_name,
+                        `/sessions/${data.session_id}`
+                    );
+                    updateNotificationBadge();
+                });
+            }
+
+            // Show desktop notification
+            function showDesktopNotification(title, message, link) {
+                if (!('Notification' in window)) return;
+                
+                if (Notification.permission === 'granted') {
+                    const notification = new Notification(title, { body: message });
+                    if (link) {
+                        notification.onclick = () => {
+                            window.location.href = link;
+                            window.focus();
+                        };
+                    }
+                } else if (Notification.permission !== 'denied') {
+                    Notification.requestPermission().then(permission => {
+                        if (permission === 'granted') {
+                            showDesktopNotification(title, message, link);
+                        }
+                    });
+                }
+            }
+
+            // Show toast notification
+            function showToastNotification(title, message, type) {
+                const notificationContainer = document.getElementById('notification-container');
+                if (!notificationContainer) return;
+                
+                const toastId = `toast-${Date.now()}`;
+                const typeClass = {
+                    'attendance': 'bg-success',
+                    'video_join': 'bg-primary',
+                    'default': 'bg-info'
+                }[type] || 'bg-info';
+                
+                const toastHtml = `
+                    <div id="${toastId}" class="toast show" role="alert" aria-live="assertive" aria-atomic="true">
+                        <div class="toast-header ${typeClass} text-white">
+                            <strong class="me-auto">${title}</strong>
+                            <small>Just now</small>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" 
+                                onclick="document.getElementById('${toastId}').remove()"></button>
+                        </div>
+                        <div class="toast-body">
+                            ${message}
+                        </div>
+                    </div>
+                `;
+                
+                const toastElement = document.createElement('div');
+                toastElement.innerHTML = toastHtml;
+                notificationContainer.appendChild(toastElement.firstElementChild);
+                
+                setTimeout(() => {
+                    const toast = document.getElementById(toastId);
+                    if (toast) toast.remove();
+                }, 5000);
+            }
+
+            // Update notification badge
+            function updateNotificationBadge() {
+                fetch('/notifications/unread-count')
+                    .then(response => response.json())
+                    .then(data => {
+                        const badge = document.querySelector('.notification-badge');
+                        if (badge) {
+                            badge.textContent = data.count > 0 ? data.count : '';
+                            badge.style.display = data.count > 0 ? 'flex' : 'none';
+                        }
+                    });
+            }
+
+
+        /* ===========================================
+           UI MANAGEMENT
+           =========================================== */
+        function setupEventListeners() {
+            // Session management
+            document.getElementById('createSessionBtn')
+                ?.addEventListener('click', createNewSession);
+            document.getElementById('joinSessionBtn')
+                ?.addEventListener('click', joinExistingSession);
+            
+            // Video controls
+            document.getElementById('fullscreenBtn')
+                ?.addEventListener('click', toggleFullscreen);
+        }
+
+        function enableUiComponents() {
+            document.getElementById('createSessionBtn').disabled = false;
+            document.getElementById('joinSessionBtn').disabled = false;
+            document.getElementById('fullscreenBtn').disabled = false;
+        }
+
+        function updateSystemStatus(status, message) {
+            const statusElement = document.getElementById('sdk-status');
+            if (!statusElement) return;
+            
+            const statusClasses = {
+                loading: 'bg-warning',
+                ready: 'bg-success',
+                active: 'bg-primary',
+                error: 'bg-danger'
+            };
+            
+            // Reset classes
+            statusElement.className = 'badge';
+            // Add new class
+            statusElement.classList.add(statusClasses[status] || 'bg-secondary');
+            statusElement.textContent = message;
+        }
+
+        function displaySessionTimes(sessionData) {
+            const formatTime = (date, timezone) => {
+                const options = {
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: timezone
+                };
+                return new Date(date).toLocaleString('en-US', options);
+            };
+            
+            const startTime = sessionData.start_time;
+            const endTime = sessionData.end_time;
+            const timezone = sessionData.original_timezone || appState.userTimezone;
+            
+            // Creator's time display
+            document.getElementById('creator-time-text').innerHTML = `
+                ${formatTime(startTime, timezone)} to 
+                ${formatTime(endTime, timezone)}<br>
+                <small>(${timezone})</small>
+            `;
+            
+            // Local time display
+            document.getElementById('participant-time-text').innerHTML = `
+                ${formatTime(startTime, appState.userTimezone)} to 
+                ${formatTime(endTime, appState.userTimezone)}<br>
+                <small>(${appState.userTimezone})</small>
+            `;
+        }
+
+        function updateSessionLink(link, roomId) {
+            const linkElement = document.getElementById('generatedLink');
+            if (linkElement) {
+                linkElement.href = link;
+                linkElement.textContent = `Room ${roomId} - Join Session`;
+                document.getElementById('roomID').value = roomId;
+            }
+        }
+
+        function toggleFullscreen() {
+            const element = document.getElementById('root');
+            if (!document.fullscreenElement) {
+                element.requestFullscreen().catch(err => {
+                    console.error('Fullscreen error:', err);
+                    showUserError('Fullscreen unavailable: ' + err.message);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        /* ===========================================
+           ERROR HANDLING
+           =========================================== */
+        function handleFatalError(error) {
+            console.error('Fatal application error:', error);
+            updateSystemStatus('error', 'System error');
+            
+            const errorHtml = `
+                <div class="alert alert-danger">
+                    <h4 class="alert-heading">System Error</h4>
+                    <p>${error.message}</p>
+                    <hr>
+                    <div class="d-flex justify-content-between">
+                        <button class="btn btn-danger" onclick="window.location.reload()">
+                            <i class="bi bi-arrow-clockwise"></i> Reload Page
+                        </button>
+                        <button class="btn btn-warning" onclick="window.retryInitialization()">
+                            <i class="bi bi-lightning"></i> Retry
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('error-container').innerHTML = errorHtml;
+        }
+
+        function showUserError(message) {
+            const errorHtml = `
+                <div class="alert alert-danger alert-dismissible fade show">
+                    <strong>Error:</strong> ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            
+            document.getElementById('error-container').innerHTML = errorHtml;
+        }
+
+        window.retryInitialization = async function() {
+            document.getElementById('error-container').innerHTML = '';
+            try {
+                await initializeVideoSystemWithRetry();
+            } catch (error) {
+                handleFatalError(error);
+            }
         };
-        
-        // Reset classes
-        statusElement.className = 'badge';
-        // Add new class
-        statusElement.classList.add(statusClasses[status] || 'bg-secondary');
-        statusElement.textContent = message;
-    }
 
-    function displaySessionTimes(sessionData) {
-        const formatTime = (date, timezone) => {
-            const options = {
+        /* ===========================================
+           UTILITY FUNCTIONS
+           =========================================== */
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = resolve;
+                script.onerror = () => {
+                    document.body.removeChild(script);
+                    reject(new Error(`Failed to load script: ${src}`));
+                };
+                document.body.appendChild(script);
+            });
+        }
+
+        function timeoutPromise(ms, message) {
+            return new Promise((_, reject) => 
+                setTimeout(() => reject(new Error(message)), ms)
+            );
+        }
+
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        function getCsrfToken() {
+            const metaTag = document.querySelector('meta[name="csrf-token"]');
+            return metaTag ? metaTag.content : '';
+        }
+
+        function cleanupVideoSession() {
+            if (appState.zegoInstance && typeof appState.zegoInstance.destroy === 'function') {
+                appState.zegoInstance.destroy();
+            }
+            appState.zegoInstance = null;
+            appState.currentRoomId = null;
+            
+            const container = document.getElementById('root');
+            if (container) container.innerHTML = '';
+        }
+
+        /* ===========================================
+           TIME HANDLING FUNCTIONS
+           =========================================== */
+        function getSessionTime() {
+            const startTimeInput = document.getElementById('session-time').value;
+            const endTimeInput = document.getElementById('session-end-time').value;
+            
+            if (!startTimeInput || !endTimeInput) {
+                throw new Error('Please select both start and end times');
+            }
+            
+            // Create Date objects in local timezone
+            const localStartTime = new Date(startTimeInput);
+            const localEndTime = new Date(endTimeInput);
+            
+            if (isNaN(localStartTime.getTime()) || isNaN(localEndTime.getTime())) {
+                throw new Error('Invalid time values');
+            }
+            
+            // Convert to ISO strings with timezone offset
+            const startTimeISO = localStartTime.toISOString();
+            const endTimeISO = localEndTime.toISOString();
+            
+            return {
+                local_start_time: formatLocalTime(localStartTime),
+                local_end_time: formatLocalTime(localEndTime),
+                start_utc: startTimeISO,
+                end_utc: endTimeISO,
+                timezone: appState.userTimezone
+            };
+        }
+
+        function formatLocalTime(date) {
+            return date.toLocaleString('en-US', {
                 year: 'numeric',
-                month: 'short',
-                day: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
                 hour: '2-digit',
                 minute: '2-digit',
-                timeZone: timezone
-            };
-            return new Date(date).toLocaleString('en-US', options);
-        };
-        
-        const startTime = sessionData.start_time;
-        const endTime = sessionData.end_time;
-        const timezone = sessionData.original_timezone || appState.userTimezone;
-        
-        // Creator's time display
-        document.getElementById('creator-time-text').innerHTML = `
-            ${formatTime(startTime, timezone)} to 
-            ${formatTime(endTime, timezone)}<br>
-            <small>(${timezone})</small>
-        `;
-        
-        // Local time display
-        document.getElementById('participant-time-text').innerHTML = `
-            ${formatTime(startTime, appState.userTimezone)} to 
-            ${formatTime(endTime, appState.userTimezone)}<br>
-            <small>(${appState.userTimezone})</small>
-        `;
-    }
-
-    function updateSessionLink(link, roomId) {
-        const linkElement = document.getElementById('generatedLink');
-        if (linkElement) {
-            linkElement.href = link;
-            linkElement.textContent = `Room ${roomId} - Join Session`;
-            document.getElementById('roomID').value = roomId;
+                hour12: false
+            }).replace(/(\d+)\/(\d+)\/(\d+), (\d+):(\d+)/, '$3-$1-$2 $4:$5:00');
         }
-    }
 
-    function toggleFullscreen() {
-        const element = document.getElementById('root');
-        if (!document.fullscreenElement) {
-            element.requestFullscreen().catch(err => {
-                console.error('Fullscreen error:', err);
-                showUserError('Fullscreen unavailable: ' + err.message);
+        function setUserTimezoneDisplay() {
+            // Set user timezone in hidden input
+            const timezoneInput = document.getElementById('user-timezone');
+            if (timezoneInput) {
+                timezoneInput.value = appState.userTimezone;
+            }
+
+            // Update participant time display
+            const timeDisplay = document.getElementById('participant-time-text');
+            if (timeDisplay) {
+                const now = new Date();
+                const timeString = now.toLocaleString('en-US', {
+                    timeZone: appState.userTimezone,
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    timeZoneName: 'long'
+                });
+                
+                timeDisplay.textContent = timeString;
+            }
+        }
+
+        // Copy link functionality
+        document.querySelectorAll('.copy-link-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const link = this.getAttribute('data-link');
+                if (!link) return;
+                
+                navigator.clipboard.writeText(link).then(() => {
+                    const originalIcon = this.innerHTML;
+                    this.innerHTML = '<i class="bi bi-check"></i>';
+                    this.classList.add('text-success');
+                    
+                    setTimeout(() => {
+                        this.innerHTML = originalIcon;
+                        this.classList.remove('text-success');
+                    }, 2000);
+                }).catch(err => {
+                    console.error('Failed to copy:', err);
+                });
             });
-        } else {
-            document.exitFullscreen();
-        }
-    }
-
-    /* ===========================================
-       ERROR HANDLING
-       =========================================== */
-    function handleFatalError(error) {
-        console.error('Fatal application error:', error);
-        updateSystemStatus('error', 'System error');
-        
-        const errorHtml = `
-            <div class="alert alert-danger">
-                <h4 class="alert-heading">System Error</h4>
-                <p>${error.message}</p>
-                <hr>
-                <div class="d-flex justify-content-between">
-                    <button class="btn btn-danger" onclick="window.location.reload()">
-                        <i class="bi bi-arrow-clockwise"></i> Reload Page
-                    </button>
-                    <button class="btn btn-warning" onclick="window.retryInitialization()">
-                        <i class="bi bi-lightning"></i> Retry
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        document.getElementById('error-container').innerHTML = errorHtml;
-    }
-
-    function showUserError(message) {
-        const errorHtml = `
-            <div class="alert alert-danger alert-dismissible fade show">
-                <strong>Error:</strong> ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        `;
-        
-        document.getElementById('error-container').innerHTML = errorHtml;
-    }
-
-    window.retryInitialization = async function() {
-        document.getElementById('error-container').innerHTML = '';
-        try {
-            await initializeVideoSystemWithRetry();
-        } catch (error) {
-            handleFatalError(error);
-        }
-    };
-
-    /* ===========================================
-       UTILITY FUNCTIONS
-       =========================================== */
-    function loadScript(src) {
-        return new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = src;
-            script.onload = resolve;
-            script.onerror = () => {
-                document.body.removeChild(script);
-                reject(new Error(`Failed to load script: ${src}`));
-            };
-            document.body.appendChild(script);
         });
-    }
 
-    function timeoutPromise(ms, message) {
-        return new Promise((_, reject) => 
-            setTimeout(() => reject(new Error(message)), ms)
-        );
-    }
-
-    function delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    function getCsrfToken() {
-        const metaTag = document.querySelector('meta[name="csrf-token"]');
-        return metaTag ? metaTag.content : '';
-    }
-
-    function cleanupVideoSession() {
-        if (appState.zegoInstance && typeof appState.zegoInstance.destroy === 'function') {
-            appState.zegoInstance.destroy();
-        }
-        appState.zegoInstance = null;
-        appState.currentRoomId = null;
-        
-        const container = document.getElementById('root');
-        if (container) container.innerHTML = '';
-    }
-
-    /* ===========================================
-   TIME HANDLING FUNCTIONS
-   =========================================== */
-
-function getSessionTime() {
-    const startTimeInput = document.getElementById('session-time').value;
-    const endTimeInput = document.getElementById('session-end-time').value;
-    
-    if (!startTimeInput || !endTimeInput) {
-        throw new Error('Please select both start and end times');
-    }
-    
-    // Create Date objects in local timezone
-    const localStartTime = new Date(startTimeInput);
-    const localEndTime = new Date(endTimeInput);
-    
-    if (isNaN(localStartTime.getTime()) || isNaN(localEndTime.getTime())) {
-        throw new Error('Invalid time values');
-    }
-    
-    // Convert to ISO strings with timezone offset
-    const startTimeISO = localStartTime.toISOString();
-    const endTimeISO = localEndTime.toISOString();
-    
-    return {
-        local_start_time: formatLocalTime(localStartTime),
-        local_end_time: formatLocalTime(localEndTime),
-        start_utc: startTimeISO,
-        end_utc: endTimeISO,
-        timezone: appState.userTimezone
-    };
-}
-
-function formatLocalTime(date) {
-    return date.toLocaleString('en-US', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-    }).replace(/(\d+)\/(\d+)\/(\d+), (\d+):(\d+)/, '$3-$1-$2 $4:$5:00');
-}
-
-    // Clean up on page unload
-    window.addEventListener('beforeunload', cleanupVideoSession);
+        // Clean up on page unload
+        window.addEventListener('beforeunload', cleanupVideoSession);
+    });
 </script>
 {% endblock %}

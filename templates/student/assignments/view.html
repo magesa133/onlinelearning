@@ -1,97 +1,202 @@
 {% extends "student_dashboard.html" %}
 
 {% block content %}
-<div class="assignment-detail">
-    <div class="assignment-header">
-        <h2>{{ assignment.title }}</h2>
-        <div class="assignment-meta">
-            <span class="course-name">{{ assignment.subject.name }} - {{ assignment.classroom.class_name }}</span>
-            <span class="due-date">
-                <i class="far fa-clock"></i> 
-                Due: {{ assignment.due_date|datetimeformat('%b %d, %Y at %I:%M %p') }}
-                ({{ assignment.due_date|humanize }})
-            </span>
-        </div>
-    </div>
-
-    <div class="assignment-content">
-        <div class="assignment-description">
-            <h3>Assignment Description</h3>
-            <div class="description-content">
-                {{ assignment.description|markdown }}
+<div class="container py-4">
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2 class="h5 mb-0">{{ assignment.title }}</h2>
+                <span class="badge bg-{{ status_class }}">
+                    <i class="{{ status_icon }} me-1"></i>{{ status_text }}
+                </span>
+            </div>
+            <div class="mt-2">
+                <span class="text-muted small">
+                    <i class="fas fa-book me-1"></i>{{ assignment.subject.name }} - {{ assignment.classroom.class_name }}
+                </span>
             </div>
         </div>
-
-        {% if assignment.questions %}
-        <div class="assignment-questions">
-            <h3>Questions</h3>
-            <div class="questions-content">
-                {{ assignment.questions|markdown }}
-            </div>
-        </div>
-        {% endif %}
-    </div>
-
-    <div class="submission-section">
-        <h3>Your Submission</h3>
         
-        {% if submission %}
-        <div class="submission-details">
-            <div class="submission-meta">
-                <span class="submitted-at">
-                    <i class="far fa-calendar-check"></i>
-                    Submitted on: {{ submission.submitted_at|datetimeformat('%b %d, %Y at %I:%M %p') }}
-                </span>
-                
-                {% if submission.score is not none %}
-                <span class="submission-grade">
-                    <i class="fas fa-check-circle"></i>
-                    Grade: {{ submission.score }}/{{ assignment.max_score }}
-                </span>
-                {% endif %}
+        <div class="card-body">
+            <div class="alert alert-{{ 'danger' if status_class == 'overdue' else 'warning' if status_class == 'due-soon' else 'info' }}">
+                <div class="d-flex justify-content-between align-items-center flex-wrap">
+                    <div class="mb-2 mb-md-0">
+                        <i class="far fa-clock me-2"></i>
+                        <strong>Due:</strong> 
+                        {{ local_due_date.strftime('%A, %B %d at %I:%M %p') }}
+                        <span class="ms-2 small">({{ user_timezone }})</span>
+                    </div>
+                    <div>
+                        {% if time_remaining.total_seconds() > 0 %}
+                            <span class="badge bg-{{ 'warning' if time_remaining.days < 1 else 'info' }}">
+                                Due in {{ time_remaining.days }}d {{ (time_remaining.seconds // 3600) }}h
+                            </span>
+                        {% else %}
+                            <span class="badge bg-danger">Past due</span>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
-            
-            {% if submission.content %}
-            <div class="submission-content">
-                <h4>Written Response:</h4>
-                <p>{{ submission.content }}</p>
+            <div class="mb-4">
+                <h4 class="h6 text-uppercase text-muted mb-3">Description</h4>
+                <div class="p-3 bg-light rounded">
+                    {{ assignment.description|markdown }}
+                </div>
             </div>
-            {% endif %}
-            
-            {% if submission.file_path %}
-            <div class="submission-file">
-                <h4>Attached File:</h4>
-                <a href="{{ url_for('download_submission', submission_id=submission.id) }}" 
-                   class="btn btn-outline-primary">
-                    <i class="fas fa-download"></i> Download File
-                </a>
-            </div>
-            {% endif %}
-            
-            {% if submission.feedback %}
-            <div class="feedback-section">
-                <h4>Teacher Feedback:</h4>
-                <div class="feedback-content">
-                    {{ submission.feedback }}
+
+            {% if assignment.questions %}
+            <div class="mb-4">
+                <h4 class="h6 text-uppercase text-muted mb-3">Questions</h4>
+                <div class="p-3 bg-light rounded">
+                    {{ assignment.questions|markdown }}
                 </div>
             </div>
             {% endif %}
-        </div>
-        {% else %}
-        <div class="no-submission">
-            <p>You haven't submitted this assignment yet.</p>
-            {% if assignment.due_date > now %}
-            <a href="{{ url_for('student_submit_assignment', assignment_id=assignment.id) }}" 
-               class="btn btn-primary">
-                Submit Assignment
-            </a>
-            {% else %}
-            <button class="btn btn-secondary" disabled>
-                Submission Closed
-            </button>
+
+            {% if assignment.question_file_path %}
+            <div class="mb-4">
+                <h4 class="h6 text-uppercase text-muted mb-3">Question File</h4>
+                <a href="{{ url_for('download_assignment_file', assignment_id=assignment.id) }}" 
+                   class="btn btn-outline-primary">
+                    <i class="fas fa-download me-2"></i>Download Question File
+                </a>
+            </div>
             {% endif %}
         </div>
-        {% endif %}
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h3 class="h5 mb-0">Your Submission</h3>
+            {% if time_remaining.total_seconds() > 0 %}
+                <a href="{{ url_for('student_submit_assignment', assignment_id=assignment.id) }}" 
+                   class="btn btn-sm btn-primary">
+                    <i class="fas fa-edit me-1"></i>
+                    {% if submission %}Edit{% else %}Create{% endif %} Submission
+                </a>
+            {% endif %}
+        </div>
+        
+        <div class="card-body">
+            {% if submission %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap mb-3">
+                        <div>
+                            <span class="text-muted">
+                                <i class="far fa-calendar-alt me-1"></i>
+                                Submitted: {{ localized_times.submitted_at.strftime('%b %d, %Y at %I:%M %p') }}
+                            </span>
+                            {% if localized_times.last_modified %}
+                            <span class="text-muted ms-3">
+                                <i class="fas fa-history me-1"></i>
+                                Modified: {{ localized_times.last_modified.strftime('%b %d, %Y at %I:%M %p') }}
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% if submission.score is not none %}
+                        <div class="mt-2 mt-md-0">
+                            <span class="badge bg-primary">
+                                Score: {{ submission.score }}/{{ assignment.max_score }}
+                                {% if submission.score >= assignment.max_score * 0.9 %}
+                                    <i class="fas fa-star ms-1"></i>
+                                {% elif submission.score >= assignment.max_score * 0.7 %}
+                                    <i class="fas fa-thumbs-up ms-1"></i>
+                                {% endif %}
+                            </span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if submission.content %}
+                    <div class="p-3 bg-light rounded mb-3">
+                        <h5 class="h6 text-uppercase text-muted mb-2">Written Response</h5>
+                        <div class="submission-content">
+                            {{ submission.content|markdown }}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if submission.file_path %}
+                    <div class="mb-3">
+                        <h5 class="h6 text-uppercase text-muted mb-2">Submitted Files</h5>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a href="{{ url_for('download_submission', submission_id=submission.id) }}" 
+                               class="btn btn-outline-primary">
+                                <i class="fas fa-download me-1"></i>Download Submission File
+                            </a>
+                            {% if submission.file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')) %}
+                            <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#previewModal">
+                                <i class="fas fa-eye me-1"></i>Preview
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if submission.feedback %}
+                    <div class="p-3 bg-light rounded">
+                        <h5 class="h6 text-uppercase text-muted mb-2">Teacher Feedback</h5>
+                        <div class="feedback-content">
+                            {{ submission.feedback|markdown }}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="text-center py-4">
+                    {% if time_remaining.total_seconds() > 0 %}
+                        <div class="mb-4">
+                            <i class="fas fa-tasks fa-3x text-primary mb-3"></i>
+                            <h4>Submit Your Assignment</h4>
+                            <p class="text-muted">You can submit either a written response or upload a file</p>
+                        </div>
+                        <a href="{{ url_for('student_submit_assignment', assignment_id=assignment.id) }}" 
+                           class="btn btn-primary px-4 py-2">
+                            <i class="fas fa-paper-plane me-2"></i>Submit Assignment
+                        </a>
+                        <div class="mt-3">
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-warning" 
+                                     style="width: {{ (1 - (time_remaining.total_seconds() / (assignment.due_date - assignment.created_at).total_seconds())) * 100 }}%">
+                                </div>
+                            </div>
+                            <small class="text-muted">
+                                Due in {{ time_remaining.days }} days, {{ (time_remaining.seconds // 3600) }} hours
+                            </small>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            The submission period for this assignment has ended
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
     </div>
 </div>
+
+{% if submission and submission.file_path and submission.file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')) %}
+<!-- Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">File Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img src="{{ url_for('download_submission', submission_id=submission.id) }}" 
+                     class="img-fluid" alt="Submission preview">
+            </div>
+            <div class="modal-footer">
+                <a href="{{ url_for('download_submission', submission_id=submission.id) }}" 
+                   class="btn btn-primary" download>
+                    <i class="fas fa-download me-1"></i>Download
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

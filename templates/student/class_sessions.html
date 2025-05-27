@@ -1,0 +1,310 @@
+{% extends 'student_dashboard.html' %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card mb-4">
+                <div class="card-header pb-0 d-flex justify-content-between align-items-center">
+                    <h6>Online Sessions for {{ classroom.class_name }}</h6>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="filterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-filter"></i> Filter
+                        </button>
+                        <ul class="dropdown-menu" aria-labelledby="filterDropdown">
+                            <li><a class="dropdown-item filter-option" href="#" data-filter="all">All Sessions</a></li>
+                            <li><a class="dropdown-item filter-option" href="#" data-filter="upcoming">Upcoming</a></li>
+                            <li><a class="dropdown-item filter-option" href="#" data-filter="live">Live Now</a></li>
+                            <li><a class="dropdown-item filter-option" href="#" data-filter="completed">Completed</a></li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card-body px-0 pt-0 pb-2">
+                    <div class="table-responsive p-0">
+                        <table class="table align-items-center mb-0" id="sessionsTable">
+                            <thead>
+                                <tr>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7">Session</th>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Date & Time</th>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Duration</th>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Status</th>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Teacher</th>
+                                    <th class="text-uppercase text-secondary text-xxs font-weight-bolder opacity-7 ps-2">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for session in sessions %}
+                                <tr class="session-row" data-status="{{ session.status }}">
+                                    <td>
+                                        <div class="d-flex px-2 py-1">
+                                            <div class="d-flex flex-column justify-content-center">
+                                                <h6 class="mb-0 text-sm">{{ session.session_name }}</h6>
+                                                <p class="text-xs text-secondary mb-0">{{ session.description|default('No description', true) }}</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <p class="text-xs font-weight-bold mb-0">
+                                            {{ session.start_time.strftime('%b %d, %Y') }}
+                                        </p>
+                                        <p class="text-xs text-secondary mb-0">
+                                            {{ session.start_time.strftime('%I:%M %p') }} - {{ session.end_time.strftime('%I:%M %p') }}
+                                        </p>
+                                    </td>
+                                    <td>
+                                        <p class="text-xs font-weight-bold mb-0">
+                                            {{ ((session.end_time - session.start_time).total_seconds() / 3600)|round(1) }} hours
+                                        </p>
+                                    </td>
+                                    <td>
+                                        <span class="badge badge-sm 
+                                            {% if session.status == 'live' %}bg-gradient-success
+                                            {% elif session.status == 'upcoming' %}bg-gradient-warning
+                                            {% else %}bg-gradient-secondary{% endif %}">
+                                            {{ session.status|title }}
+                                            {% if session.status == 'upcoming' and session.time_until %}
+                                            (in {{ session.time_until.days }}d {{ (session.time_until.seconds//3600) }}h)
+                                            {% elif session.status == 'live' and session.time_remaining %}
+                                            ({{ session.time_remaining.days }}d {{ (session.time_remaining.seconds//3600) }}h left)
+                                            {% endif %}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <img src="{{ session.teacher.profile_image_url|default(url_for('static', filename='img/default-profile.png'), true) }}" class="avatar avatar-sm me-2" alt="teacher">
+                                            <span class="text-xs">{{ session.teacher.full_name }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="align-middle">
+                                        {% if session.status == 'live' %}
+                                        <a href="{{ url_for('join_session', room_id=session.room_id) }}" class="btn btn-sm btn-success mb-0 me-1">
+                                            <i class="fas fa-video me-1"></i> Join
+                                        </a>
+                                        {% elif session.status == 'upcoming' %}
+                                        <button class="btn btn-sm btn-outline-primary mb-0 me-1" disabled>
+                                            <i class="fas fa-clock me-1"></i> Starts Soon
+                                        </button>
+                                        {% else %}
+                                        {% if session.recording_url %}
+                                        <a href="{{ session.recording_url }}" class="btn btn-sm btn-info mb-0 me-1" target="_blank">
+                                            <i class="fas fa-play-circle me-1"></i> Recording
+                                        </a>
+                                        {% else %}
+                                        <button class="btn btn-sm btn-outline-secondary mb-0 me-1" disabled>
+                                            <i class="fas fa-ban me-1"></i> No Recording
+                                        </button>
+                                        {% endif %}
+                                        {% endif %}
+                                        <button class="btn btn-sm btn-outline-dark mb-0" data-bs-toggle="modal" data-bs-target="#sessionDetailsModal" 
+                                            data-session-name="{{ session.session_name }}"
+                                            data-session-description="{{ session.description }}"
+                                            data-session-time="{{ session.start_time.strftime('%b %d, %Y %I:%M %p') }} - {{ session.end_time.strftime('%I:%M %p') }}"
+                                            data-session-status="{{ session.status|title }}"
+                                            data-session-teacher="{{ session.teacher.full_name }}"
+                                            data-session-link="{% if session.status == 'live' %}{{ url_for('join_session', room_id=session.room_id) }}{% else %}{{ session.recording_url|default('#', true) }}{% endif %}">
+                                            <i class="fas fa-info-circle me-1"></i> Details
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-4">
+                                        <div class="alert alert-info text-white">
+                                            <i class="fas fa-info-circle me-2"></i> No sessions found for this class.
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer d-flex justify-content-between align-items-center">
+                    <small class="text-muted">Showing {{ sessions|length }} session(s)</small>
+                    <div>
+                        <button class="btn btn-sm btn-outline-primary me-2" id="exportBtn">
+                            <i class="fas fa-download me-1"></i> Export
+                        </button>
+                        <button class="btn btn-sm btn-outline-secondary" id="printBtn">
+                            <i class="fas fa-print me-1"></i> Print
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Session Details Modal -->
+<div class="modal fade" id="sessionDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sessionDetailsModalLabel">Session Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h6 class="text-sm">Session Name</h6>
+                        <p class="text-sm" id="detail-name">-</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-sm">Status</h6>
+                        <p class="text-sm" id="detail-status">-</p>
+                    </div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <h6 class="text-sm">Date & Time</h6>
+                        <p class="text-sm" id="detail-time">-</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-sm">Teacher</h6>
+                        <p class="text-sm" id="detail-teacher">-</p>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <h6 class="text-sm">Description</h6>
+                    <p class="text-sm" id="detail-description">No description available</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="#" class="btn btn-primary" id="detail-action-btn">
+                    <i class="fas fa-video me-1"></i> Join Session
+                </a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .session-row:hover {
+        background-color: rgba(0, 0, 0, 0.02);
+        cursor: pointer;
+    }
+    
+    .avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+    
+    .badge-sm {
+        padding: 0.35em 0.65em;
+        font-size: 0.75em;
+    }
+    
+    .bg-gradient-success {
+        background: linear-gradient(195deg, #66BB6A 0%, #43A047 100%);
+    }
+    
+    .bg-gradient-warning {
+        background: linear-gradient(195deg, #FFA726 0%, #FB8C00 100%);
+    }
+    
+    .bg-gradient-secondary {
+        background: linear-gradient(195deg, #B0BEC5 0%, #78909C 100%);
+    }
+    
+    /* Pulse animation for live sessions */
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); }
+    }
+    
+    .live-pulse {
+        animation: pulse 2s infinite;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Filter functionality
+        const filterOptions = document.querySelectorAll('.filter-option');
+        filterOptions.forEach(option => {
+            option.addEventListener('click', function(e) {
+                e.preventDefault();
+                const filter = this.getAttribute('data-filter');
+                const rows = document.querySelectorAll('.session-row');
+                
+                rows.forEach(row => {
+                    if (filter === 'all' || row.getAttribute('data-status') === filter) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                
+                // Update active filter in dropdown
+                filterOptions.forEach(opt => opt.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+        
+        // Session details modal
+        const sessionDetailsModal = document.getElementById('sessionDetailsModal');
+        if (sessionDetailsModal) {
+            sessionDetailsModal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const modal = this;
+                
+                // Extract data from button attributes
+                modal.querySelector('#detail-name').textContent = button.getAttribute('data-session-name');
+                modal.querySelector('#detail-description').textContent = button.getAttribute('data-session-description') || 'No description available';
+                modal.querySelector('#detail-time').textContent = button.getAttribute('data-session-time');
+                modal.querySelector('#detail-status').textContent = button.getAttribute('data-session-status');
+                modal.querySelector('#detail-teacher').textContent = button.getAttribute('data-session-teacher');
+                
+                // Update action button based on status
+                const actionBtn = modal.querySelector('#detail-action-btn');
+                const status = button.getAttribute('data-session-status').toLowerCase();
+                const link = button.getAttribute('data-session-link');
+                
+                if (status === 'live') {
+                    actionBtn.innerHTML = '<i class="fas fa-video me-1"></i> Join Session';
+                    actionBtn.classList.remove('btn-secondary');
+                    actionBtn.classList.add('btn-primary');
+                    actionBtn.href = link;
+                } else if (status === 'completed' && link !== '#') {
+                    actionBtn.innerHTML = '<i class="fas fa-play-circle me-1"></i> View Recording';
+                    actionBtn.classList.remove('btn-primary');
+                    actionBtn.classList.add('btn-info');
+                    actionBtn.href = link;
+                    actionBtn.target = '_blank';
+                } else {
+                    actionBtn.innerHTML = '<i class="fas fa-ban me-1"></i> No Action Available';
+                    actionBtn.classList.remove('btn-primary', 'btn-info');
+                    actionBtn.classList.add('btn-secondary');
+                    actionBtn.href = '#';
+                    actionBtn.onclick = function(e) { e.preventDefault(); };
+                }
+            });
+        }
+        
+        // Export functionality
+        document.getElementById('exportBtn').addEventListener('click', function() {
+            // In a real implementation, this would export to CSV or Excel
+            alert('Export functionality would be implemented here');
+        });
+        
+        // Print functionality
+        document.getElementById('printBtn').addEventListener('click', function() {
+            window.print();
+        });
+        
+        // Highlight live sessions
+        setInterval(() => {
+            document.querySelectorAll('.session-row[data-status="live"]').forEach(row => {
+                const badge = row.querySelector('.badge');
+                if (!badge.classList.contains('live-pulse')) {
+                    badge.classList.add('live-pulse');
+                }
+            });
+        }, 1000);
+    });
+</script>
+{% endblock %}

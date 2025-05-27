@@ -14,6 +14,65 @@ QjTWBh-nR0y8H-D7UuEkPw
 
 
 
+@app.route('/video_conference')
+@login_required
+def video_conference():
+    try:
+        classes = Classroom.query.all()
+        sessions = OnlineSession.query.filter_by(creator_id=current_user.id).order_by(OnlineSession.start_time.desc()).all()
+
+        now_utc = datetime.now(timezone.utc)
+        
+        for session in sessions:
+            # Ensure timezone awareness
+            session._ensure_timezone_awareness()
+            
+            # Update status using the new get_status method
+            session.status = session.get_status(now_utc)
+            
+            # Calculate local times
+            tz = ZoneInfo(session.original_timezone or current_user.timezone or 'Africa/Dar_es_Salaam')
+            session.start_local = session.start_time.astimezone(tz)
+            session.end_local = session.end_time.astimezone(tz) if session.end_time else None
+
+        return render_template(
+            'video_conference.html',
+            classes=classes,
+            sessions=sessions,
+            now_utc=now_utc,
+            server_time=now_utc.strftime('%b %d, %Y %H:%M:%S UTC'),
+            dar_time_str=now_utc.astimezone(ZoneInfo("Africa/Dar_es_Salaam")).strftime('%b %d, %Y %H:%M:%S EAT'),
+            csrf_token=flask_session.get('_csrf_token'),
+            user_timezone=current_user.timezone or 'Africa/Dar_es_Salaam'
+        )
+
+    except Exception as e:
+        current_app.logger.error(f"Video conference error: {e}")
+        return render_template('error.html', message="Failed to load sessions"), 500
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

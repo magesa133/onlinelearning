@@ -1,315 +1,775 @@
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduConnect | Professional Registration</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        :root {
+            --primary: #4f46e5;
+            --primary-light: #6366f1;
+            --secondary: #10b981;
+            --accent: #f59e0b;
+            --dark: #1e293b;
+            --light: #f8fafc;
+        }
+        
         body {
-            background: linear-gradient(135deg, #4ade80, #6366f1, #fb923c);
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #e0e7ff, #d1fae5, #fef3c7);
             background-size: 400% 400%;
-            animation: gradientBG 12s ease infinite;
+            animation: gradientBG 15s ease infinite;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
         }
-
-        p{
+        
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        .auth-container {
+            width: 100%;
+            max-width: 480px;
+            background-color: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-radius: 20px;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            animation: slideUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            transform-style: preserve-3d;
+            perspective: 1000px;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(20px) rotateX(10deg); opacity: 0; }
+            to { transform: translateY(0) rotateX(0); opacity: 1; }
+        }
+        
+        .auth-header {
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+            padding: 2.5rem 2rem;
             text-align: center;
-            font-size: 14px;
+            position: relative;
+            overflow: hidden;
         }
-
-        p a{
-            color:#007bff;
-            text-decoration: none;
+        
+        .auth-header::before {
+            content: "";
+            position: absolute;
+            top: -50px;
+            right: -50px;
+            width: 180px;
+            height: 180px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+        }
+        
+        .auth-header::after {
+            content: "";
+            position: absolute;
+            bottom: -40px;
+            left: -40px;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .logo-icon {
+            background: white;
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 14px;
+            color: var(--primary);
+            font-size: 1.5rem;
+            box-shadow: 0 8px 16px rgba(79, 70, 229, 0.2);
+            transform: rotate(45deg);
+            transition: all 0.4s ease;
+        }
+        
+        .logo-icon i {
+            transform: rotate(-45deg);
+        }
+        
+        .logo-text {
+            font-size: 1.75rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        
+        .auth-body {
+            padding: 2.5rem;
+        }
+        
+        .progress-container {
+            height: 6px;
+            background: #f1f5f9;
+            position: relative;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            width: 20%;
+            transition: width 0.4s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .progress-bar::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, 
+                transparent, 
+                rgba(255,255,255,0.4), 
+                transparent);
+            animation: progressShine 2s infinite;
+        }
+        
+        @keyframes progressShine {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        
+        .form-step {
+            display: none;
+            animation: fadeIn 0.4s ease-out;
         }
         
         @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-
-        .container {
-            width: 72%;
-            height: 70%;
+        
+        .form-step.active {
+            display: block;
+        }
+        
+        .input-group {
+            position: relative;
+            margin-bottom: 1.75rem;
+        }
+        
+        .input-label {
+            display: block;
+            margin-bottom: 0.75rem;
+            font-size: 0.9375rem;
+            font-weight: 500;
+            color: var(--dark);
+            transition: all 0.3s ease;
+        }
+        
+        .input-field {
+            position: relative;
+        }
+        
+        .input-icon {
             position: absolute;
-            left: 50%;
+            left: 1.25rem;
             top: 50%;
-            transform: translate(-50%, -50%);
-            border-radius: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-repeat: no-repeat;
-            background-size: cover;
+            transform: translateY(-50%);
+            color: var(--primary);
+            transition: all 0.3s ease;
         }
-
-        .register-container {
-            width: 400px;
-            background-color: #FFFFFF;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-            border-radius: 15px;
-            padding: 20px;
-            animation: slideUp 1s ease-in-out;
-        }
-
-        @keyframes slideUp {
-            from { transform: translateY(100%); }
-            to { transform: translateY(0); }
-        }
-
-        h2 {
-            font-size: 24px;
-            color: #333;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        .form-label {
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .form-control {
-            border-radius: 10px;
-            height: 40px;
-            font-size: 14px;
-        }
-
-        .btn {
-            border-radius: 10px;
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .navigation-buttons {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 15px;
-        }
-
-        .video-preview {
-            text-align: center;
-        }
-
-        .video-preview video {
+        
+        .form-input {
             width: 100%;
-            max-width: 250px;
-            border: 2px solid #3B02ED;
-            border-radius: 10px;
-            margin-top: 10px;
+            padding: 1rem 1.25rem 1rem 3.5rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 0.9375rem;
+            transition: all 0.3s ease;
+            background-color: #f8fafc;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
         }
-
-        .text {
-            width: 350px;
-            height: 50px;
-            box-shadow: 2px 6px 18px rgba(66, 57, 238, .3);
-            border-radius: 30px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 10px;
+        
+        .form-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+            background-color: white;
         }
-
-        .text input {
-            height: 40px;
-            width: 80%;
-            outline: none;
-            border: none;
-            font-size: 14px;
-            margin: 5px;
+        
+        .form-input:focus + .input-icon {
+            color: var(--primary-light);
+            transform: translateY(-50%) scale(1.1);
         }
-
-        .text img {
-            margin-left: 20px;
+        
+        .input-hint {
+            display: block;
+            margin-top: 0.5rem;
+            font-size: 0.8125rem;
+            color: #64748b;
         }
-
-        .conditions {
-            font-family: myriad pro;
-            color: #BBC1CB;
-            font-size: 14px;
+        
+        .password-strength {
+            margin-top: 1rem;
         }
-
-        .conditions a {
-            color: #7D22E3;
+        
+        .strength-meter {
+            height: 6px;
+            border-radius: 3px;
+            background: #e2e8f0;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+        
+        .strength-bar {
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease, background 0.3s ease;
+        }
+        
+        .strength-text {
+            font-size: 0.8125rem;
             font-weight: 500;
         }
-
+        
+        .auth-btn {
+            width: 100%;
+            padding: 1rem;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.9375rem;
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(79, 70, 229, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .auth-btn::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.4s ease;
+        }
+        
+        .auth-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(79, 70, 229, 0.25);
+        }
+        
+        .auth-btn:hover::after {
+            transform: translateX(0);
+        }
+        
+        .auth-btn:active {
+            transform: translateY(0);
+        }
+        
+        .secondary-btn {
+            background: #f1f5f9;
+            color: #334155;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        .secondary-btn:hover {
+            background: #e2e8f0;
+        }
+        
+        .step-navigation {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 2rem;
+            gap: 1rem;
+        }
+        
+        .video-container {
+            width: 100%;
+            height: 200px;
+            background: #f1f5f9;
+            border-radius: 12px;
+            overflow: hidden;
+            margin: 1.5rem 0;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .captured-image {
+            width: 100%;
+            max-width: 200px;
+            border-radius: 12px;
+            border: 2px solid var(--primary);
+            margin: 1rem auto;
+            display: block;
+        }
+        
         .terms {
             display: flex;
             align-items: center;
+            margin: 1.5rem 0;
         }
-
-        button {
-            width: 200px;
-            height: 40px;
-            outline: none;
-            border: none;
-            border-radius: 20px;
-            background: linear-gradient(-30deg, #3B02ED, #8E2AE0 55%);
-            box-shadow: 2px 6px 16px rgba(66, 57, 238, .3);
-            color: #FFFFFF;
-            font-weight: 600;
-            letter-spacing: 1px;
-            font-size: 13px;
-            cursor: pointer;
-            transition: all .3s ease;
+        
+        .terms input {
+            margin-right: 0.75rem;
         }
-
-        button:active {
-            transform: scale(1.1);
+        
+        .terms label {
+            font-size: 0.875rem;
+            color: #64748b;
         }
-
-        @media screen and (max-width: 1080px) {
-            .container {
-                height: 90%;
-            }
+        
+        .terms a {
+            color: var(--primary);
+            font-weight: 500;
+            text-decoration: none;
         }
-
-        @media screen and (max-width: 600px) {
-            .container {
-                width: 85%;
-            }
+        
+        .terms a:hover {
+            text-decoration: underline;
         }
-
-        @media screen and (max-width: 500px) {
-            .text {
-                width: 300px;
-            }
+        
+        .auth-footer {
+            text-align: center;
+            margin-top: 1.5rem;
+            font-size: 0.875rem;
+            color: #64748b;
         }
-
-        @media screen and (max-width: 420px) {
-            .container {
-                width: 95%;
-            }
-            .heading {
-                text-align: center;
-            }
-            .conditions {
-                text-align: center;
-            }
-            input[type="checkbox"] {
-                margin-right: 5px;
-            }
-            .text {
-                width: 280px;
-            }
+        
+        .auth-link {
+            color: var(--primary);
+            font-weight: 500;
+            text-decoration: none;
+            position: relative;
+        }
+        
+        .auth-link::after {
+            content: "";
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 1px;
+            background: var(--primary);
+            transition: width 0.3s ease;
+        }
+        
+        .auth-link:hover::after {
+            width: 100%;
+        }
+        
+        .form-check {
+            display: flex;
+            align-items: center;
+            margin-top: 1rem;
+        }
+        
+        .form-check-input {
+            margin-right: 0.75rem;
+        }
+        
+        .form-check-label {
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+        
+        /* Floating animation for the container */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .auth-container:hover {
+            animation: float 3s ease-in-out infinite;
         }
     </style>
 </head>
-
-    <div class="container">
-        <div class="register-container">
-            <h2>Register</h2>
+<body>
+    <div class="auth-container">
+        <div class="auth-header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fas fa-graduation-cap"></i>
+                </div>
+                <div class="logo-text">EduConnect</div>
+            </div>
+            <h2 class="text-xl font-semibold">Create Your Account</h2>
+            <p class="opacity-90">Join our learning community in just a few steps</p>
+        </div>
+        
+        <div class="progress-container">
+            <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        
+        <div class="auth-body">
             <form id="register-form" method="POST" action="{{ url_for('register') }}">
+                <!-- Step 1: Username -->
+                <div class="form-step active" id="step-1">
+                    <div class="input-group">
+                        <label for="username" class="input-label">Choose a Username</label>
+                        <div class="input-field">
+                            <i class="fas fa-user input-icon"></i>
+                            <input type="text" class="form-input" id="username" name="username" placeholder="e.g. johndoe123" required>
+                        </div>
+                        <span class="input-hint">This will be your unique identifier on the platform</span>
+                    </div>
+                </div>
                 
-
-                <div class="mb-3 input-step" id="step-1">
-                    <label for="username" class="form-label">What is your username?</label>
-                    <div class="text">
-                        <img src="https://i.postimg.cc/1zgS8WTF/user.png" alt="icon" height="20">
-                        <input type="text" class="form-control" id="username" name="username" placeholder="Enter your username" required>
+                <!-- Step 2: Email -->
+                <div class="form-step" id="step-2">
+                    <div class="input-group">
+                        <label for="email" class="input-label">Email Address</label>
+                        <div class="input-field">
+                            <i class="fas fa-envelope input-icon"></i>
+                            <input type="email" class="form-input" id="email" name="email" placeholder="your@email.com" required>
+                        </div>
+                        <span class="input-hint">We'll never share your email with anyone</span>
                     </div>
                 </div>
-                <div class="mb-3 input-step" id="step-2" style="display: none;">
-                    <label for="email" class="form-label">What is your email address?</label>
-                    <div class="text">
-                        <img src="https://i.postimg.cc/DZBPRgvC/email.png" alt="icon" height="12">
-                        <input type="email" class="form-control" id="email" name="email" placeholder="Enter your Email" required>
+                
+                <!-- Step 3: Password -->
+                <div class="form-step" id="step-3">
+                    <div class="input-group">
+                        <label for="password" class="input-label">Create Password</label>
+                        <div class="input-field">
+                            <i class="fas fa-lock input-icon"></i>
+                            <input type="password" class="form-input" id="password" name="password" placeholder="At least 8 characters" required>
+                        </div>
+                        <div class="password-strength">
+                            <div class="strength-meter">
+                                <div class="strength-bar" id="strength-bar"></div>
+                            </div>
+                            <span class="strength-text" id="strength-text">Password strength</span>
+                        </div>
                     </div>
                 </div>
-                <div class="mb-3 input-step" id="step-3" style="display: none;">
-                    <label for="password" class="form-label">What is your password?</label>
-                    <div class="text">
-                        <img src="https://i.postimg.cc/Nj5SDK4q/password.png" alt="icon" height="20">
-                        <input type="password" class="form-control" id="password" name="password" placeholder="Enter ypur password" required>
+                
+                <!-- Step 4: Confirm Password -->
+                <div class="form-step" id="step-4">
+                    <div class="input-group">
+                        <label for="confirm_password" class="input-label">Confirm Password</label>
+                        <div class="input-field">
+                            <i class="fas fa-lock input-icon"></i>
+                            <input type="password" class="form-input" id="confirm_password" name="confirm_password" placeholder="Re-enter your password" required>
+                        </div>
+                        <div id="password-match" class="mt-2 text-sm text-success" style="display: none;">
+                            <i class="fas fa-check-circle mr-1"></i> Passwords match
+                        </div>
+                        <div id="password-mismatch" class="mt-2 text-sm text-danger" style="display: none;">
+                            <i class="fas fa-times-circle mr-1"></i> Passwords don't match
+                        </div>
                     </div>
                 </div>
-                <div class="mb-3 input-step" id="step-4" style="display: none;">
-                    <label for="confirm_password" class="form-label">Please confirm your password.</label>
-                    <div class="text">
-                        <img src="https://i.postimg.cc/Nj5SDK4q/password.png" alt="icon" height="20">
-                        <input type="password" class="form-control" id="confirm_password" placeholder="Confirm your password" name="confirm_password" required>
+                
+                <!-- Step 5: Face Capture -->
+                <div class="form-step" id="step-5">
+                    <p class="text-center text-gray-600 mb-4">For enhanced security, we can register your face</p>
+                    
+                    <div class="video-container">
+                        <video id="video" autoplay playsinline></video>
+                        <div id="video-placeholder" class="text-center p-4">
+                            <i class="fas fa-camera text-4xl text-gray-400 mb-2"></i>
+                            <p class="text-gray-500">Camera feed will appear here</p>
+                        </div>
+                    </div>
+                    
+                    <button type="button" id="capture-btn" class="auth-btn">
+                        <i class="fas fa-camera mr-2"></i>Capture Your Face
+                    </button>
+                    
+                    <div id="captured-image" class="text-center" style="display: none;">
+                        <img id="image" class="captured-image" src="" alt="Captured Face">
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="skip-capture">
+                        <label class="form-check-label" for="skip-capture">
+                            Skip face capture (less secure)
+                        </label>
                     </div>
                 </div>
-                <div class="video-preview mb-3 input-step" id="step-5" style="display: none;">
-                    <label class="form-label">Would you like to capture your face?</label>
-                    <video id="video" autoplay></video>
-                    <button type="button" id="capture-btn" class="btn btn-primary mt-3">Capture Your Face</button>
-                    <canvas id="canvas" style="display: none;"></canvas>
-                    <div id="captured-image" style="display: none;">
-                        <h4>Captured Image:</h4>
-                        <img id="image" src="" alt="Captured Face" style="width: 250px; border: 2px solid #3B02ED; border-radius: 10px;">
-                    </div>
-                </div>
+                
                 <input type="hidden" id="image_data" name="image_data">
-                <div class="navigation-buttons">
-                    <button type="button" class="btn btn-secondary" id="prev-btn" style="display: none;">Previous</button>
-                    <button type="button" class="btn btn-primary" id="next-btn">Next</button>
+                
+                <div class="step-navigation">
+                    <button type="button" class="auth-btn secondary-btn" id="prev-btn" style="display: none;">
+                        <i class="fas fa-arrow-left mr-2"></i>Back
+                    </button>
+                    <button type="button" class="auth-btn" id="next-btn">
+                        Continue <i class="fas fa-arrow-right ml-2"></i>
+                    </button>
                 </div>
-                <button type="submit" class="btn btn-primary mt-3" id="submit-btn" style="display: none;">Register</button>
-                <p> <a href="{{ url_for('login')}}">I have an account</a></p>
+                
+                <button type="submit" class="auth-btn mt-4" id="submit-btn" style="display: none;">
+                    <i class="fas fa-user-plus mr-2"></i>Complete Registration
+                </button>
+                
+                <div class="terms">
+                    <input type="checkbox" id="terms" required checked>
+                    <label for="terms">I agree to the <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a></label>
+                </div>
+                
+                <div class="auth-footer">
+                    Already have an account? <a href="{{ url_for('login') }}" class="auth-link">Sign in</a>
+                </div>
             </form>
         </div>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const steps = document.querySelectorAll('.input-step');
-            const nextButton = document.getElementById('next-btn');
-            const prevButton = document.getElementById('prev-btn');
-            const submitButton = document.getElementById('submit-btn');
+        document.addEventListener('DOMContentLoaded', function() {
+            const steps = document.querySelectorAll('.form-step');
+            const nextBtn = document.getElementById('next-btn');
+            const prevBtn = document.getElementById('prev-btn');
+            const submitBtn = document.getElementById('submit-btn');
+            const progressBar = document.getElementById('progress-bar');
             let currentStep = 0;
-
+            const totalSteps = steps.length;
+            
+            // Password strength indicators
+            const passwordInput = document.getElementById('password');
+            const confirmPasswordInput = document.getElementById('confirm_password');
+            const strengthBar = document.getElementById('strength-bar');
+            const strengthText = document.getElementById('strength-text');
+            const passwordMatch = document.getElementById('password-match');
+            const passwordMismatch = document.getElementById('password-mismatch');
+            
+            // Camera elements
+            const video = document.getElementById('video');
+            const videoPlaceholder = document.getElementById('video-placeholder');
+            const captureBtn = document.getElementById('capture-btn');
+            const imageInput = document.getElementById('image_data');
+            const capturedImage = document.getElementById('captured-image');
+            const imageElement = document.getElementById('image');
+            const skipCaptureCheckbox = document.getElementById('skip-capture');
+            let stream = null;
+            
+            // Update step visibility and progress
             function updateStepVisibility() {
                 steps.forEach((step, index) => {
-                    step.style.display = index === currentStep ? 'block' : 'none';
+                    step.classList.toggle('active', index === currentStep);
                 });
-                prevButton.style.display = currentStep > 0 ? 'block' : 'none';
-                nextButton.style.display = currentStep < steps.length - 1 ? 'block' : 'none';
-                submitButton.style.display = currentStep === steps.length - 1 ? 'block' : 'none';
+                
+                prevBtn.style.display = currentStep > 0 ? 'flex' : 'none';
+                nextBtn.style.display = currentStep < steps.length - 1 ? 'flex' : 'none';
+                submitBtn.style.display = currentStep === steps.length - 1 ? 'flex' : 'none';
+                
+                // Update progress bar
+                const progress = ((currentStep + 1) / totalSteps) * 100;
+                progressBar.style.width = `${progress}%`;
+                
+                // Special handling for face capture step
+                if (currentStep === 4) {
+                    startCamera();
+                } else if (stream) {
+                    stopCamera();
+                }
             }
-
-            nextButton.addEventListener('click', function () {
-                if (currentStep < steps.length - 1) {
+            
+            // Password strength checker
+            passwordInput.addEventListener('input', function() {
+                const password = this.value;
+                let strength = 0;
+                
+                // Length check
+                if (password.length >= 8) strength += 1;
+                if (password.length >= 12) strength += 1;
+                
+                // Character diversity
+                if (/[A-Z]/.test(password)) strength += 1;
+                if (/[0-9]/.test(password)) strength += 1;
+                if (/[^A-Za-z0-9]/.test(password)) strength += 1;
+                
+                // Update UI
+                let strengthClass, strengthLabel;
+                if (strength <= 2) {
+                    strengthClass = 'bg-red-500';
+                    strengthLabel = 'Weak';
+                } else if (strength <= 4) {
+                    strengthClass = 'bg-yellow-500';
+                    strengthLabel = 'Medium';
+                } else {
+                    strengthClass = 'bg-green-500';
+                    strengthLabel = 'Strong';
+                }
+                
+                const width = (strength / 5) * 100;
+                strengthBar.className = `strength-bar ${strengthClass}`;
+                strengthBar.style.width = `${width}%`;
+                strengthText.textContent = `Password strength: ${strengthLabel}`;
+                strengthText.className = `strength-text ${strength <= 2 ? 'text-red-500' : strength <= 4 ? 'text-yellow-500' : 'text-green-500'}`;
+            });
+            
+            // Password confirmation check
+            confirmPasswordInput.addEventListener('input', function() {
+                if (passwordInput.value && this.value) {
+                    if (passwordInput.value === this.value) {
+                        passwordMatch.style.display = 'block';
+                        passwordMismatch.style.display = 'none';
+                    } else {
+                        passwordMatch.style.display = 'none';
+                        passwordMismatch.style.display = 'block';
+                    }
+                } else {
+                    passwordMatch.style.display = 'none';
+                    passwordMismatch.style.display = 'none';
+                }
+            });
+            
+            // Navigation buttons
+            nextBtn.addEventListener('click', function() {
+                if (validateStep(currentStep)) {
                     currentStep++;
                     updateStepVisibility();
                 }
             });
-
-            prevButton.addEventListener('click', function () {
-                if (currentStep > 0) {
-                    currentStep--;
-                    updateStepVisibility();
+            
+            prevBtn.addEventListener('click', function() {
+                currentStep--;
+                updateStepVisibility();
+            });
+            
+            // Form validation for each step
+            function validateStep(stepIndex) {
+                const step = steps[stepIndex];
+                const input = step.querySelector('input[required]');
+                
+                if (input && !input.value) {
+                    input.focus();
+                    input.classList.add('border-red-500');
+                    setTimeout(() => input.classList.remove('border-red-500'), 2000);
+                    return false;
+                }
+                
+                // Special validation for password confirmation
+                if (stepIndex === 3 && passwordInput.value !== confirmPasswordInput.value) {
+                    confirmPasswordInput.focus();
+                    confirmPasswordInput.classList.add('border-red-500');
+                    setTimeout(() => confirmPasswordInput.classList.remove('border-red-500'), 2000);
+                    return false;
+                }
+                
+                return true;
+            }
+            
+            // Camera functionality
+            function startCamera() {
+                navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+                    .then(function(mediaStream) {
+                        stream = mediaStream;
+                        video.srcObject = stream;
+                        video.style.display = 'block';
+                        videoPlaceholder.style.display = 'none';
+                        captureBtn.style.display = 'flex';
+                    })
+                    .catch(function(err) {
+                        console.error("Camera error: ", err);
+                        videoPlaceholder.innerHTML = '<i class="fas fa-video-slash text-4xl text-gray-400 mb-2"></i><p class="text-gray-500">Camera not available</p>';
+                        skipCaptureCheckbox.checked = true;
+                    });
+            }
+            
+            function stopCamera() {
+                if (stream) {
+                    stream.getTracks().forEach(track => track.stop());
+                    stream = null;
+                }
+                video.srcObject = null;
+                video.style.display = 'none';
+                videoPlaceholder.style.display = 'flex';
+                captureBtn.style.display = 'none';
+            }
+            
+            captureBtn.addEventListener('click', function() {
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // Convert to JPEG with quality 0.8 (80%)
+                const dataURL = canvas.toDataURL('image/jpeg', 0.8);
+                imageInput.value = dataURL;
+                imageElement.src = dataURL;
+                capturedImage.style.display = 'block';
+                
+                stopCamera();
+                captureBtn.textContent = 'Retake Photo';
+            });
+            
+            // Skip face capture
+            skipCaptureCheckbox.addEventListener('change', function() {
+                if (this.checked && stream) {
+                    stopCamera();
+                } else if (!this.checked && currentStep === 4) {
+                    startCamera();
                 }
             });
-
-            // Initialize video stream
-            const video = document.getElementById('video');
-            const captureButton = document.getElementById('capture-btn');
-            const imageInput = document.getElementById('image_data');
-            const canvas = document.getElementById('canvas');
-            const capturedImage = document.getElementById('captured-image');
-            const imageElement = document.getElementById('image');
-
-            navigator.mediaDevices.getUserMedia({ video: true })
-                .then(stream => {
-                    video.srcObject = stream;
-
-           captureButton.onclick = () => {
-    const context = canvas.getContext('2d');
-    const scaleFactor = 0.5; // Adjust scale factor as needed
-    canvas.width = video.videoWidth * scaleFactor;
-    canvas.height = video.videoHeight * scaleFactor;
-    context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    const dataURL = canvas.toDataURL('image/jpeg', 0.7); // Compress to JPEG
-    imageInput.value = dataURL;
-    imageElement.src = dataURL;
-    capturedImage.style.display = 'block';
-
-    // Stop the camera after capture
-    stream.getTracks().forEach(track => track.stop());
-};
-
-                })
-                .catch(() => {
-                    alert('Unable to access the camera.');
-                });
-
+            
+            // Form submission
+            document.getElementById('register-form').addEventListener('submit', function(e) {
+                if (!skipCaptureCheckbox.checked && !imageInput.value) {
+                    e.preventDefault();
+                    alert('Please capture your face or check the skip option');
+                    return false;
+                }
+                
+                // Add loading state
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Creating Account...';
+                submitBtn.disabled = true;
+                
+                // In a real app, you would handle the form submission here
+                // return true; to allow submission
+            });
+            
+            // Initialize
             updateStepVisibility();
+            
+            // Add hover effect to logo icon
+            const logoIcon = document.querySelector('.logo-icon');
+            logoIcon.addEventListener('mouseenter', function() {
+                this.style.transform = 'rotate(0deg)';
+                this.querySelector('i').style.transform = 'rotate(0deg)';
+            });
+            
+            logoIcon.addEventListener('mouseleave', function() {
+                this.style.transform = 'rotate(45deg)';
+                this.querySelector('i').style.transform = 'rotate(-45deg)';
+            });
         });
     </script>
-
+</body>
+</html>

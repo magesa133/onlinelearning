@@ -1,0 +1,248 @@
+{% extends "teacher_dashboard.html" %}
+
+{% block content %}
+<div class="message-compose-container">
+    <div class="card message-card">
+        <div class="card-header">
+            <h2><i class="fas fa-envelope"></i> Compose Message</h2>
+            <a href="{{ url_for('message_inbox') }}" class="btn btn-secondary">
+                <i class="fas fa-inbox"></i> Back to Inbox
+            </a>
+        </div>
+        
+        <div class="card-body">
+            <form method="POST" id="messageForm" action="{{ url_for('send_class_message') }}">
+                {{ form.hidden_tag() }}
+                
+                <div class="form-group">
+                    {{ form.classroom_id.label }}
+                    {{ form.classroom_id(class="form-control") }}
+                    <small class="form-text">Select class or "All My Classes"</small>
+                </div>
+                
+                <div class="form-group" id="recipientGroup" style="display:none;">
+                    <label>Recipient</label>
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control" id="studentSearch" 
+                               placeholder="Search by name or student ID">
+                        <div class="input-group-append">
+                            <button class="btn btn-outline-secondary" type="button" id="searchButton">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <select class="form-control" id="recipient_id" name="recipient_id">
+                        <option value="">Select student (search first)</option>
+                    </select>
+                    <div id="studentCount" class="text-muted small mt-1"></div>
+                </div>
+                
+                <div class="form-group">
+                    {{ form.title.label }}
+                    {{ form.title(class="form-control", placeholder="Message subject", required=True) }}
+                </div>
+                
+                <div class="form-group">
+                    {{ form.content.label }}
+                    {{ form.content(class="form-control", rows=8, required=True,
+                                    minlength=10, maxlength=2000) }}
+                </div>
+                
+                <div class="form-check">
+                    {{ form.is_urgent(class="form-check-input") }}
+                    {{ form.is_urgent.label(class="form-check-label") }}
+                </div>
+                
+                <div class="form-check" id="announcementCheck">
+                    {{ form.is_announcement(class="form-check-input") }}
+                    {{ form.is_announcement.label(class="form-check-label") }}
+                </div>
+                
+                <div id="formErrors" class="alert alert-danger" style="display:none;"></div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary" id="submitButton">
+                        <i class="fas fa-paper-plane"></i> Send Message
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const classroomSelect = document.getElementById('classroom_id');
+    const recipientGroup = document.getElementById('recipientGroup');
+    const announcementCheck = document.getElementById('announcementCheck');
+    const studentSearch = document.getElementById('studentSearch');
+    const searchButton = document.getElementById('searchButton');
+    const recipientSelect = document.getElementById('recipient_id');
+    const studentCount = document.getElementById('studentCount');
+    const messageForm = document.getElementById('messageForm');
+    const formErrors = document.getElementById('formErrors');
+    const submitButton = document.getElementById('submitButton');
+    
+    let debounceTimer;
+    
+    function updateFormFields() {
+        const isAllClasses = classroomSelect.value === '0';
+        const isAnnouncement = document.getElementById('is_announcement').checked;
+        
+        announcementCheck.style.display = isAllClasses ? 'none' : 'block';
+        recipientGroup.style.display = (!isAllClasses && !isAnnouncement) ? 'block' : 'none';
+        
+        recipientSelect.innerHTML = '<option value="">Select student (search first)</option>';
+        studentCount.textContent = '';
+    }
+    
+    function loadStudents(searchTerm = '') {
+        const classroomId = classroomSelect.value;
+        if (!classroomId || classroomId === '0') {
+            recipientSelect.innerHTML = '<option value="">Select a class first</option>';
+            studentCount.textContent = '';
+            return;
+        }
+        
+        fetch(`/api/classrooms/${classroomId}/students?search=${encodeURIComponent(searchTerm)}`)
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
+            .then(students => {
+                recipientSelect.innerHTML = students.length > 0 
+                    ? '<option value="">Select student</option>'
+                    : '<option value="">No students found</option>';
+                
+                students.forEach(student => {
+                    const option = new Option(
+                        `${student.name} (ID: ${student.student_id})`, 
+                        student.id
+                    );
+                    recipientSelect.add(option);
+                });
+                
+                studentCount.textContent = students.length > 0 
+                    ? `${students.length} students found`
+                    : 'No matching students found';
+            })
+            .catch(error => {
+                console.error('Error loading students:', error);
+                recipientSelect.innerHTML = '<option value="">Error loading students</option>';
+                studentCount.textContent = 'Error loading students';
+            });
+    }
+    
+    async function handleFormSubmit(e) {
+        e.preventDefault();
+        formErrors.style.display = 'none';
+        
+        const isAllClasses = classroomSelect.value === '0';
+        const isAnnouncement = document.getElementById('is_announcement').checked;
+        
+        if (!isAllClasses && !isAnnouncement && recipientSelect.value === "") {
+            showError('Please select a recipient');
+            return;
+        }
+        
+        if (document.getElementById('title').value.trim() === '') {
+            showError('Please enter a message title');
+            return;
+        }
+        
+        const content = document.getElementById('content').value.trim();
+        if (content.length < 10) {
+            showError('Message must be at least 10 characters long');
+            return;
+        }
+        
+        submitButton.disabled = true;
+        submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+        
+        try {
+            const formData = new FormData(messageForm);
+            
+            if (!isAllClasses && !isAnnouncement) {
+                formData.set('recipient_id', recipientSelect.value);
+            }
+            
+            const response = await fetch(messageForm.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                window.location.href = result.redirect || "{{ url_for('message_inbox') }}";
+            } else {
+                showError(result.error || 'Failed to send message');
+                if (result.errors) {
+                    const errorMessages = Object.values(result.errors).flat();
+                    showError(errorMessages.join('<br>'));
+                }
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showError('An error occurred while sending the message');
+        } finally {
+            submitButton.disabled = false;
+            submitButton.innerHTML = '<i class="fas fa-paper-plane"></i> Send Message';
+        }
+    }
+    
+    function showError(message) {
+        formErrors.innerHTML = message;
+        formErrors.style.display = 'block';
+        formErrors.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    
+    classroomSelect.addEventListener('change', updateFormFields);
+    document.getElementById('is_announcement').addEventListener('change', updateFormFields);
+    searchButton.addEventListener('click', () => loadStudents(studentSearch.value));
+    studentSearch.addEventListener('input', () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => loadStudents(studentSearch.value), 500);
+    });
+    messageForm.addEventListener('submit', handleFormSubmit);
+    
+    updateFormFields();
+});
+</script>
+
+<style>
+.message-compose-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+.message-card {
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    background: #3498db;
+    color: white;
+}
+.form-actions {
+    margin-top: 20px;
+    text-align: right;
+}
+#recipientGroup {
+    transition: all 0.3s ease;
+}
+.fa-spinner {
+    margin-right: 5px;
+}
+.alert-danger {
+    margin-top: 15px;
+}
+</style>
+{% endblock %}

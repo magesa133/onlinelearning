@@ -217,6 +217,26 @@ class QuizEditForm(QuizCreateForm):
         return True
 
 
+class MessageForm(FlaskForm):
+    title = StringField('Subject', validators=[
+        DataRequired(), 
+        Length(max=200)
+    ])
+    content = TextAreaField('Message', validators=[
+        DataRequired(),
+        Length(min=10, message="Message must be at least 10 characters long")
+    ])
+    classroom_id = SelectField('Recipient Class', coerce=int)
+    recipient_id = SelectField(
+        'Recipient',
+        choices=[],
+        coerce=lambda x: int(x) if str(x).isdigit() else None,
+        validate_choice=False
+    )
+    is_urgent = BooleanField('Mark as urgent')
+    is_announcement = BooleanField('Send as announcement to all class members')
+
+
 class QuestionForm(FlaskForm):
     QUESTION_TYPES = [
         ('multiple_choice', 'Multiple Choice'),
@@ -230,6 +250,18 @@ class QuestionForm(FlaskForm):
         validators=[DataRequired()],
         render_kw={
             'class': 'form-select question-type'
+        })
+    
+    time_limit = IntegerField('Time Limit (seconds)',
+        validators=[
+            Optional(),
+            NumberRange(min=10, max=3600, message="Time must be between 10-3600 seconds")
+        ],
+        default=60,
+        render_kw={
+            'class': 'form-control question-time-limit',
+            'min': '10',
+            'max': '3600'
         })
     
     text = TextAreaField('Question', 
@@ -386,22 +418,35 @@ class AssignmentForm(FlaskForm):
         'max': 1000
     })
     
-    subject_id = SelectField('Subject', coerce=int, validators=[
-        DataRequired(message="Please select a subject")
-    ], choices=[])
+    subject_id = SelectField('Subject', 
+        coerce=lambda x: int(x) if x else None,
+        validators=[DataRequired(message="Please select a subject")],
+        choices=[]
+    )
     
-    classroom_id = SelectField('Classroom', coerce=int, validators=[
-        DataRequired(message="Please select a classroom")
-    ], choices=[])
+    classroom_id = SelectField('Classroom', 
+        coerce=lambda x: int(x) if x else None,
+        validators=[DataRequired(message="Please select a classroom")],
+        choices=[]
+    )
     
     is_group = BooleanField('Group Assignment', default=False)
     allow_late = BooleanField('Allow Late Submissions', default=False)
     resubmit_allowed = BooleanField('Allow Resubmission', default=False)
     
+    # Add the missing is_draft field
+    is_draft = BooleanField('Save as Draft', default=False)
+    is_published = BooleanField('Save as Draft', default=False)
+
+    # Renamed from is_published to be more clear when used with is_draft
+    publish_now = BooleanField('Publish Immediately', default=True)
+    
     def validate(self, extra_validators=None):
-        if not super().validate():
+        # Run standard validators first
+        if not super().validate(extra_validators):
             return False
             
+        # Custom validation for question input methods
         if not any([
             self.input_method.data == 'manual' and self.questions.data,
             self.input_method.data == 'file' and self.question_file.data,
@@ -413,6 +458,19 @@ class AssignmentForm(FlaskForm):
                 self.question_file.errors.append('Please upload a file')
             else:
                 self.bulk_questions.errors.append('Please upload a file')
+            return False
+            
+        # Additional validation for subject and classroom
+        try:
+            if self.subject_id.data is None:
+                self.subject_id.errors.append('Please select a subject')
+                return False
+            if self.classroom_id.data is None:
+                self.classroom_id.errors.append('Please select a classroom')
+                return False
+        except ValueError:
+            self.subject_id.errors.append('Invalid subject selection')
+            self.classroom_id.errors.append('Invalid classroom selection')
             return False
             
         return True

@@ -3,951 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teacher Dashboard</title>
+    <title>Teacher Dashboard | EduConnect</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        :root {
-            --primary: #4361ee;
-            --primary-light: #4895ef;
-            --secondary: #3f37c9;
-            --accent: #f72585;
-            --white: #ffffff;
-            --light-gray: #f8f9fa;
-            --medium-gray: #adb5bd;
-            --dark-gray: #495057;
-            --dark: #212529;
-            
-            /* Light mode defaults */
-            --bg-color: var(--light-gray);
-            --text-color: var(--dark);
-            --card-bg: var(--white);
-            --sidebar-bg: var(--white);
-            --header-bg: var(--white);
-            --border-color: rgba(0, 0, 0, 0.05);
-            --dropdown-bg: var(--white);
-            --dropdown-text: var(--dark-gray);
-            --dropdown-hover: rgba(67, 97, 238, 0.1);
-            --icon-color: var(--dark-gray);
-            --form-text: var(--dark);
-            --placeholder-color: #6c757d;
-        }
 
-        body.dark-mode {
-            --bg-color: #121212;
-            --text-color: #f8f9fa;
-            --card-bg: #1e1e1e;
-            --sidebar-bg: #1e1e1e;
-            --header-bg: #1e1e1e;
-            --border-color: rgba(255, 255, 255, 0.1);
-            --dropdown-bg: #2d2d2d;
-            --dropdown-text: #e9ecef;
-            --dropdown-hover: rgba(67, 97, 238, 0.2);
-            --icon-color: #9e9e9e;
-            --form-text: #f8f9fa;
-            --placeholder-color: #9e9e9e;
-            --medium-gray: #757575;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            line-height: 1.6;
-            transition: all 0.3s ease;
-        }
-
-        .dashboard-container {
-            display: grid;
-            grid-template-areas: "sidebar header" "sidebar main";
-            grid-template-columns: 280px 1fr;
-            grid-template-rows: 80px 1fr;
-            min-height: 100vh;
-        }
-
-        /* Sidebar Styles */
-        .sidebar {
-            grid-area: sidebar;
-            background: var(--sidebar-bg);
-            border-right: 1px solid var(--border-color);
-            padding: 2rem 0;
-            position: fixed;
-            width: 280px;
-            height: 100%;
-            z-index: 100;
-            transition: all 0.3s ease;
-            overflow-y: auto;
-        }
-
-        .sidebar-header {
-            padding: 0 2rem 2rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .logo {
-            width: 36px;
-            height: 36px;
-            background: linear-gradient(135deg, var(--primary), var(--secondary));
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--white);
-            font-weight: 700;
-        }
-
-        .sidebar-header h3 {
-            font-size: 1.25rem;
-            font-weight: 700;
-            color: var(--text-color);
-        }
-
-        .sidebar-menu {
-            list-style: none;
-            padding: 0 1rem;
-        }
-
-        .sidebar-menu li {
-            margin-bottom: 0.5rem;
-            position: relative;
-        }
-
-        .sidebar-menu a {
-            display: flex;
-            align-items: center;
-            padding: 0.85rem 1rem;
-            color: var(--dark-gray);
-            text-decoration: none;
-            border-radius: 12px;
-            transition: all 0.3s ease;
-            font-weight: 500;
-            font-size: 0.95rem;
-        }
-
-        .sidebar-menu a:hover, .sidebar-menu a.active {
-            background-color: rgba(67, 97, 238, 0.1);
-            color: var(--primary);
-        }
-
-        .sidebar-menu a.active {
-            font-weight: 600;
-        }
-
-        .sidebar-menu a i {
-            width: 24px;
-            text-align: center;
-            margin-right: 0.75rem;
-            font-size: 1.1rem;
-            color: var(--icon-color);
-        }
-
-        .sidebar-menu .menu-arrow {
-            margin-left: auto;
-            transition: all 0.3s ease;
-            font-size: 0.8rem;
-            color: var(--icon-color);
-        }
-
-        .sidebar-menu .submenu {
-            list-style: none;
-            padding-left: 1.5rem;
-            max-height: 0;
-            overflow: hidden;
-            transition: all 0.3s ease;
-        }
-
-        .sidebar-menu .submenu.show {
-            max-height: 500px;
-            padding-top: 0.5rem;
-        }
-
-        .sidebar-menu .submenu a {
-            padding: 0.6rem 1rem;
-            font-size: 0.9rem;
-            background-color: transparent;
-            color: var(--dark-gray);
-        }
-
-        .sidebar-menu .submenu a:hover {
-            color: var(--primary);
-        }
-
-        .sidebar-menu .submenu a.active {
-            color: var(--primary);
-            font-weight: 500;
-        }
-
-        /* Header Styles */
-        .dashboard-header {
-            grid-area: header;
-            background-color: var(--header-bg);
-            padding: 0 2rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-            position: sticky;
-            top: 0;
-            z-index: 90;
-            height: 80px;
-            transition: background-color 0.3s ease;
-        }
-
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .toggle-btn {
-            background: none;
-            border: none;
-            font-size: 1.25rem;
-            color: var(--text-color);
-            cursor: pointer;
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-        }
-
-        .toggle-btn:hover {
-            background-color: rgba(0, 0, 0, 0.05);
-        }
-
-        .search-bar {
-            position: relative;
-            width: 400px;
-        }
-
-        .search-bar input {
-            width: 100%;
-            padding: 0.7rem 1rem 0.7rem 2.5rem;
-            border: none;
-            border-radius: 30px;
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
-            background-color: var(--light-gray);
-            color: var(--form-text);
-        }
-
-        .search-bar input::placeholder {
-            color: var(--placeholder-color);
-        }
-
-        .search-bar input:focus {
-            outline: none;
-            box-shadow: 0 0 0 2px var(--primary-light);
-        }
-
-        .search-bar i {
-            position: absolute;
-            left: 1rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--icon-color);
-        }
-
-        .header-actions {
-            display: flex;
-            align-items: center;
-            gap: 1.5rem;
-        }
-
-        .theme-toggle {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            cursor: pointer;
-            padding: 0.5rem;
-            border-radius: 30px;
-            transition: all 0.3s ease;
-        }
-
-        .theme-toggle:hover {
-            background-color: rgba(0, 0, 0, 0.05);
-        }
-
-        .theme-toggle i {
-            font-size: 1.1rem;
-            color: var(--text-color);
-        }
-
-        .notification-btn {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: none;
-            border: none;
-            color: var(--text-color);
-            cursor: pointer;
-            position: relative;
-            transition: all 0.3s ease;
-        }
-
-        .notification-btn:hover {
-            background-color: rgba(0, 0, 0, 0.05);
-        }
-
-        .notification-badge {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            width: 8px;
-            height: 8px;
-            background-color: var(--accent);
-            border-radius: 50%;
-            border: 2px solid var(--header-bg);
-        }
-
-        /* Profile Dropdown Styles */
-        .user-profile {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            position: relative;
-            cursor: pointer;
-            padding: 0.5rem;
-            border-radius: 30px;
-            transition: all 0.3s ease;
-        }
-
-        .user-profile:hover {
-            background-color: rgba(0, 0, 0, 0.05);
-        }
-
-        .user-avatar {
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid var(--light-gray);
-            transition: all 0.3s ease;
-        }
-
-        .user-info {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .user-name {
-            font-weight: 600;
-            font-size: 0.95rem;
-            color: var(--text-color);
-        }
-
-        .user-role {
-            font-size: 0.75rem;
-            color: var(--medium-gray);
-        }
-
-        .user-dropdown {
-            position: absolute;
-            top: calc(100% + 10px);
-            right: 0;
-            background: var(--dropdown-bg);
-            width: 280px;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-            padding: 0;
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(10px);
-            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.1);
-            z-index: 1000;
-            border: 1px solid var(--border-color);
-            overflow: hidden;
-        }
-
-        .user-dropdown.active {
-            opacity: 1;
-            visibility: visible;
-            transform: translateY(0);
-        }
-
-        .dropdown-header {
-            padding: 16px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            border-bottom: 1px solid var(--border-color);
-            background-color: rgba(0, 0, 0, 0.03);
-        }
-
-        .dropdown-avatar {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid var(--border-color);
-        }
-
-        .dropdown-user-info {
-            flex: 1;
-        }
-
-        .dropdown-user-name {
-            font-weight: 600;
-            font-size: 1rem;
-            color: var(--dropdown-text);
-            margin-bottom: 4px;
-        }
-
-        .dropdown-user-email {
-            font-size: 0.85rem;
-            color: var(--medium-gray);
-        }
-
-        .dropdown-menu {
-            padding: 8px 0;
-        }
-
-        .dropdown-item {
-            display: flex;
-            align-items: center;
-            padding: 12px 20px;
-            color: var(--dropdown-text);
-            text-decoration: none;
-            transition: all 0.2s ease;
-            font-size: 0.95rem;
-        }
-
-        .dropdown-item:hover {
-            background-color: var(--dropdown-hover);
-            color: var(--primary);
-        }
-
-        .dropdown-item i {
-            width: 24px;
-            margin-right: 12px;
-            text-align: center;
-            font-size: 1rem;
-            color: var(--medium-gray);
-        }
-
-        .dropdown-divider {
-            height: 1px;
-            background-color: var(--border-color);
-            margin: 8px 0;
-        }
-
-        .dropdown-footer {
-            padding: 12px 20px;
-            border-top: 1px solid var(--border-color);
-            background-color: rgba(0, 0, 0, 0.03);
-        }
-
-        .badge-notification {
-            background-color: var(--accent);
-            color: white;
-            font-size: 0.75rem;
-            padding: 2px 6px;
-            border-radius: 10px;
-            margin-left: auto;
-        }
-
-        .logout-btn {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: var(--dropdown-text);
-            text-decoration: none;
-            font-size: 0.95rem;
-        }
-
-        .logout-btn:hover {
-            color: var(--primary);
-        }
-
-        /* Main Content Styles */
-        .dashboard-main {
-            grid-area: main;
-            padding: 2rem;
-            background-color: var(--bg-color);
-            overflow-y: auto;
-            min-height: calc(100vh - 80px);
-            transition: background-color 0.3s ease;
-        }
-
-        .page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-        }
-
-        .page-title h2 {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: var(--text-color);
-            margin-bottom: 0.5rem;
-        }
-
-        .welcome-message {
-            color: var(--medium-gray);
-            font-size: 1rem;
-            font-weight: 400;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 1rem;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0.75rem 1.5rem;
-            border-radius: 12px;
-            font-weight: 500;
-            font-size: 0.95rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            border: none;
-            text-decoration: none;
-            gap: 0.5rem;
-        }
-
-        .btn i {
-            font-size: 0.9rem;
-        }
-
-        .btn-primary {
-            background-color: var(--primary);
-            color: var(--white);
-            box-shadow: 0 4px 12px rgba(67, 97, 238, 0.2);
-        }
-
-        .btn-primary:hover {
-            background-color: var(--secondary);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(67, 97, 238, 0.25);
-        }
-
-        .btn-outline {
-            background-color: transparent;
-            border: 1px solid var(--medium-gray);
-            color: var(--text-color);
-        }
-
-        .btn-outline:hover {
-            background-color: rgba(0, 0, 0, 0.02);
-            border-color: var(--primary);
-            color: var(--primary);
-        }
-
-        .cards-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .card {
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 1.75rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-            border: 1px solid var(--border-color);
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            border-color: rgba(67, 97, 238, 0.1);
-        }
-
-        .card-icon {
-            width: 56px;
-            height: 56px;
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            margin-bottom: 1.5rem;
-            color: var(--white);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-
-        .card-icon.subjects {
-            background: linear-gradient(135deg, var(--primary), var(--primary-light));
-        }
-
-        .card-icon.grades {
-            background: linear-gradient(135deg, #7209b7, #b5179e);
-        }
-
-        .card-icon.sessions {
-            background: linear-gradient(135deg, #f72585, #b5179e);
-        }
-
-        .card-icon.settings {
-            background: linear-gradient(135deg, #4cc9f0, #4895ef);
-        }
-
-        .card h3 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            margin-bottom: 0.75rem;
-            color: var(--text-color);
-        }
-
-        .card p {
-            color: var(--medium-gray);
-            margin-bottom: 1.5rem;
-            font-size: 0.95rem;
-            line-height: 1.6;
-        }
-
-        .card-link {
-            display: inline-flex;
-            align-items: center;
-            color: var(--primary);
-            font-weight: 500;
-            text-decoration: none;
-            font-size: 0.9rem;
-            transition: all 0.3s ease;
-        }
-
-        .card-link i {
-            margin-left: 0.5rem;
-            transition: all 0.3s ease;
-            font-size: 0.8rem;
-        }
-
-        .card-link:hover {
-            color: var(--secondary);
-        }
-
-        .card-link:hover i {
-            transform: translateX(3px);
-        }
-
-        .recent-activity {
-            background: var(--card-bg);
-            border-radius: 12px;
-            padding: 1.75rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-            margin-top: 2rem;
-            border: 1px solid var(--border-color);
-        }
-
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
-
-        .section-header h3 {
-            font-size: 1.25rem;
-            font-weight: 600;
-            color: var(--text-color);
-        }
-
-        .section-header a {
-            color: var(--primary);
-            font-size: 0.9rem;
-            font-weight: 500;
-            text-decoration: none;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .activity-list {
-            list-style: none;
-        }
-
-        .activity-item {
-            display: flex;
-            padding: 1rem 0;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .activity-item:last-child {
-            border-bottom: none;
-        }
-
-        .activity-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background-color: rgba(67, 97, 238, 0.1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 1rem;
-            color: var(--primary);
-            font-size: 1rem;
-            flex-shrink: 0;
-        }
-
-        .activity-content {
-            flex: 1;
-        }
-
-        .activity-title {
-            font-weight: 500;
-            margin-bottom: 0.25rem;
-            color: var(--text-color);
-        }
-
-        .activity-meta {
-            font-size: 0.85rem;
-            color: var(--medium-gray);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .activity-meta i {
-            font-size: 0.7rem;
-        }
-
-        .form-control {
-            background-color: var(--light-gray);
-            color: var(--form-text);
-            border: 1px solid var(--border-color);
-        }
-
-        .form-control:focus {
-            background-color: var(--light-gray);
-            color: var(--form-text);
-            border-color: var(--primary-light);
-            box-shadow: 0 0 0 0.25rem rgba(67, 97, 238, 0.25);
-        }
-
-        .form-control::placeholder {
-            color: var(--placeholder-color);
-            opacity: 1;
-        }
-
-        .form-label {
-            color: var(--text-color);
-            margin-bottom: 0.5rem;
-            display: block;
-        }
-
-        .form-check-input {
-            background-color: var(--light-gray);
-            border: 1px solid var(--border-color);
-        }
-
-        .form-check-input:checked {
-            background-color: var(--primary);
-            border-color: var(--primary);
-        }
-
-        .form-check-label {
-            color: var(--text-color);
-        }
-
-        .dashboard-footer {
-            text-align: center;
-            padding: 1.5rem;
-            color: var(--medium-gray);
-            font-size: 0.85rem;
-            margin-top: 2rem;
-            background-color: var(--card-bg);
-            border-top: 1px solid var(--border-color);
-        }
-
-        @media (max-width: 1200px) {
-            .search-bar {
-                width: 300px;
-            }
-        }
-
-        @media (max-width: 992px) {
-            .dashboard-container {
-                grid-template-areas: "header" "main";
-                grid-template-columns: 1fr;
-            }
-
-            .sidebar {
-                transform: translateX(-100%);
-            }
-
-            .sidebar.active {
-                transform: translateX(0);
-            }
-
-            .toggle-btn {
-                display: flex;
-            }
-
-            .search-bar {
-                width: 250px;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .dashboard-header {
-                padding: 0 1.5rem;
-            }
-
-            .dashboard-main {
-                padding: 1.5rem;
-            }
-
-            .search-bar {
-                display: none;
-            }
-
-            .user-info {
-                display: none;
-            }
-
-            .cards-grid {
-                grid-template-columns: 1fr 1fr;
-            }
-
-            .page-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 1rem;
-            }
-
-            .action-buttons {
-                width: 100%;
-                justify-content: flex-end;
-            }
-        }
-
-        @media (max-width: 576px) {
-            .cards-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .dashboard-header {
-                padding: 0 1rem;
-            }
-
-            .dashboard-main {
-                padding: 1rem;
-            }
-
-            .action-buttons {
-                flex-direction: column;
-                width: 100%;
-                gap: 0.75rem;
-            }
-
-            .action-buttons .btn {
-                width: 100%;
-                justify-content: center;
-            }
-
-            .user-dropdown {
-                min-width: 260px;
-                right: -20px;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard/style.css') }}">
 </head>
 <body>
     <div class="dashboard-container">
-        <nav class="sidebar">
-            <div class="sidebar-header">
-                <div class="logo">E</div>
-                <h3>EduConnect</h3>
-            </div>
-            <ul class="sidebar-menu">
-                <li>
-                    <a href="{{ url_for('teacher_dashboard') }}" class="active">
-                        <i class="fas fa-home"></i> Dashboard
-                    </a>
-                </li>
-                <li>
-                    <a href="{{ url_for('add_student') }}">
-                        <i class="fas fa-user-graduate"></i> Students
-                    </a>
-                </li>
-                <li class="has-submenu">
-                    <a href="">
-                        <i class="fas fa-book-open"></i> Subjects | Resources
-                        <i class="fas fa-chevron-down menu-arrow"></i>
-                    </a>
-                    <ul class="submenu">
-                        <li><a href="{{ url_for('teacher_subjects') }}"><i class="fas fa-list"></i> My Subjects</a></li>
-                        <li><a href="{{ url_for('upload_resource')}}"><i class="fas fa-upload"></i> Upload Resources</a></li>
-                    </ul>
-                </li>
-                <li class="has-submenu">
-                    <a href="#">
-                        <i class="fas fa-question-circle"></i> Quizzes
-                        <i class="fas fa-chevron-down menu-arrow"></i>
-                    </a>
-                    <ul class="submenu">
-                        <li>
-                            <a href="{{ url_for('create_quiz') }}">
-                                <i class="fas fa-plus-circle"></i> Create Quiz
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ url_for('list_quizzes') }}">
-                                <i class="fas fa-list"></i> View Quizzes in List
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-                <li class="has-submenu">
-                    <a href="#">
-                        <i class="fas fa-question-circle"></i> Assignments
-                        <i class="fas fa-chevron-down menu-arrow"></i>
-                    </a>
-                    <ul class="submenu">
-                        <li>
-                            <a href="{{ url_for('create_assignment') }}">
-                                <i class="fas fa-plus-circle"></i> Create Assignment
-                            </a>
-                        </li>
-                        <li>
-                            <a href="{{ url_for('list_assignments') }}">
-                                <i class="fas fa-list"></i> All Assignments
-                            </a>
-                        </li>
-                    </ul>
-                </li>
-                <li>
-                    <a href="#">
-                        <i class="fas fa-chart-line"></i> Grades
-                    </a>
-                </li>
-                <li>
-                    <a href="#">
-                        <i class="fas fa-calendar-alt"></i> Schedule
-                    </a>
-                </li>
-                <li>
-                    <a href="#">
-                        <i class="fas fa-cog"></i> Settings
-                    </a>
-                </li>
+        <!-- Enhanced Sidebar -->
+<nav class="sidebar">
+    <div class="sidebar-header">
+        <div class="logo">
+            <i class="fas fa-graduation-cap"></i>
+        </div>
+        <h3>EduConnect</h3>
+    </div>
+    <ul class="sidebar-menu">
+        <li>
+            <a href="{{ url_for('teacher_dashboard') }}" class="active">
+                <i class="fas fa-home"></i> Dashboard
+            </a>
+        </li>
+        <li>
+            <a href="{{ url_for('add_student') }}">
+                <i class="fas fa-user-graduate"></i> Students
+            </a>
+        </li>
+        <li class="has-submenu">
+            <a href="#">
+                <i class="fas fa-book-open"></i> Subjects & Resources
+                <i class="fas fa-chevron-down menu-arrow"></i>
+            </a>
+            <ul class="submenu">
+                <li><a href="{{ url_for('teacher_subjects') }}"><i class="fas fa-list"></i> My Subjects</a></li>
+                <li><a href="{{ url_for('upload_resource')}}"><i class="fas fa-upload"></i> Upload Resources</a></li>
+                <li><a href="{{ url_for('library')}}"><i class="fas fa-book"></i> Resource Library</a></li>
             </ul>
-        </nav>
+        </li>
+        <li class="has-submenu">
+            <a href="#">
+                <i class="fas fa-clipboard-check"></i> Attendance
+                <i class="fas fa-chevron-down menu-arrow"></i>
+            </a>
+            <ul class="submenu">
+                <li><a href="{{ url_for('view_attendance') }}"><i class="fas fa-list"></i> View Records</a></li>
+                <li><a href="#"><i class="fas fa-chart-pie"></i> Reports</a></li>
+                <li><a href="{{ url_for('export_attendance', format='csv') }}"><i class="fas fa-file-csv"></i> Export CSV</a></li>
+                <li><a href="{{ url_for('export_attendance', format='excel') }}"><i class="fas fa-file-excel"></i> Export Excel</a></li>
+            </ul>
+        </li>
+        <li class="has-submenu">
+            <a href="#">
+                <i class="fas fa-question-circle"></i> Quizzes
+                <i class="fas fa-chevron-down menu-arrow"></i>
+            </a>
+            <ul class="submenu">
+                <li><a href="{{ url_for('create_quiz') }}"><i class="fas fa-plus-circle"></i> Create Quiz</a></li>
+                <li><a href="{{ url_for('list_quizzes') }}"><i class="fas fa-list"></i> View Quizzes</a></li>
+                <li><a href="{{ url_for('teacher_quiz_analytics') }}"><i class="fas fa-chart-bar"></i> Quiz Analytics</a></li>
+            </ul>
+        </li>
+        <li class="has-submenu">
+            <a href="#">
+                <i class="fas fa-tasks"></i> Assignments
+                <i class="fas fa-chevron-down menu-arrow"></i>
+            </a>
+            <ul class="submenu">
+                <li><a href="{{ url_for('create_assignment') }}"><i class="fas fa-plus-circle"></i> Create Assignment</a></li>
+                <li><a href="{{ url_for('list_assignments') }}"><i class="fas fa-list"></i> All Assignments</a></li>
+                <li><a href="#"><i class="fas fa-chart-line"></i> Gradebook</a></li>
+            </ul>
+        </li>
+        <li>
+            <a href="#">
+                <i class="fas fa-calendar-alt"></i> Schedule
+            </a>
+        </li>
+        <li>
+            <a href="#">
+                <i class="fas fa-cog"></i> Settings
+            </a>
+        </li>
+    </ul>
+</nav>
 
+        <!-- Modern Header -->
         <header class="dashboard-header">
             <div class="header-left">
                 <button class="toggle-btn" onclick="toggleSidebar()">
@@ -955,46 +97,372 @@
                 </button>
                 <div class="search-bar">
                     <i class="fas fa-search"></i>
-                    <input type="text" placeholder="Search...">
+                    <input type="text" placeholder="Search students, assignments...">
                 </div>
             </div>
             <div class="header-actions">
                 <div class="theme-toggle" id="themeToggle">
                     <i class="fas fa-moon" id="themeIcon"></i>
                 </div>
-                <button class="notification-btn">
-                    <i class="fas fa-bell"></i>
-                    <span class="notification-badge"></span>
+<div class="dropdown ms-3">
+    <button class="btn position-relative p-2" id="notificationBtn" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="fas fa-bell fa-lg"></i>
+        <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notificationCount">
+            {{ unread_count if unread_count > 0 else '' }}
+        </span>
+    </button>
+    
+    <div class="dropdown-menu dropdown-menu-end p-0 shadow" aria-labelledby="notificationBtn" style="width: 380px;">
+        <!-- Header with title and actions -->
+        <div class="d-flex justify-content-between align-items-center p-3 border-bottom bg-light">
+            <h6 class="mb-0 fw-bold">
+                <i class="fas fa-bell text-primary me-2"></i>Notifications
+            </h6>
+            <div>
+                <button class="btn btn-sm btn-outline-primary mark-all-read">
+                    <i class="fas fa-check-double me-1"></i>Mark all read
                 </button>
+            </div>
+        </div>
+        
+        <!-- Notification list container -->
+        <div id="notificationList" class="overflow-auto" style="max-height: 450px;">
+            <!-- Loading state -->
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary"></div>
+                <p class="mt-2 text-muted">Loading notifications...</p>
+            </div>
+        </div>
+        
+        <!-- Footer with view all link -->
+        <div class="border-top p-2 bg-light">
+            <a href="{{ url_for('notifications') }}" class="btn btn-link btn-sm w-100">
+                <i class="fas fa-list me-1"></i>View all notifications
+            </a>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Notification dropdown styles */
+    #notificationBtn {
+        width: 42px;
+        height: 42px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: all 0.2s;
+        color: var(--bs-gray-700);
+    }
+    
+    #notificationBtn:hover {
+        background-color: var(--bs-gray-200);
+        color: var(--bs-primary);
+    }
+    
+    #notificationBtn .badge {
+        font-size: 0.65rem;
+        min-width: 18px;
+        height: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    #notificationList .notification-item {
+        padding: 1rem;
+        border-bottom: 1px solid var(--bs-border-color);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    #notificationList .notification-item.unread {
+        background-color: rgba(13, 110, 253, 0.05);
+        border-left: 3px solid var(--bs-primary);
+    }
+    
+    #notificationList .notification-item:hover {
+        background-color: var(--bs-gray-100);
+    }
+    
+    .notification-time {
+        font-size: 0.75rem;
+        color: var(--bs-gray-600);
+    }
+    
+    .notification-priority {
+        font-size: 0.65rem;
+        padding: 0.25em 0.4em;
+        text-transform: uppercase;
+    }
+    
+    .priority-high {
+        color: var(--bs-danger);
+        background-color: rgba(220, 53, 69, 0.1);
+    }
+    
+    .priority-medium {
+        color: var(--bs-warning);
+        background-color: rgba(255, 193, 7, 0.1);
+    }
+    
+    .priority-low {
+        color: var(--bs-success);
+        background-color: rgba(25, 135, 84, 0.1);
+    }
+</style>
+
+<script>
+// Enhanced notification functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize dropdown events
+    const dropdown = new bootstrap.Dropdown(document.getElementById('notificationBtn'));
+    
+    // Load notifications when dropdown opens
+    document.getElementById('notificationBtn').addEventListener('click', function() {
+        loadNotifications();
+    });
+    
+    // Load notifications function
+    function loadNotifications() {
+        fetch('/api/notifications?per_page=8')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    updateBadge(data.unread_count);
+                    renderNotifications(data.notifications);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading notifications:', error);
+                renderErrorState();
+            });
+    }
+    
+    // Update badge count
+    function updateBadge(count) {
+        const badge = document.getElementById('notificationCount');
+        badge.textContent = count > 0 ? count : '';
+        badge.style.display = count > 0 ? 'flex' : 'none';
+        
+        // Update the unread count in the navbar if it exists
+        const navbarBadge = document.getElementById('unreadCountBadge');
+        if (navbarBadge) {
+            navbarBadge.textContent = count + ' unread';
+        }
+    }
+    
+    // Render notifications
+    function renderNotifications(notifications) {
+        const container = document.getElementById('notificationList');
+        
+        if (!notifications || notifications.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-4">
+                    <i class="fas fa-bell-slash fa-2x text-muted mb-2"></i>
+                    <p class="text-muted">No notifications</p>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = notifications.map(notification => `
+            <div class="notification-item ${notification.is_read ? '' : 'unread'}" 
+                 onclick="handleNotificationClick(event, ${notification.id}, '${notification.link || '#'}')">
+                <div class="d-flex justify-content-between align-items-start mb-1">
+                    <strong class="me-2">${escapeHtml(notification.title)}</strong>
+                    <div class="d-flex align-items-center">
+                        ${notification.priority ? `
+                        <span class="notification-priority priority-${notification.priority} me-2">
+                            ${notification.priority}
+                        </span>
+                        ` : ''}
+                        <small class="notification-time">
+                            ${formatNotificationTime(notification.created_at)}
+                        </small>
+                    </div>
+                </div>
+                <p class="mb-1 small text-muted">${formatNotificationMessage(notification.message)}</p>
+                ${notification.is_read ? '' : `
+                <button class="btn btn-sm btn-link p-0 text-primary" 
+                        onclick="markAsRead(event, ${notification.id})">
+                    <i class="fas fa-check-circle me-1"></i>Mark read
+                </button>
+                `}
+            </div>
+        `).join('');
+    }
+    
+    // Render error state
+    function renderErrorState() {
+        const container = document.getElementById('notificationList');
+        container.innerHTML = `
+            <div class="text-center py-4">
+                <i class="fas fa-exclamation-triangle text-danger fa-2x mb-2"></i>
+                <p class="text-muted">Failed to load notifications</p>
+                <button class="btn btn-sm btn-outline-primary" onclick="loadNotifications()">
+                    <i class="fas fa-sync-alt me-1"></i>Retry
+                </button>
+            </div>
+        `;
+    }
+    
+    // Format notification time
+    function formatNotificationTime(isoString) {
+        const date = new Date(isoString);
+        const now = new Date();
+        const diffInHours = (now - date) / (1000 * 60 * 60);
+        
+        if (diffInHours < 24) {
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } else {
+            return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        }
+    }
+    
+    // Format notification message (clean up Python object strings)
+    function formatNotificationMessage(message) {
+        // Clean up the student name format if present
+        if (message.includes("bound method Student.full_name")) {
+            const regex = /<Student (.*?) \(/;
+            const match = message.match(regex);
+            if (match && match[1]) {
+                return message.replace(regex, match[1]);
+            }
+        }
+        return escapeHtml(message);
+    }
+    
+    // Escape HTML to prevent XSS
+    function escapeHtml(unsafe) {
+        return unsafe
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+    
+    // Handle notification click
+    function handleNotificationClick(event, id, link) {
+        // If clicking on the mark as read button, let that handler take care of it
+        if (event.target.closest('button')) {
+            return;
+        }
+        
+        // Mark as read if unread
+        if (!event.currentTarget.classList.contains('unread')) {
+            window.location.href = link;
+            return;
+        }
+        
+        markAsRead(event, id, () => {
+            window.location.href = link;
+        });
+    }
+    
+    // Mark notification as read
+    function markAsRead(event, id, callback) {
+        event.stopPropagation();
+        
+        fetch('/api/notifications/mark-read', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ notification_id: id })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                // Update UI
+                const notificationItem = event.target.closest('.notification-item');
+                if (notificationItem) {
+                    notificationItem.classList.remove('unread');
+                    notificationItem.querySelector('button')?.remove();
+                }
+                
+                // Update badge count
+                if (data.unread_count !== undefined) {
+                    updateBadge(data.unread_count);
+                }
+                
+                // Execute callback if provided
+                if (typeof callback === 'function') {
+                    callback();
+                }
+            }
+        });
+    }
+    
+    // Mark all notifications as read
+    document.querySelector('.mark-all-read')?.addEventListener('click', function(event) {
+        event.stopPropagation();
+        
+        const button = event.target.closest('button');
+        const originalHtml = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Processing...';
+        button.disabled = true;
+        
+        fetch('/api/notifications/mark-all-read', {
+            method: 'POST'
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                // Update all notifications to read state
+                document.querySelectorAll('.notification-item.unread').forEach(item => {
+                    item.classList.remove('unread');
+                    const markReadButton = item.querySelector('button');
+                    if (markReadButton) markReadButton.remove();
+                });
+                
+                // Update badge count
+                updateBadge(0);
+            }
+        })
+        .finally(() => {
+            button.innerHTML = originalHtml;
+            button.disabled = false;
+        });
+    });
+    
+    // Initial load of unread count
+    updateBadge({{ unread_count }});
+});
+
+// Make functions available globally
+window.loadNotifications = loadNotifications;
+window.markAsRead = markAsRead;
+</script>
                 <div class="user-profile" onclick="toggleDropdown()">
-                    <img src="https://randomuser.me/api/portraits/women/45.jpg" alt="User Avatar" class="user-avatar">
+                    <img src="https://randomuser.me/api/portraits/women/45.jpg" alt="{{ username }}" class="user-avatar">
                     <div class="user-info">
                         <span class="user-name">{{ username }}</span>
                         <span class="user-role">Teacher</span>
                     </div>
                     <div class="user-dropdown">
                         <div class="dropdown-header">
-                            <img src="https://randomuser.me/api/portraits/women/45.jpg" alt="User Avatar" class="dropdown-avatar">
+                            <img src="https://randomuser.me/api/portraits/women/45.jpg" alt="{{ username }}" class="dropdown-avatar">
                             <div class="dropdown-user-info">
                                 <div class="dropdown-user-name">{{ username }}</div>
                                 <div class="dropdown-user-email">teacher@school.edu</div>
                             </div>
                         </div>
                         <div class="dropdown-menu">
-                            <a href="#" class="dropdown-item">
+                            <a href="#" class="dropdown-item fade-in delay-1">
                                 <i class="fas fa-user"></i> My Profile
                             </a>
-                            <a href="#" class="dropdown-item">
+                            <a href="#" class="dropdown-item fade-in delay-2">
                                 <i class="fas fa-cog"></i> Settings
                             </a>
-                            <a href="#" class="dropdown-item">
+                            <a href="#" class="dropdown-item fade-in delay-3">
                                 <i class="fas fa-envelope"></i> Messages
                                 <span class="badge-notification">3</span>
                             </a>
                         </div>
                         <div class="dropdown-divider"></div>
                         <div class="dropdown-footer">
-                            <a href="{{ url_for('logout')}}" class="logout-btn">
+                            <a href="{{ url_for('logout')}}" class="logout-btn fade-in delay-4">
                                 <i class="fas fa-sign-out-alt"></i> Logout
                             </a>
                         </div>
@@ -1003,163 +471,250 @@
             </div>
         </header>
 
-    <main class="dashboard-main">
-            <div class="page-header">
-                <div class="page-title">
-                    <h2>Welcome back, {{ username }}</h2>
-                    <p class="welcome-message">Here's what's happening with your classes today</p>
-                </div>
-                <div class="action-buttons">
-                    <a href="{{ url_for('video_conference') }}" class="btn btn-primary">
-                        <i class="fas fa-video"></i> New Session
-                    </a>
-                    <a href="{{ url_for('create_assignment')}}" class="btn btn-outline">
-                        <i class="fas fa-plus"></i> New Assignment
-                    </a>
-                </div>
-            </div>
+        <!-- Main Content -->
+        <main class="dashboard-main">
+<div class="page-header mb-4">
+    <div class="page-title">
+        <h2>Welcome back, {{ current_user.username }}</h2>
+        <p class="welcome-message">Here's what's happening with your classes today</p>
+    </div>
+    <div class="action-buttons">
+        <a href="{{ url_for('video_conference') }}" class="btn btn-primary me-2">
+            <i class="fas fa-video me-1"></i> New Session
+        </a>
+        <a href="{{ url_for('create_assignment')}}" class="btn btn-outline-primary">
+            <i class="fas fa-plus me-1"></i> New Assignment
+        </a>
+        <a href="{{ url_for('message_inbox') }}" class="btn btn-outline-secondary ms-2">
+            <i class="fas fa-inbox me-1"></i> View All Messages
+        </a>
+    </div>
+</div>
 
-        {% block content %}
+            {% block content %}
             <div class="cards-grid">
-                <div class="card">
-                    <div class="card-icon subjects">
-                        <i class="fas fa-book-open"></i>
+                <!-- Subjects Card -->
+                <div class="card" data-aos="fade-up" data-aos-delay="100">
+                    <div class="card-header">
+                        <div class="card-icon subjects">
+                            <i class="fas fa-book-open"></i>
+                        </div>
+                        <div>
+                            <h3 class="card-title">My Subjects</h3>
+                            <p class="card-subtitle">{{ subjects_count }} teaching subjects</p>
+                        </div>
                     </div>
-                    <h3>My Subjects</h3>
-                    <p>Manage your teaching subjects, upload materials, and track student progress.</p>
-                    <a href="{{ url_for('teacher_subjects') }}" class="card-link">
-                        View subjects <i class="fas fa-arrow-right"></i>
-                    </a>
+                    <div class="card-body">
+                        <p>Manage your teaching subjects, upload materials, and track student progress.</p>
+                        {% if recent_subjects %}
+                        <div class="subject-list mt-3">
+                            {% for subject in recent_subjects %}
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="badge" style="background-color: {{ subject.color }}; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px;"></span>
+                                <span>{{ subject.name }}</span>
+                                <small class="text-muted ms-auto">{{ subject.student_count }} students</small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer">
+                        <a href="{{ url_for('teacher_subjects') }}" class="card-link">
+                            View all subjects <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </div>
                 </div>
-                <div class="card">
-                    <div class="card-icon grades">
-                        <i class="fas fa-chart-bar"></i>
+
+                <!-- Gradebook Card -->
+<div class="card gradebook-card" data-aos="fade-up" data-aos-delay="200">
+    <div class="card-header d-flex align-items-center">
+        <div class="card-icon grades me-3">
+            <i class="fas fa-chart-bar fa-2x text-primary"></i>
+        </div>
+        <div class="flex-grow-1">
+            <div class="d-flex justify-content-between align-items-center">
+                <h3 class="card-title mb-0">Gradebook</h3>
+                {% set ungraded_count = gradebook|selectattr("completion", "lt", 100)|list|length %}
+                <span class="badge rounded-pill bg-{{ 'danger' if ungraded_count > 0 else 'success' }}">
+                    {{ ungraded_count }} to grade
+                </span>
+            </div>
+            <p class="card-subtitle text-muted mb-0 mt-1">
+                Track and manage student assessments
+            </p>
+        </div>
+    </div>
+
+    <div class="card-footer bg-transparent border-top-0">
+        <div class="card-footer">
+            <a href="{{ url_for('view_gradebook') }}" class="card-link">
+                Open Gradebook <i class="fas fa-arrow-right"></i>
+            </a>
+        </div>
+    </div>
+</div>
+
+                <!-- Sessions Card -->
+                <div class="card" data-aos="fade-up" data-aos-delay="300">
+                    <div class="card-header">
+                        <div class="card-icon sessions">
+                            <i class="fas fa-video"></i>
+                        </div>
+                        <div>
+                            <h3 class="card-title">Live Sessions</h3>
+                            <p class="card-subtitle">{{ upcoming_sessions }} upcoming</p>
+                        </div>
                     </div>
-                    <h3>Gradebook</h3>
-                    <p>Record and analyze student grades, generate reports, and provide feedback.</p>
-                    <a href="#" class="card-link">
-                        Open gradebook <i class="fas fa-arrow-right"></i>
-                    </a>
+                    <div class="card-body">
+                        <p>Start virtual classes, record lectures, and manage student participation.</p>
+                        {% if next_session %}
+                        <div class="session-info mt-3 p-3 bg-light rounded">
+                            <h6 class="mb-1">{{ next_session.title }}</h6>
+                            <small class="text-muted d-block mb-1">
+                                <i class="far fa-calendar-alt me-1"></i>
+                                {{ next_session.date }} at {{ next_session.time }}
+                            </small>
+                            <small class="text-muted">
+                                <i class="fas fa-users me-1"></i>
+                                {{ next_session.student_count }} students enrolled
+                            </small>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-footer">
+                        <a href="{{ url_for('video_conference') }}" class="card-link">
+                            Start session <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </div>
                 </div>
-                <div class="card">
-                    <div class="card-icon sessions">
-                        <i class="fas fa-video"></i>
+
+                <!-- Quick Actions Card -->
+                <div class="card" data-aos="fade-up" data-aos-delay="400">
+                    <div class="card-header">
+                        <div class="card-icon settings">
+                            <i class="fas fa-bolt"></i>
+                        </div>
+                        <div>
+                            <h3 class="card-title">Quick Actions</h3>
+                            <p class="card-subtitle">Common tasks</p>
+                        </div>
                     </div>
-                    <h3>Live Sessions</h3>
-                    <p>Start virtual classes, record lectures, and manage student participation.</p>
-                    <a href="{{ url_for('video_conference') }}" class="card-link">
-                        Start session <i class="fas fa-arrow-right"></i>
-                    </a>
-                </div>
-                <div class="card">
-                    <div class="card-icon settings">
-                        <i class="fas fa-cogs"></i>
+                    <div class="card-body">
+                        <div class="quick-actions-grid">
+                            <a href="{{ url_for('create_assignment') }}" class="quick-action">
+                                <i class="fas fa-tasks"></i>
+                                <span>New Assignment</span>
+                            </a>
+                            <a href="{{ url_for('create_quiz') }}" class="quick-action">
+                                <i class="fas fa-question-circle"></i>
+                                <span>Create Quiz</span>
+                            </a>
+                            <a href="{{ url_for('upload_resource') }}" class="quick-action">
+                                <i class="fas fa-upload"></i>
+                                <span>Upload Resource</span>
+                            </a>
+                            <a href="#" class="quick-action">
+                                <i class="fas fa-envelope"></i>
+                                <span>Send Message</span>
+                            </a>
+                        </div>
                     </div>
-                    <h3>Class Settings</h3>
-                    <p>Configure your classroom preferences, notifications, and access controls.</p>
-                    <a href="#" class="card-link">
-                        Configure <i class="fas fa-arrow-right"></i>
-                    </a>
+                    <div class="card-footer">
+                        <a href="#" class="card-link">
+                            More options <i class="fas fa-arrow-right"></i>
+                        </a>
+                    </div>
                 </div>
             </div>
 
-            <div class="recent-activity">
+            <!-- Recent Activity Section -->
+            <div class="recent-activity" data-aos="fade-up">
                 <div class="section-header">
                     <h3>Recent Activity</h3>
                     <a href="#">View all <i class="fas fa-chevron-right"></i></a>
                 </div>
                 <ul class="activity-list">
+                    {% for activity in recent_activities %}
                     <li class="activity-item">
                         <div class="activity-icon">
-                            <i class="fas fa-book"></i>
+                            <i class="{{ activity.icon }}"></i>
                         </div>
                         <div class="activity-content">
-                            <div class="activity-title">New assignment posted</div>
+                            <div class="activity-title">{{ activity.title }}</div>
                             <div class="activity-meta">
-                                <i class="fas fa-clock"></i> 2 hours ago • Math 101
+                                <i class="fas fa-clock"></i> {{ activity.time }} • {{ activity.class }}
                             </div>
                         </div>
                     </li>
-                    <li class="activity-item">
-                        <div class="activity-icon">
-                            <i class="fas fa-user-graduate"></i>
-                        </div>
-                        <div class="activity-content">
-                            <div class="activity-title">5 students submitted assignment</div>
-                            <div class="activity-meta">
-                                <i class="fas fa-clock"></i> 5 hours ago • Science 201
-                            </div>
-                        </div>
-                    </li>
-                    <li class="activity-item">
-                        <div class="activity-icon">
-                            <i class="fas fa-comment"></i>
-                        </div>
-                        <div class="activity-content">
-                            <div class="activity-title">New discussion started</div>
-                            <div class="activity-meta">
-                                <i class="fas fa-clock"></i> Yesterday • English 101
-                            </div>
-                        </div>
-                    </li>
-                    <li class="activity-item">
-                        <div class="activity-icon">
-                            <i class="fas fa-video"></i>
-                        </div>
-                        <div class="activity-content">
-                            <div class="activity-title">Class recording available</div>
-                            <div class="activity-meta">
-                                <i class="fas fa-clock"></i> 2 days ago • History 301
-                            </div>
-                        </div>
-                    </li>
+                    {% endfor %}
                 </ul>
             </div>
 
-            <div class="card mt-4">
+            <!-- Upcoming Deadlines Section -->
+            <!-- <div class="card mt-4">
                 <div class="card-body">
-                    <h3 class="mb-4">Sample Form</h3>
-                    <form>
-                        <div class="mb-3">
-                            <label for="exampleInputEmail1" class="form-label">Email address</label>
-                            <input type="email" class="form-control" id="exampleInputEmail1" placeholder="Enter email">
+                    <div class="section-header">
+                        <h3>Upcoming Deadlines</h3>
+                        <a href="#">View calendar <i class="fas fa-chevron-right"></i></a>
+                    </div>
+                    {% if upcoming_deadlines %}
+                    <div class="deadlines-list mt-3">
+                        {% for deadline in upcoming_deadlines %}
+                        <div class="deadline-item d-flex align-items-center justify-content-between p-3 border-bottom">
+                            <div>
+                                <h6 class="mb-1">{{ deadline.title }}</h6>
+                                <small class="text-muted">{{ deadline.class }} • Due {{ deadline.due_date }}</small>
+                            </div>
+                            <div>
+                                <span class="badge {{ deadline.priority_class }}">{{ deadline.priority }}</span>
+                            </div>
                         </div>
-                        <div class="mb-3">
-                            <label for="exampleInputPassword1" class="form-label">Password</label>
-                            <input type="password" class="form-control" id="exampleInputPassword1" placeholder="Password">
-                        </div>
-                        <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="exampleCheck1">
-                            <label class="form-check-label" for="exampleCheck1">Remember me</label>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Submit</button>
-                    </form>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="fas fa-check-circle text-success mb-3" style="font-size: 2rem;"></i>
+                        <p class="text-muted">No upcoming deadlines</p>
+                    </div>
+                    {% endif %}
                 </div>
-            </div>
-        {% endblock %}
-    </main>
+            </div> -->
+            {% endblock %}
+        </main>
     </div>
 
     <footer class="dashboard-footer">
-        <p>&copy; 2023 EduConnect Teacher Dashboard. All rights reserved.</p>
+        <p>&copy; 2023 <i class="fas fa-graduation-cap"></i> EduConnect Teacher Dashboard. All rights reserved.</p>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
     <script>
+        // Initialize AOS animation
+        AOS.init({
+            duration: 800,
+            easing: 'ease-in-out',
+            once: true
+        });
+
+        // Toggle sidebar on mobile
         function toggleSidebar() {
             document.querySelector('.sidebar').classList.toggle('active');
         }
 
+        // Toggle user dropdown
         function toggleDropdown() {
             document.querySelector('.user-dropdown').classList.toggle('active');
         }
 
+        // Close dropdown when clicking outside
         document.addEventListener('click', function(e) {
             if (!e.target.closest('.user-profile')) {
                 document.querySelector('.user-dropdown').classList.remove('active');
             }
         });
 
+        // Submenu toggle functionality
         document.querySelectorAll('.has-submenu > a').forEach(item => {
             item.addEventListener('click', function(e) {
                 e.preventDefault();
@@ -1171,6 +726,7 @@
             });
         });
 
+        // Close sidebar when clicking on links (mobile)
         if (window.innerWidth < 992) {
             document.querySelectorAll('.sidebar-menu a').forEach(link => {
                 link.addEventListener('click', () => {
@@ -1179,6 +735,7 @@
             });
         }
 
+        // Set active menu item based on current page
         const currentPage = window.location.pathname.split('/').pop() || 'teacher_dashboard';
         document.querySelectorAll('.sidebar-menu a').forEach(link => {
             if (link.getAttribute('href').includes(currentPage)) {
@@ -1195,10 +752,12 @@
             }
         });
 
+        // Theme switcher functionality
         const themeToggle = document.getElementById('themeToggle');
         const themeIcon = document.getElementById('themeIcon');
         const body = document.body;
 
+        // Check for saved theme preference or use system preference
         const savedTheme = localStorage.getItem('theme') || 
                           (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
         
@@ -1208,6 +767,7 @@
             themeIcon.classList.add('fa-sun');
         }
 
+        // Toggle theme
         themeToggle.addEventListener('click', () => {
             body.classList.toggle('dark-mode');
             if (body.classList.contains('dark-mode')) {
@@ -1221,6 +781,7 @@
             }
         });
 
+        // Listen for system theme changes
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
             if (!localStorage.getItem('theme')) {
                 if (e.matches) {
@@ -1235,14 +796,39 @@
             }
         });
 
-        window.addEventListener('click', function(event) {
-            if (!event.target.matches('.user-profile') && !event.target.closest('.user-profile')) {
-                const dropdowns = document.querySelectorAll('.user-dropdown');
-                dropdowns.forEach(dropdown => {
-                    dropdown.classList.remove('active');
-                });
-            }
+        // Add ripple effect to buttons
+        document.querySelectorAll('.btn, .action-btn, .card, .quick-action').forEach(button => {
+            button.addEventListener('click', function(e) {
+                const x = e.clientX - e.target.getBoundingClientRect().left;
+                const y = e.clientY - e.target.getBoundingClientRect().top;
+                
+                const ripple = document.createElement('span');
+                ripple.className = 'ripple';
+                ripple.style.left = `${x}px`;
+                ripple.style.top = `${y}px`;
+                
+                this.appendChild(ripple);
+                
+                setTimeout(() => {
+                    ripple.remove();
+                }, 1000);
+            });
         });
+
+        // Real-time notification count update
+        function updateNotificationCount() {
+            // This would typically be an API call in a real application
+            const notificationCount = Math.floor(Math.random() * 5); // Simulate new notifications
+            if (notificationCount > 0) {
+                document.querySelector('.notification-badge').style.display = 'block';
+            } else {
+                document.querySelector('.notification-badge').style.display = 'none';
+            }
+        }
+
+        // Update every 30 seconds
+        updateNotificationCount();
+        setInterval(updateNotificationCount, 30000);
     </script>
 </body>
 </html>

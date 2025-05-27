@@ -1,0 +1,724 @@
+{% extends "teacher_dashboard.html" %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- Page Header -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
+        <div class="mb-3 mb-md-0">
+            <h1 class="h3 mb-2">
+                <i class="fas fa-clipboard-check text-primary me-2"></i>Attendance Management
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('teacher_dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Attendance</li>
+                </ol>
+            </nav>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-outline-primary" id="filterBtn">
+                <i class="fas fa-filter me-1"></i> Filters
+            </button>
+            <div class="dropdown">
+                <button class="btn btn-success dropdown-toggle" type="button" id="exportDropdown" data-bs-toggle="dropdown">
+                    <i class="fas fa-download me-1"></i> Export
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item export-option" href="#" data-format="csv"><i class="fas fa-file-csv me-2"></i>CSV</a></li>
+                    <li><a class="dropdown-item export-option" href="#" data-format="excel"><i class="fas fa-file-excel me-2"></i>Excel</a></li>
+                    <li><a class="dropdown-item export-option" href="#" data-format="pdf"><i class="fas fa-file-pdf me-2"></i>PDF</a></li>
+                </ul>
+            </div>
+            <button class="btn btn-outline-secondary" id="refreshBtn">
+                <i class="fas fa-sync-alt me-1"></i> Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card border-start border-primary border-4 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Total Records</h6>
+                            <h3 class="mb-0" id="totalRecords">{{ attendance_records|length }}</h3>
+                        </div>
+                        <div class="bg-primary bg-opacity-10 p-3 rounded">
+                            <i class="fas fa-clipboard-list text-primary fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card border-start border-success border-4 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Present</h6>
+                            <h3 class="mb-0" id="presentCount">{{ attendance_records|selectattr('status', 'equalto', 'present')|list|length }}</h3>
+                        </div>
+                        <div class="bg-success bg-opacity-10 p-3 rounded">
+                            <i class="fas fa-check-circle text-success fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card border-start border-warning border-4 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Late/Absent</h6>
+                            <h3 class="mb-0" id="absentCount">{{ attendance_records|rejectattr('status', 'equalto', 'present')|list|length }}</h3>
+                        </div>
+                        <div class="bg-warning bg-opacity-10 p-3 rounded">
+                            <i class="fas fa-exclamation-triangle text-warning fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="card border-start border-info border-4 h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Avg Duration</h6>
+                            <h3 class="mb-0" id="avgDuration">
+                                {% if attendance_records %}
+                                {{ (attendance_records|sum(attribute='duration') / attendance_records|length)|round(1) }} mins
+                                {% else %}0 mins{% endif %}
+                            </h3>
+                        </div>
+                        <div class="bg-info bg-opacity-10 p-3 rounded">
+                            <i class="fas fa-clock text-info fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Card -->
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white py-3 d-flex flex-column flex-md-row justify-content-between align-items-md-center">
+            <h5 class="mb-2 mb-md-0">Attendance Records</h5>
+            <div class="d-flex align-items-center">
+                <div class="input-group input-group-sm me-2" style="width: 200px;">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" id="searchInput" placeholder="Search...">
+                </div>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="viewOptions" data-bs-toggle="dropdown">
+                        <i class="fas fa-columns me-1"></i> View
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="#" id="compactView"><i class="fas fa-compress me-2"></i>Compact</a></li>
+                        <li><a class="dropdown-item" href="#" id="detailedView"><i class="fas fa-expand me-2"></i>Detailed</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="attendanceTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th width="20%">Student</th>
+                            <th width="10%">ID</th>
+                            <th width="20%">Session</th>
+                            <th width="10%">Class</th>
+                            <th width="10%">Date</th>
+                            <th width="10%">Time</th>
+                            <th width="10%">Duration</th>
+                            <th width="5%">Status</th>
+                            <th width="5%">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in attendance_records %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="flex-shrink-0 me-2">
+                                        <div class="avatar-sm">
+                                            <span class="avatar-title rounded-circle bg-soft-primary text-primary">
+                                                {{ record.student.first_name[0]|upper }}{{ record.student.last_name[0]|upper }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-0">{{ record.student.first_name }} {{ record.student.last_name }}</h6>
+                                        <small class="text-muted">{{ record.student.email }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ record.student.student_id }}</td>
+                            <td>
+                                <div class="d-flex flex-column">
+                                    <span>{{ record.session.session_name }}</span>
+                                    <small class="text-muted">
+                                        {{ record.session.start_time.strftime('%I:%M %p') }} - {{ record.session.end_time.strftime('%I:%M %p') }}
+                                    </small>
+                                </div>
+                            </td>
+                            <td>
+                                {% for class in teacher_classes %}
+                                    {% if class.id == record.session.class_id %}
+                                        <span class="badge bg-light text-dark">{{ class.class_name }}</span>
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                            <td>{{ record.date.strftime('%b %d, %Y') }}</td>
+                            <td>{{ record.joined_at.strftime('%I:%M %p') if record.joined_at else '-' }}</td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="progress flex-grow-1 me-2" style="height: 6px;">
+                                        <div class="progress-bar bg-{{ 'success' if record.duration >= 45 else 'warning' if record.duration >= 30 else 'danger' }}" 
+                                             role="progressbar" 
+                                             style="width: {{ (record.duration / 60) * 100 }}%" 
+                                             aria-valuenow="{{ record.duration }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="60">
+                                        </div>
+                                    </div>
+                                    <small>{{ record.duration }}m</small>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-{{ 
+                                    'success' if record.status == 'present' 
+                                    else 'warning' if record.status == 'late' 
+                                    else 'danger' if record.status == 'absent'
+                                    else 'info' 
+                                }}">
+                                    {{ record.status|capitalize }}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                        <i class="fas fa-ellipsis-v"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li>
+                                            <a class="dropdown-item edit-attendance" href="#" data-id="{{ record.id }}">
+                                                <i class="fas fa-edit me-2"></i>Edit
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item view-details" href="#" data-id="{{ record.id }}">
+                                                <i class="fas fa-info-circle me-2"></i>Details
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item notes-btn" href="#" data-id="{{ record.id }}">
+                                                <i class="fas fa-sticky-note me-2"></i>Notes
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-white py-3">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
+                <div class="mb-2 mb-md-0">
+                    Showing <span id="showingCount">1</span> to <span id="ofCount">10</span> of <span id="totalCount">{{ attendance_records|length }}</span> entries
+                </div>
+                <nav>
+                    <ul class="pagination pagination-sm mb-0">
+                        <li class="page-item disabled">
+                            <a class="page-link" href="#" tabindex="-1">Previous</a>
+                        </li>
+                        <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                        <li class="page-item"><a class="page-link" href="#">2</a></li>
+                        <li class="page-item"><a class="page-link" href="#">3</a></li>
+                        <li class="page-item">
+                            <a class="page-link" href="#">Next</a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter Modal -->
+<div class="modal fade" id="filterModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-filter me-2"></i>Filter Attendance</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="attendanceFilterForm">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Date Range</label>
+                            <div class="input-group">
+                                <input type="date" class="form-control" id="startDate" name="start_date">
+                                <span class="input-group-text">to</span>
+                                <input type="date" class="form-control" id="endDate" name="end_date">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Session</label>
+                            <select class="form-select select2" id="sessionSelect" name="session_id">
+                                <option value="">All Sessions</option>
+                                {% for session in teacher_sessions %}
+                                <option value="{{ session.id }}">
+                                    {{ session.session_name }} ({{ session.start_time.strftime('%Y-%m-%d') }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Class</label>
+                            <select class="form-select select2" id="classSelect" name="class_id">
+                                <option value="">All Classes</option>
+                                {% for class in teacher_classes %}
+                                <option value="{{ class.id }}">{{ class.class_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Status</label>
+                            <select class="form-select select2" id="statusSelect" name="status">
+                                <option value="">All Statuses</option>
+                                <option value="present">Present</option>
+                                <option value="absent">Absent</option>
+                                <option value="late">Late</option>
+                                <option value="excused">Excused</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Student</label>
+                            <select class="form-select select2" id="studentSelect" name="student_id">
+                                <option value="">All Students</option>
+                                {% for student in students %}
+                                <option value="{{ student.id }}">
+                                    {{ student.first_name }} {{ student.last_name }} ({{ student.student_id }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Minimum Duration (minutes)</label>
+                            <input type="number" class="form-control" id="durationFilter" name="min_duration" min="0" placeholder="e.g. 30">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times me-1"></i> Close
+                </button>
+                <button type="button" class="btn btn-outline-danger" id="resetFilters">
+                    <i class="fas fa-undo me-1"></i> Reset
+                </button>
+                <button type="button" class="btn btn-primary" id="applyFilters">
+                    <i class="fas fa-check me-1"></i> Apply Filters
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Attendance Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="detailContent">
+                <!-- Content loaded via AJAX -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title">Edit Attendance</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="editContent">
+                <!-- Content loaded via AJAX -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-info" id="saveChanges">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notes Modal -->
+<div class="modal fade" id="notesModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-white">
+                <h5 class="modal-title">Attendance Notes</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="notesContent">
+                <!-- Content loaded via AJAX -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-warning" id="saveNotes">Save Notes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Container -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1100">
+    <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <strong class="me-auto" id="toastTitle">Notification</strong>
+            <small>Just now</small>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body" id="toastMessage"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css" />
+<style>
+    .avatar-sm {
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .avatar-title {
+        font-weight: 600;
+    }
+    .progress {
+        min-width: 80px;
+    }
+    .table th {
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
+    }
+    .card-header {
+        border-bottom: 1px solid rgba(0,0,0,.05);
+    }
+    .select2-container--default .select2-selection--single {
+        height: 38px;
+        padding: 5px;
+    }
+    .border-start {
+        border-left-width: 4px !important;
+    }
+    .dropdown-toggle::after {
+        display: none;
+    }
+    .toast {
+        border: none;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    }
+    @media (max-width: 768px) {
+        .table-responsive {
+            border: none;
+        }
+        .table thead {
+            display: none;
+        }
+        .table tr {
+            display: block;
+            margin-bottom: 1rem;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+        }
+        .table td {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .table td:before {
+            content: attr(data-label);
+            font-weight: 600;
+            margin-right: 1rem;
+        }
+        .table td:last-child {
+            border-bottom: none;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+
+<script>
+$(document).ready(function() {
+    // Initialize Select2
+    $('.select2').select2({
+        width: '100%',
+        placeholder: "Select an option",
+        allowClear: true
+    });
+
+    // Initialize DataTable
+    const table = $('#attendanceTable').DataTable({
+        responsive: true,
+        dom: '<"top"f>rt<"bottom"lip>',
+        language: {
+            search: "",
+            searchPlaceholder: "Search records...",
+            lengthMenu: "Show _MENU_ records",
+            info: "Showing _START_ to _END_ of _TOTAL_ entries",
+            infoEmpty: "No records available",
+            paginate: {
+                first: '<i class="fas fa-angle-double-left"></i>',
+                previous: '<i class="fas fa-angle-left"></i>',
+                next: '<i class="fas fa-angle-right"></i>',
+                last: '<i class="fas fa-angle-double-right"></i>'
+            }
+        },
+        initComplete: function() {
+            $('#searchInput').keyup(function() {
+                table.search($(this).val()).draw();
+            });
+        },
+        drawCallback: function() {
+            updateSummary();
+            updatePaginationText();
+        }
+    });
+
+    // Update summary cards
+    function updateSummary() {
+        const filteredData = table.rows({ search: 'applied' }).data();
+        const presentCount = filteredData.filter(row => $(row[7]).text().toLowerCase() === 'present').count();
+        const absentCount = filteredData.count() - presentCount;
+        const totalDuration = filteredData.reduce((sum, row) => sum + parseInt($(row[6]).text().replace('m', '')), 0);
+        const avgDuration = filteredData.count() > 0 ? Math.round(totalDuration / filteredData.count()) : 0;
+        
+        $('#totalRecords').text(filteredData.count());
+        $('#presentCount').text(presentCount);
+        $('#absentCount').text(absentCount);
+        $('#avgDuration').text(avgDuration + ' mins');
+    }
+
+    // Update pagination text
+    function updatePaginationText() {
+        const info = table.page.info();
+        $('#showingCount').text(info.start + 1);
+        $('#ofCount').text(info.end);
+        $('#totalCount').text(info.recordsTotal);
+    }
+
+    // Filter modal functionality
+    $('#filterBtn').click(function() {
+        $('#filterModal').modal('show');
+    });
+
+    $('#resetFilters').click(function() {
+        $('#attendanceFilterForm')[0].reset();
+        $('.select2').val(null).trigger('change');
+        table.search('').columns().search('').draw();
+    });
+
+    $('#applyFilters').click(function() {
+        const formData = $('#attendanceFilterForm').serializeArray();
+        let filters = {};
+        
+        $.each(formData, function(i, field) {
+            if (field.value) {
+                filters[field.name] = field.value;
+            }
+        });
+
+        // Apply filters to DataTable
+        table.columns().search('').draw();
+        
+        // Date range filter
+        if (filters.start_date || filters.end_date) {
+            $.fn.dataTable.ext.search.push(
+                function(settings, data, dataIndex) {
+                    const rowDate = new Date(data[4]).getTime();
+                    const startDate = filters.start_date ? new Date(filters.start_date).getTime() : -Infinity;
+                    const endDate = filters.end_date ? new Date(filters.end_date).getTime() : Infinity;
+                    
+                    return rowDate >= startDate && rowDate <= endDate;
+                }
+            );
+        }
+
+        // Other filters
+        if (filters.session_id) {
+            table.column(2).search(filters.session_id, true, false).draw();
+        }
+        
+        if (filters.class_id) {
+            table.column(3).search(filters.class_id, true, false).draw();
+        }
+
+        if (filters.status) {
+            table.column(7).search(filters.status, true, false).draw();
+        }
+        
+        if (filters.student_id) {
+            table.column(1).search(filters.student_id, true, false).draw();
+        }
+        
+        if (filters.min_duration) {
+            table.column(6).search('^' + filters.min_duration + '-|^' + filters.min_duration + '$', true, false).draw();
+        }
+
+        table.draw();
+        $('#filterModal').modal('hide');
+        $.fn.dataTable.ext.search.pop(); // Remove the date filter function
+    });
+
+    // Refresh button
+    $('#refreshBtn').click(function() {
+        const btn = $(this);
+        btn.html('<i class="fas fa-spinner fa-spin me-1"></i> Refreshing');
+        setTimeout(() => location.reload(), 500);
+    });
+
+    // Export functionality
+    $('.export-option').click(function(e) {
+        e.preventDefault();
+        const format = $(this).data('format');
+        let url = '/attendance/export/' + format;
+        
+        // Get current filters to apply to export
+        const formData = $('#attendanceFilterForm').serialize();
+        if (formData) {
+            url += '?' + formData;
+        }
+        
+        // Trigger download
+        window.location.href = url;
+    });
+
+    // View details
+    $('#attendanceTable').on('click', '.view-details', function() {
+        const recordId = $(this).data('id');
+        $('#detailModal').modal('show');
+        
+        $.get('/attendance/details/' + recordId, function(data) {
+            $('#detailContent').html(data);
+        }).fail(function() {
+            showToast('Error', 'Failed to load details', 'danger');
+        });
+    });
+
+    // Edit attendance
+    $('#attendanceTable').on('click', '.edit-attendance', function() {
+        const recordId = $(this).data('id');
+        $('#editModal').modal('show');
+        
+        $.get('/attendance/edit/' + recordId, function(data) {
+            $('#editContent').html(data);
+        }).fail(function() {
+            showToast('Error', 'Failed to load edit form', 'danger');
+        });
+    });
+
+    // Save changes
+    $('#saveChanges').click(function() {
+        const form = $('#editAttendanceForm');
+        const recordId = form.find('input[name="record_id"]').val();
+        
+        $.post('/attendance/update/' + recordId, form.serialize(), function(response) {
+            if (response.success) {
+                showToast('Success', 'Attendance updated', 'success');
+                $('#editModal').modal('hide');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast('Error', response.message || 'Update failed', 'danger');
+            }
+        }).fail(function() {
+            showToast('Error', 'Failed to update', 'danger');
+        });
+    });
+
+    // View notes
+    $('#attendanceTable').on('click', '.notes-btn', function() {
+        const recordId = $(this).data('id');
+        $('#notesModal').modal('show');
+        
+        $.get('/attendance/notes/' + recordId, function(data) {
+            $('#notesContent').html(data);
+        }).fail(function() {
+            showToast('Error', 'Failed to load notes', 'danger');
+        });
+    });
+
+    // Save notes
+    $('#saveNotes').click(function() {
+        const form = $('#attendanceNotesForm');
+        const recordId = form.find('input[name="record_id"]').val();
+        
+        $.post('/attendance/save-notes/' + recordId, form.serialize(), function(response) {
+            if (response.success) {
+                showToast('Success', 'Notes saved', 'success');
+                $('#notesModal').modal('hide');
+            } else {
+                showToast('Error', response.message || 'Save failed', 'danger');
+            }
+        }).fail(function() {
+            showToast('Error', 'Failed to save notes', 'danger');
+        });
+    });
+
+    // Toast notification
+    function showToast(title, message, type) {
+        const toast = $('#liveToast');
+        toast.find('#toastTitle').text(title);
+        toast.find('#toastMessage').text(message);
+        toast.removeClass('bg-success bg-danger bg-warning bg-info');
+        toast.addClass('bg-' + type);
+        
+        const toastBootstrap = bootstrap.Toast.getOrCreateInstance(toast[0]);
+        toastBootstrap.show();
+    }
+
+    // Responsive table view options
+    $('#compactView').click(function(e) {
+        e.preventDefault();
+        $('table').addClass('compact');
+    });
+
+    $('#detailedView').click(function(e) {
+        e.preventDefault();
+        $('table').removeClass('compact');
+    });
+});
+</script>
+{% endblock %}

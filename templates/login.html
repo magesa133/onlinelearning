@@ -1,212 +1,431 @@
-<style>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduConnect | Student Login</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        :root {
+            --primary: #4f46e5;
+            --primary-light: #6366f1;
+            --secondary: #10b981;
+            --accent: #f59e0b;
+            --dark: #1e293b;
+            --light: #f8fafc;
+        }
+        
         body {
-            background: linear-gradient(135deg, #4ade80, #6366f1, #fb923c);
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #e0e7ff, #d1fae5, #fef3c7);
             background-size: 400% 400%;
-            animation: gradientBG 12s ease infinite;
+            animation: gradientBG 15s ease infinite;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
         }
-
-    p {
-        text-align: center;
-        font-size: 14px;
-    }
-
-    p a {
-        color: #007bff;
-        text-decoration: none;
-    }
-
-    @keyframes uniqueFadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
-
-    .unique-container {
-        /* width: 72%;
-        height: 80%; */
-        /* background: #4CAF50; */
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        transform: translate(-50%, -50%);
-        /* box-shadow: 2px 2px 30px #4CAF50; */
-        border-radius: 20px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        /* background-image: url('https://i.postimg.cc/pdL2vfK9/bg.gif'); */
-        /* background-repeat: no-repeat;
-        background-size: cover; */
-    }
-
-    .unique-login-container {
-        width: 400px;
-        background-color: #FFFFFF;
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-        border-radius: 15px;
-        padding: 20px;
-        animation: uniqueSlideUp 1s ease-in-out;
-    }
-
-    @keyframes uniqueSlideUp {
-        from { transform: translateY(100%); }
-        to { transform: translateY(0); }
-    }
-
-    .unique-login-title {
-        font-size: 24px;
-        color: #333;
-        margin-bottom: 20px;
-        text-align: center;
-    }
-
-    .unique-form-label {
-        font-size: 14px;
-        font-weight: 600;
-    }
-
-    .unique-form-control {
-        border-radius: 10px;
-        height: 40px;
-        font-size: 14px;
-        transition: all 0.3s ease;
-    }
-
-    .unique-form-control:focus {
-        box-shadow: 0px 0px 5px rgba(66, 57, 238, .5);
-        border-color: #3B02ED;
-    }
-
-    .unique-btn {
-        border-radius: 10px;
-        font-size: 14px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        cursor: pointer;
-    }
-
-    .unique-navigation-buttons {
-        display: flex;
-        justify-content: space-between; /* Align buttons on the same row with space between */
-        align-items: center;
-        margin-top: 15px;
-        gap: 10px; /* Adds space between buttons */
-    }
-
-    .unique-navigation-buttons button {
-        flex: 1; /* Ensure buttons take equal space */
-        max-width: 48%; /* Ensures buttons don't stretch too much */
-    }
-
-    .unique-text {
-        width: 350px;
-        height: 50px;
-        box-shadow: 2px 6px 18px rgba(66, 57, 238, .3);
-        border-radius: 30px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 10px;
-    }
-
-    input {
-        height: 40px;
-        width: 80%;
-        outline: none;
-        border: none;
-        font-size: 14px;
-        margin: 5px;
-        padding: 10px;
-    }
-
-    img {
-        margin-left: 20px;
-    }
-
-    button {
-        width: 100%;
-        height: 40px;
-        outline: none;
-        border: none;
-        border-radius: 20px;
-        background: linear-gradient(-30deg, #3B02ED, #8E2AE0 55%);
-        box-shadow: 2px 6px 16px rgba(66, 57, 238, .3);
-        color: #FFFFFF;
-        font-weight: 600;
-        font-size: 13px;
-        cursor: pointer;
-        transition: all .3s ease;
-    }
-
-    button:hover {
-        background: linear-gradient(-30deg, #6A2AE0, #3B02ED 55%);
-    }
-
-    button:active {
-        transform: scale(1.1);
-    }
-</style>
-
-<div class="unique-container">
-    <div class="unique-login-container">
-        <h2 class="unique-login-title">Login</h2>
-        <form id="unique-login-form" method="POST" action="{{ url_for('login') }}" enctype="application/x-www-form-urlencoded">
-            <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
+        
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        .auth-container {
+            width: 100%;
+            max-width: 420px;
+            background-color: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border-radius: 18px;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            animation: slideUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            transform-style: preserve-3d;
+            perspective: 1000px;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(20px) rotateX(10deg); opacity: 0; }
+            to { transform: translateY(0) rotateX(0); opacity: 1; }
+        }
+        
+        .auth-header {
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+            padding: 2rem 1.75rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .auth-header::before {
+            content: "";
+            position: absolute;
+            top: -50px;
+            right: -50px;
+            width: 150px;
+            height: 150px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+        }
+        
+        .auth-header::after {
+            content: "";
+            position: absolute;
+            bottom: -30px;
+            left: -30px;
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.25rem;
+        }
+        
+        .logo-icon {
+            background: white;
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            color: var(--primary);
+            font-size: 1.25rem;
+            box-shadow: 0 6px 12px rgba(79, 70, 229, 0.15);
+            transform: rotate(45deg);
+            transition: all 0.3s ease;
+        }
+        
+        .logo-icon i {
+            transform: rotate(-45deg);
+        }
+        
+        .logo-text {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        
+        .auth-body {
+            padding: 2rem;
+        }
+        
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            gap: 0.5rem;
+        }
+        
+        .step-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #e2e8f0;
+            transition: all 0.3s ease;
+        }
+        
+        .step-dot.active {
+            background: var(--primary);
+            transform: scale(1.3);
+        }
+        
+        .input-group {
+            position: relative;
+            margin-bottom: 1.75rem;
+        }
+        
+        .input-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--dark);
+            transition: all 0.3s ease;
+        }
+        
+        .input-field {
+            position: relative;
+        }
+        
+        .input-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--primary);
+            transition: all 0.3s ease;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 0.9375rem 1rem 0.9375rem 3rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            font-size: 0.9375rem;
+            transition: all 0.3s ease;
+            background-color: #f8fafc;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        
+        .form-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+            background-color: white;
+        }
+        
+        .form-input:focus + .input-icon {
+            color: var(--primary-light);
+            transform: translateY(-50%) scale(1.1);
+        }
+        
+        .auth-btn {
+            width: 100%;
+            padding: 1rem;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.9375rem;
+            transition: all 0.3s ease;
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .auth-btn::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
+            transform: translateX(-100%);
+            transition: transform 0.4s ease;
+        }
+        
+        .auth-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 15px rgba(79, 70, 229, 0.3);
+        }
+        
+        .auth-btn:hover::after {
+            transform: translateX(0);
+        }
+        
+        .auth-btn:active {
+            transform: translateY(0);
+        }
+        
+        .step-navigation {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 1.75rem;
+            gap: 0.875rem;
+        }
+        
+        .secondary-btn {
+            background: #f1f5f9;
+            color: #334155;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        .secondary-btn:hover {
+            background: #e2e8f0;
+        }
+        
+        .auth-footer {
+            text-align: center;
+            margin-top: 1.75rem;
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+        
+        .auth-link {
+            color: var(--primary);
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        
+        .auth-link::after {
+            content: "";
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 0;
+            height: 1px;
+            background: var(--primary);
+            transition: width 0.3s ease;
+        }
+        
+        .auth-link:hover::after {
+            width: 100%;
+        }
+        
+        .forgot-link {
+            display: block;
+            text-align: right;
+            margin-top: 0.75rem;
+            font-size: 0.8125rem;
+            color: #64748b;
+            transition: all 0.2s ease;
+        }
+        
+        .forgot-link:hover {
+            color: var(--primary);
+        }
+        
+        /* Floating animation for the container */
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .auth-container:hover {
+            animation: float 3s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-header">
+            <div class="logo">
+                <div class="logo-icon">
+                    <i class="fas fa-graduation-cap"></i>
+                </div>
+                <div class="logo-text">EduConnect</div>
+            </div>
+            <h2>Welcome Back</h2>
+        </div>
+        
+        <div class="auth-body">
+            <div class="step-indicator">
+                <div class="step-dot active" id="step-indicator-1"></div>
+                <div class="step-dot" id="step-indicator-2"></div>
+            </div>
             
-            <div class="mb-3 unique-input-step" id="unique-step-1">
-                <label for="unique-identifier" class="unique-form-label">Enter your username or email:</label>
-                <div class="unique-text">
-                    <img src="https://i.postimg.cc/1zgS8WTF/user.png" alt="icon" height="20">
-                    <input type="text" class="unique-form-control" id="unique-identifier" name="identifier" placeholder="Username or Email" required>
+            <form id="login-form" method="POST" action="{{ url_for('login') }}" enctype="application/x-www-form-urlencoded">
+                <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
+                
+                <div class="input-step" id="step-1">
+                    <div class="input-group">
+                        <label for="identifier" class="input-label">Username or Email</label>
+                        <div class="input-field">
+                            <i class="fas fa-user input-icon"></i>
+                            <input type="text" class="form-input" id="identifier" name="identifier" placeholder="Enter your username or email" required>
+                        </div>
+                    </div>
+                    
+                    <div class="step-navigation">
+                        <button type="button" class="auth-btn secondary-btn" id="next-btn">Continue</button>
+                    </div>
                 </div>
-            </div>
-            <div class="mb-3 unique-input-step" id="unique-step-2" style="display: none;">
-                <label for="unique-password" class="unique-form-label">Enter your password:</label>
-                <div class="unique-text">
-                    <img src="https://i.postimg.cc/Nj5SDK4q/password.png" alt="icon" height="20">
-                    <input type="password" class="unique-form-control" id="unique-password" name="password" required placeholder="Password">
+                
+                <div class="input-step" id="step-2" style="display: none;">
+                    <div class="input-group">
+                        <label for="password" class="input-label">Password</label>
+                        <div class="input-field">
+                            <i class="fas fa-lock input-icon"></i>
+                            <input type="password" class="form-input" id="password" name="password" placeholder="Enter your password" required>
+                        </div>
+                        <a href="#" class="forgot-link">Forgot password?</a>
+                    </div>
+                    
+                    <div class="step-navigation">
+                        <button type="button" class="auth-btn secondary-btn" id="prev-btn">Back</button>
+                        <button type="submit" class="auth-btn" id="submit-btn">Sign In</button>
+                    </div>
                 </div>
-            </div>
-            <div class="unique-navigation-buttons">
-                <button type="button" class="unique-btn btn-secondary" id="unique-prev-btn" style="display: none;">Previous</button>
-                <button type="button" class="unique-btn btn-primary" id="unique-next-btn" style="display: inline;">Next</button>
-                <button type="submit" class="unique-btn btn-primary" id="unique-submit-btn" style="display: none;">Login</button>
-            </div>
-            <p><a href="{{ url_for('register')}}">I don't have an account</a></p>
-        </form>
+                
+                <div class="auth-footer">
+                    Don't have an account? <a href="{{ url_for('register') }}" class="auth-link">Sign up here</a>
+                </div>
+            </form>
+        </div>
     </div>
-</div>
 
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const steps = document.querySelectorAll('.unique-input-step');
-        const prevButton = document.getElementById('unique-prev-btn');
-        const nextButton = document.getElementById('unique-next-btn');
-        const submitButton = document.getElementById('unique-submit-btn');
-        let currentStep = 0;
-
-        function updateStepVisibility() {
-            steps.forEach((step, index) => {
-                step.style.display = index === currentStep ? 'block' : 'none';
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const step1 = document.getElementById('step-1');
+            const step2 = document.getElementById('step-2');
+            const nextBtn = document.getElementById('next-btn');
+            const prevBtn = document.getElementById('prev-btn');
+            const submitBtn = document.getElementById('submit-btn');
+            const stepIndicator1 = document.getElementById('step-indicator-1');
+            const stepIndicator2 = document.getElementById('step-indicator-2');
+            
+            // Update step indicators
+            function updateStepIndicators(step) {
+                if (step === 1) {
+                    stepIndicator1.classList.add('active');
+                    stepIndicator2.classList.remove('active');
+                } else {
+                    stepIndicator1.classList.remove('active');
+                    stepIndicator2.classList.add('active');
+                }
+            }
+            
+            // Next button click handler
+            nextBtn.addEventListener('click', function() {
+                // Simple validation for username/email
+                const identifier = document.getElementById('identifier').value.trim();
+                if (identifier === '') {
+                    alert('Please enter your username or email');
+                    return;
+                }
+                
+                step1.style.display = 'none';
+                step2.style.display = 'block';
+                updateStepIndicators(2);
             });
-            prevButton.style.display = currentStep > 0 ? 'block' : 'none';
-            nextButton.style.display = currentStep < steps.length - 1 ? 'inline' : 'none';
-            submitButton.style.display = currentStep === steps.length - 1 ? 'inline' : 'none';
-        }
-
-        nextButton.addEventListener('click', function () {
-            if (currentStep < steps.length - 1) {
-                currentStep++;
-                updateStepVisibility();
-            }
+            
+            // Previous button click handler
+            prevBtn.addEventListener('click', function() {
+                step2.style.display = 'none';
+                step1.style.display = 'block';
+                updateStepIndicators(1);
+            });
+            
+            // Form submission handler
+            document.getElementById('login-form').addEventListener('submit', function(e) {
+                // You can add additional validation here if needed
+                // e.preventDefault(); // Uncomment to prevent actual submission for demo
+            });
+            
+            // Initialize with step 1 active
+            updateStepIndicators(1);
+            
+            // Add hover effect to logo icon
+            const logoIcon = document.querySelector('.logo-icon');
+            logoIcon.addEventListener('mouseenter', function() {
+                this.style.transform = 'rotate(0deg)';
+                this.querySelector('i').style.transform = 'rotate(0deg)';
+            });
+            
+            logoIcon.addEventListener('mouseleave', function() {
+                this.style.transform = 'rotate(45deg)';
+                this.querySelector('i').style.transform = 'rotate(-45deg)';
+            });
         });
-
-        prevButton.addEventListener('click', function () {
-            if (currentStep > 0) {
-                currentStep--;
-                updateStepVisibility();
-            }
-        });
-
-        updateStepVisibility();
-    });
-</script>
+    </script>
+</body>
+</html>

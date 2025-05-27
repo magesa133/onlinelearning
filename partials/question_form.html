@@ -6,34 +6,39 @@
         </button>
     </div>
     
-    <input type="hidden" name="questions-{{ index }}-id" value="">
+    {{ question_form.hidden_tag() }}
+    {{ question_form.id() }}
     
     <div class="mb-3">
-        {{ question.text.label(class="form-label") }}
-        {{ question.text(class="form-control", rows=3, name=f"questions-{index}-text") }}
+        {{ question_form.text.label(class="form-label") }}
+        {{ question_form.text(class="form-control", rows=3) }}
     </div>
     
     <div class="mb-3">
-        {{ question.options.label(class="form-label") }}
-        {{ question.options(class="form-control options-input", name=f"questions-{index}-options") }}
+        {{ question_form.question_type.label(class="form-label") }}
+        {{ question_form.question_type(class="form-select") }}
+    </div>
+    
+    <div class="mb-3">
+        {{ question_form.options.label(class="form-label") }}
+        {{ question_form.options(class="form-control options-input") }}
         <small class="text-muted">Separate options with commas</small>
+    </div>
+    
+    <div class="mb-3">
+        {{ question_form.correct_option.label(class="form-label") }}
+        {{ question_form.correct_option(class="form-select correct-answer") }}
     </div>
     
     <div class="row g-3">
         <div class="col-md-6">
-            {{ question.correct_option.label(class="form-label") }}
-            <select class="form-select correct-answer" name="{{ f'questions-{index}-correct_option' }}" disabled>
-                <option value="" selected>Enter options first</option>
-            </select>
+            {{ question_form.points.label(class="form-label") }}
+            {{ question_form.points(class="form-control") }}
         </div>
-        <div class="col-md-3">
-            {{ question.points.label(class="form-label") }}
-            {{ question.points(class="form-control", name=f"questions-{index}-points") }}
-        </div>
-        <div class="col-md-3">
-            {{ question.time_limit.label(class="form-label") }}
+        <div class="col-md-6">
+            {{ question_form.time_limit.label(class="form-label") }}
             <div class="input-group">
-                {{ question.time_limit(class="form-control", name=f"questions-{index}-time_limit") }}
+                {{ question_form.time_limit(class="form-control") }}
                 <span class="input-group-text">sec</span>
             </div>
         </div>

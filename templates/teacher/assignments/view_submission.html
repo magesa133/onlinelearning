@@ -1,0 +1,171 @@
+{% extends "teacher_dashboard.html" %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    .submission-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    .submission-header {
+        border-bottom: 2px solid #eee;
+        padding-bottom: 20px;
+        margin-bottom: 30px;
+    }
+    .submission-content {
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .file-preview {
+        border: 1px dashed #dee2e6;
+        border-radius: 5px;
+        padding: 20px;
+        text-align: center;
+    }
+    .late-badge {
+        background-color: #dc3545;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4 submission-container">
+    <!-- Header Section -->
+    <div class="submission-header">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+                <h1 class="h3 font-weight-bold text-primary mb-2">
+                    <i class="fas fa-file-alt me-2"></i>Submission Review
+                </h1>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{{ url_for('teacher_dashboard') }}">Dashboard</a></li>
+                        <li class="breadcrumb-item"><a href="{{ url_for('view_assignment', assignment_id=assignment.id) }}">{{ assignment.title }}</a></li>
+                        <li class="breadcrumb-item active">Submission</li>
+                    </ol>
+                </nav>
+            </div>
+            <a href="{{ url_for('view_assignment', assignment_id=assignment.id) }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i>Back to Assignment
+            </a>
+        </div>
+        
+        <!-- Submission Metadata -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <h5>{{ submission.student.user.first_name }} {{ submission.student.user.last_name }}</h5>
+                    <div class="text-muted">{{ submission.student.user.email }}</div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="d-flex justify-content-end">
+                    <div class="text-end">
+                        <div class="mb-1">
+                            <span class="badge bg-{{ 'success' if submission.score is not none else 'warning text-dark' }}">
+                                {% if submission.score is not none %}
+                                {{ submission.score }}/{{ assignment.max_score }} points
+                                {% else %}
+                                Not graded
+                                {% endif %}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="badge {{ 'late-badge' if is_late else 'bg-primary' }}">
+                                <i class="fas fa-{{ 'exclamation-triangle' if is_late else 'check' }} me-1"></i>
+                                {{ 'Late submission' if is_late else 'Submitted' }}
+                            </span>
+                            <span class="text-muted ms-2">
+                                {{ submission.submitted_at.strftime('%b %d, %Y at %I:%M %p') }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Submission Content -->
+    <div class="card mb-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">Submission Details</h5>
+        </div>
+        <div class="card-body">
+            {% if submission.content %}
+            <div class="submission-content mb-4">
+                <h6>Student Response:</h6>
+                {{ submission.content|safe }}
+            </div>
+            {% endif %}
+            
+            {% if submission.file_path %}
+            <div class="mb-4">
+                <h6>Attached File:</h6>
+                <div class="file-preview">
+                    <a href="{{ url_for('download_submission', submission_id=submission.id) }}" 
+                       class="btn btn-outline-primary mb-2">
+                        <i class="fas fa-download me-2"></i>
+                        Download {{ submission.file_path.split('/')[-1] }}
+                    </a>
+                    <p class="text-muted small mb-0">File size: {{ submission.file_size|filesizeformat }}</p>
+                </div>
+            </div>
+            {% endif %}
+            
+            {% if submission.feedback %}
+            <div class="alert alert-info">
+                <h6><i class="fas fa-comment me-2"></i>Teacher Feedback</h6>
+                <p class="mb-0">{{ submission.feedback }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Assignment Questions -->
+    {% if questions %}
+    <div class="card mb-4">
+        <div class="card-header bg-white">
+            <h5 class="mb-0">Assignment Questions</h5>
+        </div>
+        <div class="card-body">
+            {% for question in questions %}
+            <div class="mb-4 p-3 border rounded">
+                <div class="d-flex justify-content-between mb-2">
+                    <h6>Question {{ loop.index }}</h6>
+                    <span class="badge bg-primary">{{ question.points }} points</span>
+                </div>
+                <div class="question-content mb-3">
+                    {{ question.content|safe }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Action Buttons -->
+    {% if current_user.role == 'teacher' %}
+    <div class="d-flex justify-content-between">
+        <a href="{{ url_for('view_assignment', assignment_id=assignment.id) }}" 
+           class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-2"></i>Back to Assignment
+        </a>
+        <div>
+            <a href="{{ url_for('grade_submission', assignment_id=assignment.id, submission_id=submission.id) }}" 
+               class="btn btn-primary">
+                <i class="fas fa-edit me-2"></i>Grade Submission
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+// Any additional scripts needed for the submission view
+</script>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "teacher_dashboard.html" %}
+
+{% block content %}
+<div class="pending-resources-container">
+    <h1>Your Pending Resources</h1>
+    
+    {% if resources %}
+    <div class="resources-list">
+        {% for resource in resources %}
+        <div class="resource-card">
+            <h3>{{ resource.title }}</h3>
+            <p>{{ resource.description|truncate(100) }}</p>
+            <div class="resource-meta">
+                <span>{{ resource.resource_type|capitalize }}</span>
+                <span>{{ resource.upload_date.strftime('%b %d, %Y') }}</span>
+            </div>
+            <a href="{{ url_for('view_resource', resource_id=resource.id) }}" class="btn">
+                Review and Approve
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="no-resources">
+        <p>You have no resources waiting for approval</p>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+    .pending-resources-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .resources-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+        margin-top: 30px;
+    }
+    
+    .resource-card {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .no-resources {
+        text-align: center;
+        margin-top: 50px;
+        font-size: 1.2rem;
+        color: #666;
+    }
+</style>
+{% endblock %}

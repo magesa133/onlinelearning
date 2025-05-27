@@ -1,0 +1,109 @@
+{% extends "teacher_dashboard.html" %}
+
+{% block title %}Quiz Attempt - {{ quiz.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>
+            {{ quiz.title }} - Attempt Details
+            <small class="text-muted">by {{ student.user.first_name }} {{ student.user.last_name }}</small>
+        </h2>
+        <a href="{{ url_for('teacher_quiz_analytics', quiz_id=quiz.id) }}" class="btn btn-secondary">
+            Back to Analytics
+        </a>
+    </div>
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Attempt Summary</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <h6>Score</h6>
+                        <p class="display-4 {{ 'text-success' if percentage_score >= 70 else 'text-warning' if percentage_score >= 50 else 'text-danger' }}">
+                            {{ percentage_score|round(1) }}%
+                        </p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <h6>Correct Answers</h6>
+                        <p class="display-4">{{ correct_count }}/{{ total_questions }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-card">
+                        <h6>Time Taken</h6>
+                        <p class="display-4">{{ attempt.time_taken }} seconds</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5>Question Breakdown</h5>
+        </div>
+        <div class="card-body">
+            <div class="list-group">
+                {% for question in quiz.questions %}
+                    {% set answer = attempt.answers|selectattr("question_id", "equalto", question.id)|first %}
+                    <div class="list-group-item {{ 'list-group-item-success' if answer and answer.is_correct else 'list-group-item-danger' if answer else '' }}">
+                        <div class="d-flex justify-content-between">
+                            <h6>Question {{ loop.index }}</h6>
+                            <span class="badge {{ 'bg-success' if answer and answer.is_correct else 'bg-danger' }}">
+                                {{ question.points }} pts
+                            </span>
+                        </div>
+                        <p class="mb-2">{{ question.text }}</p>
+                        
+                        <div class="mb-2">
+                            <strong>Student's Answer:</strong>
+                            {% if answer %}
+                                {% if question.question_type == 'short_answer' %}
+                                    {{ answer.answer_text or "No answer provided" }}
+                                {% else %}
+                                    {{ answer.selected_answer }}. {{ question.options[answer.selected_answer] if answer.selected_answer in question.options else "Invalid option" }}
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">Not answered</span>
+                            {% endif %}
+                        </div>
+                        
+                        <div>
+                            <strong>Correct Answer:</strong>
+                            {% if question.question_type == 'short_answer' %}
+                                {{ question.correct_option.split('|')[0] }} (or other accepted answers)
+                            {% else %}
+                                {{ question.correct_option }}. {{ question.options[question.correct_option] }}
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.stat-card {
+    text-align: center;
+    padding: 15px;
+    border-radius: 5px;
+    background-color: #f8f9fa;
+}
+.stat-card h6 {
+    color: #6c757d;
+    margin-bottom: 10px;
+}
+.stat-card .display-4 {
+    font-size: 2.5rem;
+    font-weight: 300;
+    margin: 0;
+}
+</style>
+{% endblock %}

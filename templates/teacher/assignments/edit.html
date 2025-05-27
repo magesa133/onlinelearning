@@ -1,0 +1,167 @@
+{% extends "teacher_dashboard.html" %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    .assignment-form .form-control, 
+    .assignment-form .form-select {
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+    }
+    .assignment-form .form-label {
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+    }
+    .form-check-input {
+        width: 2.5em;
+        height: 1.25em;
+    }
+    .datetime-picker {
+        position: relative;
+    }
+    .datetime-picker .fa-calendar {
+        position: absolute;
+        right: 15px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 font-weight-bold text-primary mb-1">
+                <i class="fas fa-edit me-2"></i>Edit Assignment
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('teacher_dashboard') }}">Home</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('list_assignments') }}">Assignments</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('view_assignment', assignment_id=assignment.id) }}">
+                        {{ assignment.title|truncate(20) }}
+                    </a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Edit</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Edit Form Card -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white border-bottom-0">
+            <h5 class="mb-0 text-primary">
+                <i class="fas fa-pencil-alt me-2"></i>Edit Assignment Details
+            </h5>
+        </div>
+        
+        <div class="card-body assignment-form">
+            <form method="POST" action="{{ url_for('edit_assignment', assignment_id=assignment.id) }}">
+                {{ form.hidden_tag() }}
+                
+                <!-- Title Field -->
+                <div class="mb-4">
+                    {{ form.title.label(class="form-label") }}
+                    {{ form.title(class="form-control" + (' is-invalid' if form.title.errors else ''), 
+                       placeholder="Enter assignment title") }}
+                    {% for error in form.title.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Description Field -->
+                <div class="mb-4">
+                    {{ form.description.label(class="form-label") }}
+                    {{ form.description(class="form-control" + (' is-invalid' if form.description.errors else ''), 
+                       rows=5, placeholder="Enter detailed assignment description") }}
+                    {% for error in form.description.errors %}
+                    <div class="invalid-feedback">{{ error }}</div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Class and Subject Selection -->
+                <div class="row mb-4">
+                    <div class="col-md-6 mb-3 mb-md-0">
+                        {{ form.classroom_id.label(class="form-label") }}
+                        {{ form.classroom_id(class="form-select" + (' is-invalid' if form.classroom_id.errors else '')) }}
+                        {% for error in form.classroom_id.errors %}
+                        <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.subject_id.label(class="form-label") }}
+                        {{ form.subject_id(class="form-select" + (' is-invalid' if form.subject_id.errors else '')) }}
+                        {% for error in form.subject_id.errors %}
+                        <div class="invalid-feedback">{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <!-- Due Date and Max Score -->
+                <div class="row mb-4">
+                    <div class="col-md-6 mb-3 mb-md-0">
+                        <div class="datetime-picker">
+                            {{ form.due_date.label(class="form-label") }}
+                            {{ form.due_date(class="form-control" + (' is-invalid' if form.due_date.errors else ''), 
+                               type="datetime-local") }}
+                            <i class="fas fa-calendar"></i>
+                            {% for error in form.due_date.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.max_score.label(class="form-label") }}
+                        <div class="input-group">
+                            {{ form.max_score(class="form-control" + (' is-invalid' if form.max_score.errors else ''), 
+                               placeholder="100") }}
+                            <span class="input-group-text">points</span>
+                            {% for error in form.max_score.errors %}
+                            <div class="invalid-feedback">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Publish Toggle -->
+                <div class="mb-4">
+                    <div class="form-check form-switch ps-0">
+                        {{ form.is_published(class="form-check-input ms-0 me-2") }}
+                        {{ form.is_published.label(class="form-check-label fw-medium") }}
+                    </div>
+                </div>
+                
+                <!-- Form Actions -->
+                <div class="d-flex justify-content-between border-top pt-4">
+                    <a href="{{ url_for('view_assignment', assignment_id=assignment.id) }}" 
+                       class="btn btn-outline-secondary px-4">
+                        <i class="fas fa-times me-2"></i>Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary px-4">
+                        <i class="fas fa-save me-2"></i>Save Changes
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+$(document).ready(function() {
+    // Set minimum datetime (current time + 1 hour)
+    const now = new Date();
+    now.setHours(now.getHours() + 1);
+    const minDateTime = now.toISOString().slice(0, 16);
+    $('input[type="datetime-local"]').attr('min', minDateTime);
+    
+    // Enable tooltips
+    $('[data-toggle="tooltip"]').tooltip();
+});
+</script>
+{% endblock %}
